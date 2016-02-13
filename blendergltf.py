@@ -450,6 +450,8 @@ def export_nodes(objects):
 
         if obj.type == 'MESH':
             ob['meshes'] = [obj.data.name]
+            if obj.find_armature():
+                ob['skeletons'] = [obj.find_armature().name]
         elif obj.type == 'LAMP':
             ob['extras'] = {'light': obj.data.name}
         elif obj.type == 'CAMERA':
@@ -460,7 +462,27 @@ def export_nodes(objects):
 
         return ob
 
-    return {obj.name: export_node(obj) for obj in objects}
+    gltf_nodes = {obj.name: export_node(obj) for obj in objects if obj.type != 'ARMATURE'}
+
+    def export_joint(bone):
+        return {
+            'name': bone.name,
+            'jointName': bone.name,
+            'children': [child.name for child in bone.children],
+            'matrix': togl(bone.matrix_local),
+        }
+
+    for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
+        arm = obj.data
+        gltf_nodes.update({"{}_{}".format(arm.name, bone.name): export_joint(bone) for bone in arm.bones})
+        gltf_nodes[arm.name] = {
+            'name': arm.name,
+            'jointName': arm.name,
+            'children': [bone.name for bone in arm.bones if bone.parent is None],
+            'matrix': togl(obj.matrix_world),
+        }
+
+    return gltf_nodes
 
 
 def export_scenes(scenes):
