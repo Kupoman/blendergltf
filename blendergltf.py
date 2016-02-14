@@ -2,11 +2,9 @@ import bpy
 import gpu
 
 
-import itertools
 import json
 import collections
 import base64
-import gzip
 import struct
 
 
