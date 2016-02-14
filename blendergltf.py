@@ -32,10 +32,11 @@ class Vertex:
         return hash((self.co, self.normal, self.uvs))
 
     def __eq__(self, other):
-        eq = True
-        eq = eq and self.co == other.co
-        eq = eq and self.normal == other.normal
-        eq = eq and self.uvs == other.uvs
+        eq = (
+            (self.co == other.co) and
+            (self.normal == other.normal) and
+            (self.uvs == other.uvs)
+            )
 
         if eq:
             indices = self.loop_indices + other.loop_indices
