@@ -13,6 +13,13 @@ import struct
 EXPORT_SHADERS = False
 EMBED_IMAGES = False
 class Vertex:
+    __slots__ = (
+        "co",
+        "normal",
+        "uvs",
+        "loop_indices",
+        "index",
+        )
     def __init__(self, mesh, loop):
         vi = loop.vertex_index
         i = loop.index
@@ -53,6 +60,20 @@ class Buffer:
     SCALAR = 'SCALAR'
 
     class Accessor:
+        __slots__ = (
+            "name",
+            "buffer",
+            "buffer_view",
+            "byte_offset",
+            "byte_stride",
+            "component_type",
+            "count",
+            "type",
+            "type_size",
+            "_ctype",
+            "_ctype_size",
+            "_buffer_data",
+            )
         def __init__(self,
                      name,
                      buffer,
@@ -118,6 +139,14 @@ class Buffer:
 
             struct.pack_into(self._ctype, self._buffer_data, ptr, value)
 
+    __slots__ = (
+        "name",
+        "type",
+        "bytelength",
+        "uri",
+        "buffer_views",
+        "accessors",
+        )
     def __init__(self, name, uri=None):
         self.name = '{}_buffer'.format(name)
         self.type = 'arraybuffer'
@@ -555,4 +584,4 @@ def export_gltf(scene_delta):
 
 if __name__ == '__main__':
     with open('dump.gltf', 'w') as f:
-        json.dump(export_gltf, f, indent=4)
+        json.dump(export_gltf, f, indent=4, )
