@@ -579,8 +579,3 @@ def export_gltf(scene_delta):
     gltf = {key: value for key, value in gltf.items() if value}
 
     return gltf
-
-
-if __name__ == '__main__':
-    with open('dump.gltf', 'w') as f:
-        json.dump(export_gltf, f, indent=4, check_circular=False)
