@@ -69,7 +69,7 @@ else:
             }
             gltf = blendergltf.export_gltf(scene)
             with open(self.filepath, 'w') as fout:
-                json.dump(gltf, fout, indent=4)
+                json.dump(gltf, fout, indent=4, sort_keys=True, check_circular=False)
             return {'FINISHED'}
 
 
