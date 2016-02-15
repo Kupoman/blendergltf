@@ -96,6 +96,8 @@ class Buffer:
             "byte_stride",
             "component_type",
             "count",
+            "min",
+            "max",
             "type",
             "type_size",
             "_ctype",
@@ -118,6 +120,8 @@ class Buffer:
             self.byte_stride = byte_stride
             self.component_type = component_type
             self.count = count
+            self.min = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            self.max = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
             self.type = type
 
             if self.type == Buffer.MAT4:
@@ -167,7 +171,11 @@ class Buffer:
             if not isinstance(idx, int):
                 raise TypeError("Expected an integer index")
 
-            ptr = ((idx % self.type_size) * self._ctype_size + idx // self.type_size * self.byte_stride) + self.byte_offset
+            i = idx % self.type_size
+            self.min[i] = value if value < self.min[i] else self.min[i]
+            self.max[i] = value if value > self.max[i] else self.max[i]
+
+            ptr = (i * self._ctype_size + idx // self.type_size * self.byte_stride) + self.byte_offset
 
             struct.pack_into(self._ctype, self._buffer_data, ptr, value)
 
@@ -268,6 +276,8 @@ class Buffer:
                 'byteStride': v.byte_stride,
                 'componentType': v.component_type,
                 'count': v.count,
+                'min': v.min[:v.type_size],
+                'max': v.max[:v.type_size],
                 'type': v.type,
             }
 
