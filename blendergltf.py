@@ -8,6 +8,17 @@ import base64
 import struct
 
 
+if 'imported' in locals():
+    import imp
+    import bpy
+    imp.reload(gpu_luts)
+    imp.reload(shader_converter)
+else:
+    imported = True
+    from . import gpu_luts
+    from . import shader_converter
+
+
 EXPORT_SHADERS = False
 EMBED_IMAGES = False
 class Vertex:
@@ -299,33 +310,89 @@ def export_materials(materials, shaders, programs, techniques):
             }
     exp_materials = {}
     for material in materials:
-        exp_materials[material.name] = export_material(material)
-
         if not EXPORT_SHADERS:
-            continue
+            exp_materials[material.name] = export_material(material)
+        else:
+            # Handle shaders
+            shader_data = gpu.export_shader(bpy.context.scene, material)
+            shader_converter.to_130(shader_data)
+            fs_bytes = shader_data['fragment'].encode()
+            fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
+            shaders[material.name+'FS'] = {'type': 35632, 'uri': fs_uri}
+            vs_bytes = shader_data['vertex'].encode()
+            vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
+            shaders[material.name+'VS'] = {'type': 35633, 'uri': vs_uri}
 
-        # Handle shaders
-        shader_data = gpu.export_shader(bpy.context.scene, material)
-        fs_bytes = shader_data['fragment'].encode()
-        fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
-        shaders[material.name+'FS'] = {'type': 35632, 'uri': fs_uri}
-        vs_bytes = shader_data['vertex'].encode()
-        vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
-        shaders[material.name+'VS'] = {'type': 35633, 'uri': vs_uri}
+            # Handle programs
+            programs[material.name+'Program'] = {
+                'attributes' : [a['varname'] for a in shader_data['attributes']],
+                'fragmentShader' : material.name+'FS',
+                'vertexShader' : material.name+'VS',
+            }
 
-        # Handle programs
-        programs[material.name+'Program'] = {
-            'attributes' : [],
-            'fragmentShader' : material.name+'FS',
-            'vertexShader' : material.name+'VS',
-        }
+            # Handle parameters/values
+            values = {}
+            parameters = {}
+            for attribute in shader_data['attributes']:
+                name = attribute['varname']
+                semantic = gpu_luts.TYPE_TO_SEMANTIC[attribute['type']]
+                _type = gpu_luts.DATATYPE_TO_GLTF_TYPE[attribute['datatype']]
+                parameters[name] = {'semantic': semantic, 'type': _type}
 
-        # Handle techniques
-        techniques['material.name'+'Technique'] = {
-            'program' : material.name+'Program',
-            'attributes' : {a['varname'] : a['varname'] for a in shader_data['attributes']},
-            'uniforms' : {u['varname'] : u['varname'] for u in shader_data['uniforms']},
-        }
+            for uniform in shader_data['uniforms']:
+                valname = gpu_luts.TYPE_TO_NAME.get(uniform['type'], uniform['varname'])
+                rnaname = valname
+                semantic = None
+                node = None
+                value = None
+
+                if uniform['type'] in gpu_luts.LAMP_TYPES:
+                    node = uniform['lamp'].name
+                    valname = node + '_' + valname
+                    semantic = gpu_luts.TYPE_TO_SEMANTIC.get(uniform['type'], None)
+                    if not semantic:
+                        lamp_obj = bpy.data.objects[node]
+                        value = getattr(lamp_obj.data, rnaname)
+                elif uniform['type'] in gpu_luts.MIST_TYPES:
+                    valname = 'mist_' + valname
+                    settings = bpy.context.scene.world.mist_settings
+                    if valname == 'mist_color':
+                        value = bpy.context.scene.world.horizon_color
+                    else:
+                        value = getattr(settings, rnaname)
+
+                    if valname == 'mist_falloff':
+                        value = 0.0 if value == 'QUADRATIC' else 1.0 if 'LINEAR' else 2.0
+                elif uniform['type'] in gpu_luts.WORLD_TYPES:
+                    world = bpy.context.scene.world
+                    value = getattr(world, rnaname)
+                elif uniform['type'] in gpu_luts.MATERIAL_TYPES:
+                    value = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](getattr(material, rnaname))
+                    values[valname] = value
+                else:
+                    print('Unconverted uniform:', uniform)
+
+                parameter = {}
+                if semantic:
+                    parameter['semantic'] = semantic
+                    parameter['node'] = node
+                else:
+                    parameter['value'] = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](value)
+                parameter['type'] = gpu_luts.DATATYPE_TO_GLTF_TYPE[uniform['datatype']]
+                parameters[valname] = parameter
+                uniform['valname'] = valname
+
+            # Handle techniques
+            tech_name = material.name + 'Technique'
+            techniques[tech_name] = {
+                'parameters' : parameters,
+                'program' : material.name+'Program',
+                'attributes' : {a['varname'] : a['varname'] for a in shader_data['attributes']},
+                'uniforms' : {u['varname'] : u['valname'] for u in shader_data['uniforms']},
+            }
+
+            # exp_materials[material.name] = {'technique': tech_name, 'values': values}
+            exp_materials[material.name] = {}
 
     return exp_materials
 
