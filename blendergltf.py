@@ -567,12 +567,18 @@ def export_nodes(objects, skinned_meshes):
     gltf_nodes = {obj.name: export_node(obj) for obj in objects if obj.type != 'ARMATURE'}
 
     def export_joint(bone):
-        return {
+        gltf_joint = {
             'name': bone.name,
             'jointName': bone.name,
             'children': [child.name for child in bone.children],
-            'matrix': togl(bone.matrix_local),
         }
+
+        if bone.parent:
+            gltf_joint['matrix'] = togl(bone.parent.matrix_local.inverted() * bone.matrix_local)
+        else:
+            gltf_joint['matrix'] = togl(bone.matrix_local)
+
+        return gltf_joint
 
     for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
         arm = obj.data
