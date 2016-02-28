@@ -1,4 +1,5 @@
 import bpy
+import mathutils
 import gpu
 
 
@@ -25,6 +26,19 @@ class Vertex:
         self.normal = loop.normal.freeze()
         self.uvs = tuple(layer.data[i].uv.freeze() for layer in mesh.uv_layers)
         self.loop_indices = [i]
+
+        # Take the four most influential groups
+        groups = sorted(mesh.vertices[vi].groups, key=lambda group: group.weight, reverse=True)
+        if len(groups) > 4:
+            groups = groups[:4]
+
+        self.weights = [group.weight for group in groups]
+        self.joint_indexes = [group.group for group in groups]
+
+        if len(self.weights) < 4:
+            for i in range(len(self.weights), 4):
+                self.weights.append(0.0)
+                self.joint_indexes.append(0)
 
         self.index = 0
 
@@ -54,6 +68,8 @@ class Buffer:
     UNSIGNED_SHORT = 5123
     FLOAT = 5126
 
+    MAT4 = 'MAT4'
+    VEC4 = 'VEC4'
     VEC3 = 'VEC3'
     VEC2 = 'VEC2'
     SCALAR = 'SCALAR'
@@ -91,7 +107,11 @@ class Buffer:
             self.count = count
             self.type = type
 
-            if self.type == Buffer.VEC3:
+            if self.type == Buffer.MAT4:
+                self.type_size = 16
+            elif self.type == Buffer.VEC4:
+                self.type_size = 4
+            elif self.type == Buffer.VEC3:
                 self.type_size = 3
             elif self.type == Buffer.VEC2:
                 self.type_size = 2
@@ -320,13 +340,15 @@ def export_materials(materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(meshes):
+def export_meshes(meshes, skinned_meshes):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
                 'name': me.name,
                 'primitives': [],
             }
+
+        is_skinned = me.name in skinned_meshes
 
         me.calc_normals_split()
         me.calc_tessface()
@@ -336,6 +358,7 @@ def export_meshes(meshes):
         vertex_size = (3 + 3 + num_uv_layers * 2) * 4
 
         buf = Buffer(me.name)
+        skin_buf = Buffer('{}_skin'.format(me.name))
 
         # Vertex data
 
@@ -345,6 +368,11 @@ def export_meshes(meshes):
         vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
         ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
         tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+
+        skin_vertex_size = (4 + 4) * 4
+        skin_va = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
+        jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
+        wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
 
         for i, vtx in enumerate(vert_list):
             vtx.index = i
@@ -358,6 +386,15 @@ def export_meshes(meshes):
             for j, uv in enumerate(vtx.uvs):
                 tdata[j][i * 2] = uv.x
                 tdata[j][i * 2 + 1] = uv.y
+
+        if is_skinned:
+            for i, vtx in enumerate(vert_list):
+                joints = vtx.joint_indexes
+                weights = vtx.weights
+
+                for j in range(4):
+                    jdata[(i * 4) + j] = joints[j]
+                    wdata[(i * 4) + j] = weights[j]
 
         prims = {ma.name if ma else '': [] for ma in me.materials}
         if not prims:
@@ -400,12 +437,46 @@ def export_meshes(meshes):
             for i, v in enumerate(tdata):
                 gltf_prim['attributes']['TEXCOORD_' + me.uv_layers[i].name] = v.name
 
+            if is_skinned:
+                gltf_prim['attributes']['JOINT'] = jdata.name
+                gltf_prim['attributes']['WEIGHT'] = wdata.name
+
             gltf_mesh['primitives'].append(gltf_prim)
 
         g_buffers.append(buf)
+        if is_skinned:
+            g_buffers.append(skin_buf)
         return gltf_mesh
 
     return {me.name: export_mesh(me) for me in meshes if me.users != 0}
+
+
+def export_skins(skinned_meshes):
+    def export_skin(obj):
+        gltf_skin = {
+            'bindShapeMatrix': togl(mathutils.Matrix.Identity(4)),
+            'name': obj.name,
+        }
+        arm = obj.find_armature()
+        gltf_skin['jointNames'] = ['{}_{}'.format(arm.name, group.name) for group in obj.vertex_groups]
+
+        element_size = 16 * 4
+        num_elements = len(obj.vertex_groups)
+        buf = Buffer('IBM_{}_skin'.format(obj.name))
+        buf_view = buf.add_view(element_size * num_elements, Buffer.ARRAY_BUFFER)
+        idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
+
+        for i in range(num_elements):
+            mat = togl(mathutils.Matrix.Identity(4))
+            for j in range(16):
+                idata[(i * 16) + j] = mat[j]
+
+        gltf_skin['inverseBindMatrices'] = idata.name
+        g_buffers.append(buf)
+
+        return gltf_skin
+
+    return {'{}_skin'.format(mesh_name): export_skin(obj) for mesh_name, obj in skinned_meshes.items()}
 
 
 def export_lights(lamps):
@@ -468,7 +539,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(objects):
+def export_nodes(objects, skinned_meshes):
     def export_node(obj):
         ob = {
             'name': obj.name,
@@ -478,6 +549,9 @@ def export_nodes(objects):
 
         if obj.type == 'MESH':
             ob['meshes'] = [obj.data.name]
+            if obj.find_armature():
+                ob['skeletons'] = [obj.find_armature().name]
+                skinned_meshes[obj.data.name] = obj
         elif obj.type == 'LAMP':
             ob['extras'] = {'light': obj.data.name}
         elif obj.type == 'CAMERA':
@@ -488,7 +562,27 @@ def export_nodes(objects):
 
         return ob
 
-    return {obj.name: export_node(obj) for obj in objects}
+    gltf_nodes = {obj.name: export_node(obj) for obj in objects if obj.type != 'ARMATURE'}
+
+    def export_joint(bone):
+        return {
+            'name': bone.name,
+            'jointName': bone.name,
+            'children': [child.name for child in bone.children],
+            'matrix': togl(bone.matrix_local),
+        }
+
+    for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
+        arm = obj.data
+        gltf_nodes.update({"{}_{}".format(arm.name, bone.name): export_joint(bone) for bone in arm.bones})
+        gltf_nodes[arm.name] = {
+            'name': arm.name,
+            'jointName': arm.name,
+            'children': [bone.name for bone in arm.bones if bone.parent is None],
+            'matrix': togl(obj.matrix_world),
+        }
+
+    return gltf_nodes
 
 
 def export_scenes(scenes):
@@ -550,6 +644,7 @@ def export_gltf(scene_delta):
     shaders = {}
     programs = {}
     techniques = {}
+    skinned_meshes = {}
 
     gltf = {
         'asset': {'version': '1.0'},
@@ -558,8 +653,10 @@ def export_gltf(scene_delta):
         'images': export_images(scene_delta.get('images', [])),
         'materials': export_materials(scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'meshes': export_meshes(scene_delta.get('meshes', [])),
-        'nodes': export_nodes(scene_delta.get('objects', [])),
+        'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes),
+        # Make sure meshes come after nodes to detect which meshes are skinned
+        'meshes': export_meshes(scene_delta.get('meshes', []), skinned_meshes),
+        'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
         'scene': bpy.context.scene.name,
@@ -570,7 +667,6 @@ def export_gltf(scene_delta):
 
         # TODO
         'animations': {},
-        'skins': {},
     }
 
     gltf.update(export_buffers())
