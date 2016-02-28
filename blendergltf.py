@@ -18,6 +18,8 @@ class Vertex:
         "uvs",
         "loop_indices",
         "index",
+        "weights",
+        "joint_indexes",
         )
     def __init__(self, mesh, loop):
         vi = loop.vertex_index
