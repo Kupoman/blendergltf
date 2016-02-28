@@ -497,7 +497,7 @@ def export_scenes(scenes):
             'nodes': [ob.name for ob in scene.objects],
             'extras': {
                 'background_color': scene.world.horizon_color[:],
-                'active_camera': scene.camera.name,
+                'active_camera': scene.camera.name if scene.camera else '',
                 'hidden_nodes': [ob.name for ob in scene.objects if not ob.is_visible(scene)]
             }
         }
