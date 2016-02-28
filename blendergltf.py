@@ -566,11 +566,11 @@ def export_nodes(objects, skinned_meshes):
 
     gltf_nodes = {obj.name: export_node(obj) for obj in objects if obj.type != 'ARMATURE'}
 
-    def export_joint(bone):
+    def export_joint(arm_name, bone):
         gltf_joint = {
             'name': bone.name,
-            'jointName': bone.name,
-            'children': [child.name for child in bone.children],
+            'jointName': '{}_{}'.format(arm_name, bone.name),
+            'children': ['{}_{}'.format(arm_name, child.name) for child in bone.children],
         }
 
         if bone.parent:
@@ -582,11 +582,11 @@ def export_nodes(objects, skinned_meshes):
 
     for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
         arm = obj.data
-        gltf_nodes.update({"{}_{}".format(arm.name, bone.name): export_joint(bone) for bone in arm.bones})
+        gltf_nodes.update({"{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
         gltf_nodes[arm.name] = {
             'name': arm.name,
             'jointName': arm.name,
-            'children': [bone.name for bone in arm.bones if bone.parent is None],
+            'children': ['{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
             'matrix': togl(obj.matrix_world),
         }
 
@@ -676,6 +676,10 @@ def export_gltf(scene_delta):
         # TODO
         'animations': {},
     }
+
+    # Retroactively add skins attribute to nodes
+    for mesh_name, obj in skinned_meshes.items():
+        gltf['nodes'][obj.name]['skin'] = '{}_skin'.format(mesh_name)
 
     gltf.update(export_buffers())
     g_buffers = []
