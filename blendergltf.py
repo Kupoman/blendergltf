@@ -8,6 +8,17 @@ import collections
 import base64
 import struct
 
+# Texture formats
+GL_ALPHA = 6406
+GL_RGB = 6407
+GL_RGBA = 6408
+GL_LUMINANCE = 6409
+GL_LUMINANCE_ALPHA = 6410
+
+# sRGB texture formats (not actually part of WebGL 1.0 or glTF 1.0)
+GL_SRGB = 0x8C40
+GL_SRGB_ALPHA = 0x8C42
+
 
 EXPORT_SHADERS = False
 EMBED_IMAGES = False
@@ -638,10 +649,34 @@ def export_images(images):
 
 def export_textures(textures):
     def export_texture(texture):
-        return {
+        gltf_texture = {
             'sampler' : 'default',
             'source' : texture.image.name,
         }
+        tformat = None
+        channels = texture.image.channels
+        use_srgb = texture.image.colorspace_settings.name == 'sRGB'
+
+        if channels == 3:
+            if use_srgb:
+                tformat = GL_SRGB
+            else:
+                tformat = GL_RGB
+        elif channels == 4:
+            if use_srgb:
+                tformat = GL_SRGB_ALPHA
+            else:
+                tformat = GL_RGBA
+
+        if tformat is None:
+            raise RuntimeError(
+                "Could not find a texture format for image (name={}, num channels={})".format(texture.image.name, channels)
+            )
+
+        gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
+
+        return gltf_texture
+
     return {texture.name: export_texture(texture) for texture in textures
         if type(texture) == bpy.types.ImageTexture}
 
