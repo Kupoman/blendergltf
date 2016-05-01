@@ -58,6 +58,7 @@ else:
 
         def execute(self, context):
             scene = {
+                'actions': bpy.data.actions,
                 'camera': bpy.data.cameras,
                 'lamps': bpy.data.lamps,
                 'images': bpy.data.images,

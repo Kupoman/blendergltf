@@ -573,7 +573,7 @@ def export_nodes(objects, skinned_meshes):
         if obj.type == 'MESH':
             ob['meshes'] = [obj.data.name]
             if obj.find_armature():
-                ob['skeletons'] = [obj.find_armature().name]
+                ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[obj.data.name] = obj
         elif obj.type == 'LAMP':
             ob['extras'] = {'light': obj.data.name}
@@ -585,7 +585,7 @@ def export_nodes(objects, skinned_meshes):
 
         return ob
 
-    gltf_nodes = {obj.name: export_node(obj) for obj in objects if obj.type != 'ARMATURE'}
+    gltf_nodes = {obj.name: export_node(obj) for obj in objects}
 
     def export_joint(arm_name, bone):
         gltf_joint = {
@@ -604,7 +604,7 @@ def export_nodes(objects, skinned_meshes):
     for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
         arm = obj.data
         gltf_nodes.update({"{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
-        gltf_nodes[arm.name] = {
+        gltf_nodes['{}_root'.format(arm.name)] = {
             'name': arm.name,
             'jointName': arm.name,
             'children': ['{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
@@ -617,11 +617,12 @@ def export_nodes(objects, skinned_meshes):
 def export_scenes(scenes):
     def export_scene(scene):
         return {
-            'nodes': [ob.name for ob in scene.objects],
+            'nodes': [ob.name for ob in scene.objects if ob.parent is None],
             'extras': {
                 'background_color': scene.world.horizon_color[:],
                 'active_camera': scene.camera.name if scene.camera else '',
-                'hidden_nodes': [ob.name for ob in scene.objects if not ob.is_visible(scene)]
+                'hidden_nodes': [ob.name for ob in scene.objects if not ob.is_visible(scene)],
+                'frames_per_second': scene.render.fps,
             }
         }
 
@@ -691,6 +692,93 @@ def export_textures(textures):
         if type(texture) == bpy.types.ImageTexture}
 
 
+_path_map = {
+    'location': 'translation',
+    'rotation_quaternion': 'rotation',
+    'scale': 'scale',
+}
+
+
+def _can_object_use_action(obj, action):
+    for fcurve in action.fcurves:
+        path = fcurve.data_path
+        if not path.startswith('pose'):
+            return True
+
+        if obj.type == 'ARMATURE':
+            path = path.split('["')[-1]
+            path = path.split('"]')[0]
+            if path in [bone.name for bone in obj.data.bones]:
+                return True
+
+    return False
+
+
+def export_actions(actions):
+    def export_action(obj, action):
+        params = []
+
+        exported_paths = {}
+        channels = []
+
+        frame_start, frame_end = action.frame_range
+        num_frames = int(frame_end - frame_start) + 1
+
+        for fcurve in action.fcurves:
+            if fcurve.mute:
+                continue
+
+            is_skel_anim = fcurve.data_path.startswith('pose')
+            path = fcurve.data_path.split('.')[-1]
+
+            try:
+                gltf_path = _path_map[path]
+            except KeyError:
+                print('Found unsupported fcurve ({}) on action ({})'.format(path, action.name))
+                exported_paths.append(path)
+                continue
+
+            if is_skel_anim:
+                bone = fcurve.data_path.split('["')[-1].split('"]')[0]
+                targetid = '{}_root_{}'.format(obj.data.name, bone)
+            else:
+                targetid = obj.name
+
+            buf = Buffer('{}_{}_{}_{}'.format(targetid, action.name, gltf_path, fcurve.array_index))
+            chan_view = buf.add_view(num_frames * 4, Buffer.ARRAY_BUFFER)
+            chan_acc = buf.add_accessor(chan_view, 0, 4, Buffer.FLOAT, num_frames, Buffer.SCALAR)
+
+            for i in range(0, num_frames):
+                chan_acc[i] = fcurve.evaluate(frame_start + i)
+
+            g_buffers.append(buf)
+
+            channels.append({
+                'id': targetid,
+                'path': gltf_path,
+                'index': fcurve.array_index,
+                'data': chan_acc.name,
+            })
+
+        gltf_action = {
+            'channels': channels,
+            'frames': num_frames,
+        }
+
+        return gltf_action
+
+    gltf_actions = {}
+    for obj in bpy.data.objects:
+        act_prefix = '{}_root'.format(obj.data.name) if obj.type == 'ARMATURE' else obj.name
+        gltf_actions.update({
+            '{}|{}'.format(act_prefix, action.name): export_action(obj, action)
+            for action in actions
+            if _can_object_use_action(obj, action)
+        })
+
+    return gltf_actions
+
+
 def export_gltf(scene_delta):
     global g_buffers
 
@@ -702,7 +790,10 @@ def export_gltf(scene_delta):
     gltf = {
         'asset': {'version': '1.0'},
         'cameras': export_cameras(scene_delta.get('cameras', [])),
-        'extras': {'lights' : export_lights(scene_delta.get('lamps', []))},
+        'extras': {
+            'lights' : export_lights(scene_delta.get('lamps', [])),
+            'actions': export_actions(scene_delta.get('actions', [])),
+        },
         'images': export_images(scene_delta.get('images', [])),
         'materials': export_materials(scene_delta.get('materials', []),
             shaders, programs, techniques),
