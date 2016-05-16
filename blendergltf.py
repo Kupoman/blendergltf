@@ -719,51 +719,85 @@ def export_actions(actions):
         params = []
 
         exported_paths = {}
-        channels = []
+        channels = {}
 
-        frame_start, frame_end = action.frame_range
-        num_frames = int(frame_end - frame_start) + 1
+        sce = bpy.context.scene
+        prev_frame = sce.frame_current
+        prev_action = obj.animation_data.action
 
-        for fcurve in action.fcurves:
-            if fcurve.mute:
-                continue
+        frame_start, frame_end = [int(x) for x in action.frame_range]
+        num_frames = frame_end - frame_start
+        obj.animation_data.action = action
 
-            is_skel_anim = fcurve.data_path.startswith('pose')
-            path = fcurve.data_path.split('.')[-1]
+        channels[obj.name] = []
 
-            try:
-                gltf_path = _path_map[path]
-            except KeyError:
-                print('Found unsupported fcurve ({}) on action ({})'.format(path, action.name))
-                exported_paths.append(path)
-                continue
+        if obj.type == 'ARMATURE':
+            for pbone in obj.pose.bones:
+                channels[pbone.name] = []
 
-            if is_skel_anim:
-                bone = fcurve.data_path.split('["')[-1].split('"]')[0]
-                targetid = '{}_root_{}'.format(obj.data.name, bone)
-            else:
-                targetid = obj.name
+        for frame in range(frame_start, frame_end):
+            sce.frame_set(frame)
 
-            buf = Buffer('{}_{}_{}_{}'.format(targetid, action.name, gltf_path, fcurve.array_index))
-            chan_view = buf.add_view(num_frames * 4, Buffer.ARRAY_BUFFER)
-            chan_acc = buf.add_accessor(chan_view, 0, 4, Buffer.FLOAT, num_frames, Buffer.SCALAR)
+            channels[obj.name].append(obj.matrix_local)
 
-            for i in range(0, num_frames):
-                chan_acc[i] = fcurve.evaluate(frame_start + i)
+            if obj.type == 'ARMATURE':
+                for pbone in obj.pose.bones:
+                    if pbone.parent:
+                        mat = pbone.parent.matrix.inverted() * pbone.matrix
+                    else:
+                        mat = pbone.matrix
+                    channels[pbone.name].append(mat)
+
+        gltf_channels = []
+
+        for targetid, chan in channels.items():
+            buf = Buffer('{}_{}'.format(targetid, action.name))
+            lbv = buf.add_view(num_frames * 3 * 4, Buffer.ARRAY_BUFFER)
+            ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
+            rbv = buf.add_view(num_frames * 4 * 4, Buffer.ARRAY_BUFFER)
+            rdata = buf.add_accessor(rbv, 0, 4 * 4, Buffer.FLOAT, num_frames, Buffer.VEC4)
+            sbv = buf.add_view(num_frames * 3 * 4, Buffer.ARRAY_BUFFER)
+            sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
+
+            for i in range(num_frames):
+                mat = chan[i]
+                loc, rot, scale = mat.decompose()
+                for j in range(3):
+                    ldata[(i * 3) + j] = loc[j]
+                    sdata[(i * 3) + j] = scale[j]
+                for j in range(4):
+                    rdata[(i * 4) + j] = rot[j]
 
             g_buffers.append(buf)
 
-            channels.append({
-                'id': targetid,
-                'path': gltf_path,
-                'index': fcurve.array_index,
-                'data': chan_acc.name,
-            })
+            if targetid != obj.name:
+                targetid = '{}_root_{}'.format(obj.data.name, targetid)
+
+            gltf_channels += [
+                {
+                    'id': targetid,
+                    'path': 'translation',
+                    'data': ldata.name,
+                },
+                {
+                    'id': targetid,
+                    'path': 'rotation',
+                    'data': rdata.name,
+                },
+                {
+                    'id': targetid,
+                    'path': 'scale',
+                    'data': sdata.name,
+                }
+            ]
 
         gltf_action = {
-            'channels': channels,
+            'channels': gltf_channels,
             'frames': num_frames,
         }
+
+        obj.animation_data.action = prev_action
+        sce.frame_set(prev_frame)
 
         return gltf_action
 
