@@ -56,24 +56,26 @@ else:
 
         #blendergltf settings
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)
+        meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
 
         def execute(self, context):
             scene = {
-                'actions': bpy.data.actions,
-                'camera': bpy.data.cameras,
-                'lamps': bpy.data.lamps,
-                'images': bpy.data.images,
-                'materials': bpy.data.materials,
-                'meshes': bpy.data.meshes,
-                'objects': bpy.data.objects,
-                'scenes': bpy.data.scenes,
-                'textures': bpy.data.textures,
+                'actions': list(bpy.data.actions),
+                'camera': list(bpy.data.cameras),
+                'lamps': list(bpy.data.lamps),
+                'images': list(bpy.data.images),
+                'materials': list(bpy.data.materials),
+                'meshes': list(bpy.data.meshes),
+                'objects': list(bpy.data.objects),
+                'scenes': list(bpy.data.scenes),
+                'textures': list(bpy.data.textures),
             }
             # Copy properties to settings
             settings = blendergltf.default_settings.copy()
             settings['materials_export_shader'] = self.materials_export_shader
             settings['images_embed_data'] = self.images_embed_data
+            settings['meshes_apply_modifiers'] = self.meshes_apply_modifiers
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:

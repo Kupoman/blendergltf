@@ -11,6 +11,7 @@ import struct
 
 default_settings = {
     'materials_export_shader': False,
+    'meshes_apply_modifiers': True,
     'images_embed_data': False,
 }
 
@@ -478,7 +479,7 @@ def export_meshes(meshes, skinned_meshes):
             g_buffers.append(skin_buf)
         return gltf_mesh
 
-    return {me.name: export_mesh(me) for me in meshes if me.users != 0}
+    return {me.name: export_mesh(me) for me in meshes}
 
 
 def export_skins(skinned_meshes):
@@ -569,7 +570,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(objects, skinned_meshes):
+def export_nodes(objects, skinned_meshes, modded_meshes):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -592,10 +593,11 @@ def export_nodes(objects, skinned_meshes):
         }
 
         if obj.type == 'MESH':
-            ob['meshes'] = [obj.data.name]
+            mesh = modded_meshes.get(obj.name, obj.data)
+            ob['meshes'] = [mesh.name]
             if obj.find_armature():
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
-                skinned_meshes[obj.data.name] = obj
+                skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
             ob['extras'] = {'light': obj.data.name}
         elif obj.type == 'CAMERA':
@@ -849,7 +851,28 @@ def export_gltf(scene_delta, settings={}):
     shaders = {}
     programs = {}
     techniques = {}
+    mesh_list = []
+    mod_meshes = {}
     skinned_meshes = {}
+    object_list = list(scene_delta.get('objects', []))
+
+    # Apply modifiers
+    if settings['meshes_apply_modifiers']:
+        scene = bpy.context.scene
+        mod_obs = [ob for ob in object_list if ob.is_modified(scene, 'PREVIEW')]
+        for mesh in scene_delta.get('meshes', []):
+            mod_users = [ob for ob in mod_obs if ob.data == mesh]
+
+            # Only convert meshes with modifiers, otherwise each non-modifier
+            # user ends up with a copy of the mesh and we lose instancing
+            mod_meshes.update({ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users})
+
+            # Add unmodified meshes directly to the mesh list
+            if len(mod_users) < mesh.users:
+                mesh_list.append(mesh)
+        mesh_list.extend(mod_meshes.values())
+    else:
+        mesh_list = scene_delta.get('meshes', [])
 
     gltf = {
         'asset': {'version': '1.0'},
@@ -861,9 +884,9 @@ def export_gltf(scene_delta, settings={}):
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes),
+        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(scene_delta.get('meshes', []), skinned_meshes),
+        'meshes': export_meshes(mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
@@ -885,5 +908,9 @@ def export_gltf(scene_delta, settings={}):
     g_buffers = []
 
     gltf = {key: value for key, value in gltf.items() if value}
+
+    # Remove any temporary meshes from applying modifiers
+    for mesh in mod_meshes.values():
+        bpy.data.meshes.remove(mesh)
 
     return gltf
