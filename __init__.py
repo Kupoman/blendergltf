@@ -32,9 +32,7 @@ else:
     import json
 
     import bpy
-    from bpy.props import (
-            StringProperty,
-            )
+    from bpy.props import *
     from bpy_extras.io_utils import (
             ExportHelper,
             )
@@ -56,6 +54,9 @@ else:
 
         check_extension = True
 
+        #blendergltf settings
+        materials_export_shader = BoolProperty(name="export shaders", default=False)
+
         def execute(self, context):
             scene = {
                 'actions': bpy.data.actions,
@@ -68,7 +69,11 @@ else:
                 'scenes': bpy.data.scenes,
                 'textures': bpy.data.textures,
             }
-            gltf = blendergltf.export_gltf(scene)
+            # Copy properties to settings
+            settings = blendergltf.default_settings.copy()
+            settings['materials_export_shader'] = self.materials_export_shader
+
+            gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
                 json.dump(gltf, fout, indent=4, sort_keys=True, check_circular=False)
             return {'FINISHED'}

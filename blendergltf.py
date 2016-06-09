@@ -8,6 +8,12 @@ import collections
 import base64
 import struct
 
+
+default_settings = {
+    'materials_export_shader': False,
+}
+
+
 # Texture formats
 GL_ALPHA = 6406
 GL_RGB = 6407
@@ -20,7 +26,6 @@ GL_SRGB = 0x8C40
 GL_SRGB_ALPHA = 0x8C42
 
 
-EXPORT_SHADERS = False
 EMBED_IMAGES = False
 class Vertex:
     __slots__ = (
@@ -317,7 +322,7 @@ def export_cameras(cameras):
     return {camera.name: export_camera(camera) for camera in cameras}
 
 
-def export_materials(materials, shaders, programs, techniques):
+def export_materials(settings, materials, shaders, programs, techniques):
     def export_material(material):
         return {
                 'values': {
@@ -334,7 +339,7 @@ def export_materials(materials, shaders, programs, techniques):
     for material in materials:
         exp_materials[material.name] = export_material(material)
 
-        if not EXPORT_SHADERS:
+        if settings['materials_export_shader'] == False:
             continue
 
         # Handle shaders
@@ -832,8 +837,12 @@ def export_actions(actions):
     return gltf_actions
 
 
-def export_gltf(scene_delta):
+def export_gltf(scene_delta, settings={}):
     global g_buffers
+
+    # Fill in any missing settings with defaults
+    for key, value in default_settings.items():
+        settings.setdefault(key, value)
 
     shaders = {}
     programs = {}
@@ -848,7 +857,7 @@ def export_gltf(scene_delta):
             'actions': export_actions(scene_delta.get('actions', [])),
         },
         'images': export_images(scene_delta.get('images', [])),
-        'materials': export_materials(scene_delta.get('materials', []),
+        'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
         'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
