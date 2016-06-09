@@ -11,6 +11,7 @@ import struct
 
 default_settings = {
     'materials_export_shader': False,
+    'images_embed_data': False,
 }
 
 
@@ -26,7 +27,6 @@ GL_SRGB = 0x8C40
 GL_SRGB_ALPHA = 0x8C42
 
 
-EMBED_IMAGES = False
 class Vertex:
     __slots__ = (
         "co",
@@ -668,9 +668,9 @@ def export_buffers():
     return gltf
 
 
-def export_images(images):
+def export_images(settings, images):
     def export_image(image):
-        if EMBED_IMAGES:
+        if settings['images_embed_data']:
             pixels = bytearray([int(p * 255) for p in image.pixels])
             uri = 'data:text/plain;base64,' + base64.b64encode(pixels).decode('ascii')
         else:
@@ -856,7 +856,7 @@ def export_gltf(scene_delta, settings={}):
             'lights' : export_lights(scene_delta.get('lamps', [])),
             'actions': export_actions(scene_delta.get('actions', [])),
         },
-        'images': export_images(scene_delta.get('images', [])),
+        'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
         'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes),

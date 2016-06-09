@@ -55,7 +55,8 @@ else:
         check_extension = True
 
         #blendergltf settings
-        materials_export_shader = BoolProperty(name="export shaders", default=False)
+        materials_export_shader = BoolProperty(name='Export Shaders', default=False)
+        images_embed_data = BoolProperty(name='Embed Image Data', default=False)
 
         def execute(self, context):
             scene = {
@@ -72,6 +73,7 @@ else:
             # Copy properties to settings
             settings = blendergltf.default_settings.copy()
             settings['materials_export_shader'] = self.materials_export_shader
+            settings['images_embed_data'] = self.images_embed_data
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
