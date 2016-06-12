@@ -703,7 +703,7 @@ def _can_object_use_action(obj, action):
     for fcurve in action.fcurves:
         path = fcurve.data_path
         if not path.startswith('pose'):
-            return True
+            return obj.animation_data is not None
 
         if obj.type == 'ARMATURE':
             path = path.split('["')[-1]
