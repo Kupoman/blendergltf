@@ -396,7 +396,7 @@ def export_meshes(meshes, skinned_meshes):
 
         # Vertex data
 
-        vert_list = { Vertex(me, loop) : 0 for loop in me.loops}.keys()
+        vert_list = [Vertex(me, loop) for loop in me.loops]
         num_verts = len(vert_list)
         va = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
         vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
