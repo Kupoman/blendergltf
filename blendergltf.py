@@ -84,6 +84,8 @@ class Buffer:
     UNSIGNED_BYTE = 5121
     SHORT = 5122
     UNSIGNED_SHORT = 5123
+    INT = 5124
+    UNSIGNED_INT = 5125
     FLOAT = 5126
 
     MAT4 = 'MAT4'
@@ -148,6 +150,10 @@ class Buffer:
                 self._ctype = '<h'
             elif component_type == Buffer.UNSIGNED_SHORT:
                 self._ctype = '<H'
+            elif component_type == Buffer.INT:
+                self._ctype = '<i'
+            elif component_type == Buffer.UNSIGNED_INT:
+                self._ctype = '<I'
             elif component_type == Buffer.FLOAT:
                 self._ctype = '<f'
             else:
@@ -448,8 +454,15 @@ def export_meshes(meshes, skinned_meshes):
                 raise RuntimeError("Invalid polygon with {} vertexes.".format(poly.loop_total))
 
         for mat, prim in prims.items():
-            ib = buf.add_view(2 * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim), Buffer.SCALAR)
+            ity = Buffer.UNSIGNED_SHORT
+            istride = 2
+            if len(prim) > 65535:
+                ity = Buffer.UNSIGNED_INT
+                istride = 4
+
+            ib = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
+
+            idata = buf.add_accessor(ib, 0, istride, ity, len(prim), Buffer.SCALAR)
             for i, v in enumerate(prim):
                 idata[i] = v
 
