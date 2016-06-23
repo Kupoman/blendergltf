@@ -726,7 +726,7 @@ def export_textures(textures):
         return gltf_texture
 
     return {texture.name: export_texture(texture) for texture in textures
-            if type(texture) == bpy.types.ImageTexture and texture.image.channels != 0}
+            if type(texture) == bpy.types.ImageTexture and len(texture.users_material) > 0}
 
 
 _path_map = {
