@@ -404,6 +404,7 @@ def export_meshes(meshes, skinned_meshes):
         jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
         wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
 
+        # Copy vertex data
         for i, vtx in enumerate(vert_list):
             vtx.index = i
             co = vtx.co
@@ -426,32 +427,53 @@ def export_meshes(meshes, skinned_meshes):
                     jdata[(i * 4) + j] = joints[j]
                     wdata[(i * 4) + j] = weights[j]
 
+        # For each material, make an empty primitive set.
+        # This dictionary maps material names to list of indices that form the
+        # part of the mesh that the material should be applied to.
         prims = {ma.name if ma else '': [] for ma in me.materials}
         if not prims:
             prims = {'': []}
 
         # Index data
+        # Map loop indices to vertices
         vert_dict = {i : v for v in vert_list for i in v.loop_indices}
+
+        max_vert_index = 0
         for poly in me.polygons:
-            first = poly.loop_start
+            # Find the primitive that this polygon ought to belong to (by
+            # material).
             if len(me.materials) == 0:
                 prim = prims['']
             else:
                 mat = me.materials[poly.material_index]
                 prim = prims[mat.name if mat else '']
-            indices = [vert_dict[i].index for i in range(first, first+poly.loop_total)]
 
+            # Find the (vertex) index associated with each loop in the polygon.
+            indices = [vert_dict[i].index for i in poly.loop_indices]
+
+            # Record the maximum index. This isn't used now but may be used in
+            # the future to determine whether a mesh needs to be split or if
+            # integer indices are to be used, etc.
+            for i in indices:
+                if i > max_vert_index:
+                    max_vert_index = i
+
+            # Triangulate each polygon if necessary
             if poly.loop_total == 3:
                 prim += indices
             elif poly.loop_total > 3:
                 for i in range(poly.loop_total-2):
                     prim += (indices[-1], indices[i], indices[i + 1])
             else:
-                raise RuntimeError("Invalid polygon with {} vertexes.".format(poly.loop_total))
+                raise RuntimeError(("Invalid polygon with {} "
+                                    "vertices.").format(poly.loop_total))
 
         for mat, prim in prims.items():
+            # For each primitive set add an index buffer and accessor.
             ib = buf.add_view(2 * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim), Buffer.SCALAR)
+            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim),
+                                     Buffer.SCALAR)
+
             for i, v in enumerate(prim):
                 idata[i] = v
 
