@@ -58,6 +58,12 @@ else:
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
 
+        apply_modifiers = BoolProperty(
+            name="Apply modifiers",
+            description="Apply modifiers",
+            default=True,
+            )
+
         def execute(self, context):
             scene = {
                 'actions': bpy.data.actions,
@@ -65,18 +71,40 @@ else:
                 'lamps': bpy.data.lamps,
                 'images': bpy.data.images,
                 'materials': bpy.data.materials,
-                'meshes': bpy.data.meshes,
-                'objects': bpy.data.objects,
                 'scenes': bpy.data.scenes,
                 'textures': bpy.data.textures,
             }
 
+            scene['objects'] = []
+            scene['meshes'] = []
+
+            # Mapping from object to mesh
+            scene['obj_meshes'] = {}
+
             # Copy properties to settings
             settings = self.as_keywords(ignore=("filter_glob",))
+
+            for obj in bpy.data.objects:
+                if obj.type != 'MESH': continue
+
+                # Apply the modifiers
+                new_mesh = obj.to_mesh(
+                    context.scene, settings['apply_modifiers'], 'PREVIEW'
+                )
+                scene['meshes'].append(new_mesh)
+
+                # Map objects to the proper meshes (with modifiers applied).
+                scene['obj_meshes'][obj] = new_mesh
+                scene['objects'].append(obj)
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
                 json.dump(gltf, fout, indent=4, sort_keys=True, check_circular=False)
+
+            # Clean up meshes
+            for mesh in scene['meshes']:
+                bpy.data.meshes.remove(mesh)
+
             return {'FINISHED'}
 
 
