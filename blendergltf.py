@@ -874,6 +874,32 @@ def export_gltf(scene_delta, settings={}):
     else:
         mesh_list = scene_delta.get('meshes', [])
 
+    # Use this to store objects that we need to transform back from their
+    # converted axis space. There is no need to copy meshes that don't have any
+    # modifiers applied but that means we have to be careful in modifying them.
+    user_objects = []
+
+    global_matrix = settings.get('global_matrix', None)
+    if global_matrix != None:
+        # If a global matrix was provided apply it to all objects.
+        for obj in object_list:
+            # Find the mesh associated with this object
+            if obj.name in mod_meshes:
+                # Use the modified mesh copy (completely safe to modify).
+                mesh = mod_meshes[obj.name]
+            else:
+                # We have to remember to undo the transformation because this is
+                # a user mesh (not one we created).
+                mesh = obj.data
+                user_objects.append(obj)
+
+            inv_world_mat = obj.matrix_world.inverted()
+
+            # Transform the mesh from model space to blender world space, then
+            # converted-axis world space and finally back to a converted-axis
+            # model space, suitable for copying.
+            mesh.transform(inv_world_mat * global_matrix * obj.matrix_world)
+
     gltf = {
         'asset': {'version': '1.0'},
         'cameras': export_cameras(scene_delta.get('cameras', [])),
@@ -912,5 +938,12 @@ def export_gltf(scene_delta, settings={}):
     # Remove any temporary meshes from applying modifiers
     for mesh in mod_meshes.values():
         bpy.data.meshes.remove(mesh)
+
+    # Reset the transformation on meshes that we didn't create
+    if global_matrix != None:
+        for obj in user_objects:
+            inv_world_mat = obj.matrix_world.inverted()
+            inv_global_matrix = global_matrix.inverted()
+            mesh.transform(inv_world_mat * inv_global_matrix * obj.matrix_world)
 
     return gltf

@@ -35,12 +35,17 @@ else:
     from bpy.props import *
     from bpy_extras.io_utils import (
             ExportHelper,
+            orientation_helper_factory,
+            axis_conversion
             )
 
     from . import blendergltf
 
+    GLTFOrientationHelper = orientation_helper_factory(
+        "GLTFOrientationHelper", axis_forward='-Z', axis_up='Y'
+    )
 
-    class ExportGLTF(bpy.types.Operator, ExportHelper):
+    class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         """Save a Khronos glTF File"""
 
         bl_idname = "export_scene.gltf"
@@ -80,6 +85,12 @@ else:
 
             # Copy properties to settings
             settings = self.as_keywords(ignore=("filter_glob",))
+
+            # Calculate a global matrix to apply to each mesh.
+            settings['global_matrix'] = axis_conversion(
+                to_forward=self.axis_forward,
+                to_up=self.axis_up
+            ).to_4x4()
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
