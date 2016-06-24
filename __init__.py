@@ -64,6 +64,11 @@ else:
             default=True,
             )
 
+        export_textures = BoolProperty(
+            name="Export images / textures",
+            description="Export textures and texture coordinates",
+            default=True)
+
         def execute(self, context):
             scene = {
                 'actions': bpy.data.actions,

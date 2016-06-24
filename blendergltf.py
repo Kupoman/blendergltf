@@ -374,7 +374,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(meshes, skinned_meshes):
+def export_meshes(settings, meshes, skinned_meshes):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
@@ -475,8 +475,12 @@ def export_meshes(meshes, skinned_meshes):
                 'mode': 4,
                 'material': mat,
             }
-            for i, v in enumerate(tdata):
-                gltf_prim['attributes']['TEXCOORD_' + me.uv_layers[i].name] = v.name
+
+            # If we weren't asked to export textures, don't bother exporting
+            # texturing coordinates
+            if settings['export_textures'] == True:
+                for i, v in enumerate(tdata):
+                    gltf_prim['attributes']['TEXCOORD_' + str(i)] = v.name
 
             if is_skinned:
                 gltf_prim['attributes']['JOINT'] = jdata.name
@@ -869,25 +873,28 @@ def export_gltf(scene_delta, settings={}):
             'lights' : export_lights(scene_delta.get('lamps', [])),
             'actions': export_actions(scene_delta.get('actions', [])),
         },
-        'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
                                       shaders, programs, techniques),
         'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes,
                               scene_delta.get('obj_meshes', [])),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(scene_delta.get('meshes', []), skinned_meshes),
+        'meshes': export_meshes(settings, scene_delta.get('meshes', []),
+                                skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
-        'samplers': {'default':{}},
         'scene': bpy.context.scene.name,
         'scenes': export_scenes(scene_delta.get('scenes', [])),
         'shaders': shaders,
         'techniques': techniques,
-        'textures': export_textures(scene_delta.get('textures', [])),
 
         # TODO
         'animations': {},
     }
+
+    if settings.get('export_textures', True) == True:
+        gltf['samplers'] = {'default':{}}
+        gltf['images'] = export_images(settings, scene_delta.get('images', []))
+        gltf['textures'] = export_textures(scene_delta.get('textures', []))
 
     # Retroactively add skins attribute to nodes
     for mesh_name, obj in skinned_meshes.items():
