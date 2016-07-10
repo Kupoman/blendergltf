@@ -563,6 +563,20 @@ def export_lights(lamps):
 
 
 def export_nodes(objects, skinned_meshes):
+    def export_physics(obj):
+        rb = obj.rigid_body
+        physics =  {
+            'collision_shape': rb.collision_shape.lower(),
+            'mass': rb.mass,
+            'dynamic': rb.type == 'ACTIVE' and rb.enabled,
+            'dimensions': obj.dimensions[:],
+        }
+
+        if rb.collision_shape in ('CONVEX_HULL', 'MESH'):
+            physics['mesh'] = obj.data.name
+
+        return physics
+
     def export_node(obj):
         ob = {
             'name': obj.name,
@@ -582,6 +596,11 @@ def export_nodes(objects, skinned_meshes):
         elif obj.type == 'EMPTY' and obj.dupli_group is not None:
             # Expand dupli-groups
             ob['children'] += [i.name for i in obj.dupli_group.objects]
+
+        if obj.rigid_body:
+            ob['extensions'] = {
+                'BLENDER_physics': export_physics(obj)
+            }
 
         return ob
 
