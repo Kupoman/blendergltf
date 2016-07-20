@@ -1,4 +1,5 @@
 import bpy
+import mathutils
 import gpu
 
 
@@ -6,6 +7,24 @@ import json
 import collections
 import base64
 import struct
+
+
+default_settings = {
+    'materials_export_shader': False,
+    'images_embed_data': False,
+}
+
+
+# Texture formats
+GL_ALPHA = 6406
+GL_RGB = 6407
+GL_RGBA = 6408
+GL_LUMINANCE = 6409
+GL_LUMINANCE_ALPHA = 6410
+
+# sRGB texture formats (not actually part of WebGL 1.0 or glTF 1.0)
+GL_SRGB = 0x8C40
+GL_SRGB_ALPHA = 0x8C42
 
 
 if 'imported' in locals():
@@ -19,8 +38,6 @@ else:
     from . import shader_converter
 
 
-EXPORT_SHADERS = False
-EMBED_IMAGES = False
 class Vertex:
     __slots__ = (
         "co",
@@ -28,6 +45,8 @@ class Vertex:
         "uvs",
         "loop_indices",
         "index",
+        "weights",
+        "joint_indexes",
         )
     def __init__(self, mesh, loop):
         vi = loop.vertex_index
@@ -36,6 +55,19 @@ class Vertex:
         self.normal = loop.normal.freeze()
         self.uvs = tuple(layer.data[i].uv.freeze() for layer in mesh.uv_layers)
         self.loop_indices = [i]
+
+        # Take the four most influential groups
+        groups = sorted(mesh.vertices[vi].groups, key=lambda group: group.weight, reverse=True)
+        if len(groups) > 4:
+            groups = groups[:4]
+
+        self.weights = [group.weight for group in groups]
+        self.joint_indexes = [group.group for group in groups]
+
+        if len(self.weights) < 4:
+            for i in range(len(self.weights), 4):
+                self.weights.append(0.0)
+                self.joint_indexes.append(0)
 
         self.index = 0
 
@@ -65,6 +97,8 @@ class Buffer:
     UNSIGNED_SHORT = 5123
     FLOAT = 5126
 
+    MAT4 = 'MAT4'
+    VEC4 = 'VEC4'
     VEC3 = 'VEC3'
     VEC2 = 'VEC2'
     SCALAR = 'SCALAR'
@@ -106,7 +140,11 @@ class Buffer:
             self.max = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
             self.type = type
 
-            if self.type == Buffer.VEC3:
+            if self.type == Buffer.MAT4:
+                self.type_size = 16
+            elif self.type == Buffer.VEC4:
+                self.type_size = 4
+            elif self.type == Buffer.VEC3:
                 self.type_size = 3
             elif self.type == Buffer.VEC2:
                 self.type_size = 2
@@ -295,7 +333,7 @@ def export_cameras(cameras):
     return {camera.name: export_camera(camera) for camera in cameras}
 
 
-def export_materials(materials, shaders, programs, techniques):
+def export_materials(settings, materials, shaders, programs, techniques):
     def export_material(material):
         return {
                 'values': {
@@ -310,7 +348,7 @@ def export_materials(materials, shaders, programs, techniques):
             }
     exp_materials = {}
     for material in materials:
-        if not EXPORT_SHADERS:
+        if settings['materials_export_shader'] == False:
             exp_materials[material.name] = export_material(material)
         else:
             # Handle shaders
@@ -397,13 +435,15 @@ def export_materials(materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(meshes):
+def export_meshes(meshes, skinned_meshes):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
                 'name': me.name,
                 'primitives': [],
             }
+
+        is_skinned = me.name in skinned_meshes
 
         me.calc_normals_split()
         me.calc_tessface()
@@ -413,6 +453,7 @@ def export_meshes(meshes):
         vertex_size = (3 + 3 + num_uv_layers * 2) * 4
 
         buf = Buffer(me.name)
+        skin_buf = Buffer('{}_skin'.format(me.name))
 
         # Vertex data
 
@@ -422,6 +463,11 @@ def export_meshes(meshes):
         vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
         ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
         tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+
+        skin_vertex_size = (4 + 4) * 4
+        skin_va = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
+        jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
+        wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
 
         for i, vtx in enumerate(vert_list):
             vtx.index = i
@@ -435,6 +481,15 @@ def export_meshes(meshes):
             for j, uv in enumerate(vtx.uvs):
                 tdata[j][i * 2] = uv.x
                 tdata[j][i * 2 + 1] = uv.y
+
+        if is_skinned:
+            for i, vtx in enumerate(vert_list):
+                joints = vtx.joint_indexes
+                weights = vtx.weights
+
+                for j in range(4):
+                    jdata[(i * 4) + j] = joints[j]
+                    wdata[(i * 4) + j] = weights[j]
 
         prims = {ma.name if ma else '': [] for ma in me.materials}
         if not prims:
@@ -477,12 +532,46 @@ def export_meshes(meshes):
             for i, v in enumerate(tdata):
                 gltf_prim['attributes']['TEXCOORD_' + me.uv_layers[i].name] = v.name
 
+            if is_skinned:
+                gltf_prim['attributes']['JOINT'] = jdata.name
+                gltf_prim['attributes']['WEIGHT'] = wdata.name
+
             gltf_mesh['primitives'].append(gltf_prim)
 
         g_buffers.append(buf)
+        if is_skinned:
+            g_buffers.append(skin_buf)
         return gltf_mesh
 
     return {me.name: export_mesh(me) for me in meshes if me.users != 0}
+
+
+def export_skins(skinned_meshes):
+    def export_skin(obj):
+        gltf_skin = {
+            'bindShapeMatrix': togl(mathutils.Matrix.Identity(4)),
+            'name': obj.name,
+        }
+        arm = obj.find_armature()
+        gltf_skin['jointNames'] = ['{}_{}'.format(arm.name, group.name) for group in obj.vertex_groups]
+
+        element_size = 16 * 4
+        num_elements = len(obj.vertex_groups)
+        buf = Buffer('IBM_{}_skin'.format(obj.name))
+        buf_view = buf.add_view(element_size * num_elements, Buffer.ARRAY_BUFFER)
+        idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
+
+        for i in range(num_elements):
+            mat = togl(mathutils.Matrix.Identity(4))
+            for j in range(16):
+                idata[(i * 16) + j] = mat[j]
+
+        gltf_skin['inverseBindMatrices'] = idata.name
+        g_buffers.append(buf)
+
+        return gltf_skin
+
+    return {'{}_skin'.format(mesh_name): export_skin(obj) for mesh_name, obj in skinned_meshes.items()}
 
 
 def export_lights(lamps):
@@ -545,7 +634,21 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(objects):
+def export_nodes(objects, skinned_meshes):
+    def export_physics(obj):
+        rb = obj.rigid_body
+        physics =  {
+            'collision_shape': rb.collision_shape.lower(),
+            'mass': rb.mass,
+            'dynamic': rb.type == 'ACTIVE' and rb.enabled,
+            'dimensions': obj.dimensions[:],
+        }
+
+        if rb.collision_shape in ('CONVEX_HULL', 'MESH'):
+            physics['mesh'] = obj.data.name
+
+        return physics
+
     def export_node(obj):
         ob = {
             'name': obj.name,
@@ -555,6 +658,9 @@ def export_nodes(objects):
 
         if obj.type == 'MESH':
             ob['meshes'] = [obj.data.name]
+            if obj.find_armature():
+                ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
+                skinned_meshes[obj.data.name] = obj
         elif obj.type == 'LAMP':
             ob['extras'] = {'light': obj.data.name}
         elif obj.type == 'CAMERA':
@@ -563,19 +669,51 @@ def export_nodes(objects):
             # Expand dupli-groups
             ob['children'] += [i.name for i in obj.dupli_group.objects]
 
+        if obj.rigid_body:
+            ob['extensions'] = {
+                'BLENDER_physics': export_physics(obj)
+            }
+
         return ob
 
-    return {obj.name: export_node(obj) for obj in objects}
+    gltf_nodes = {obj.name: export_node(obj) for obj in objects}
+
+    def export_joint(arm_name, bone):
+        gltf_joint = {
+            'name': bone.name,
+            'jointName': '{}_{}'.format(arm_name, bone.name),
+            'children': ['{}_{}'.format(arm_name, child.name) for child in bone.children],
+        }
+
+        if bone.parent:
+            gltf_joint['matrix'] = togl(bone.parent.matrix_local.inverted() * bone.matrix_local)
+        else:
+            gltf_joint['matrix'] = togl(bone.matrix_local)
+
+        return gltf_joint
+
+    for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
+        arm = obj.data
+        gltf_nodes.update({"{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
+        gltf_nodes['{}_root'.format(arm.name)] = {
+            'name': arm.name,
+            'jointName': arm.name,
+            'children': ['{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
+            'matrix': togl(obj.matrix_world),
+        }
+
+    return gltf_nodes
 
 
 def export_scenes(scenes):
     def export_scene(scene):
         return {
-            'nodes': [ob.name for ob in scene.objects],
+            'nodes': [ob.name for ob in scene.objects if ob.parent is None],
             'extras': {
                 'background_color': scene.world.horizon_color[:],
-                'active_camera': scene.camera.name,
-                'hidden_nodes': [ob.name for ob in scene.objects if not ob.is_visible(scene)]
+                'active_camera': scene.camera.name if scene.camera else '',
+                'hidden_nodes': [ob.name for ob in scene.objects if not ob.is_visible(scene)],
+                'frames_per_second': scene.render.fps,
             }
         }
 
@@ -597,9 +735,9 @@ def export_buffers():
     return gltf
 
 
-def export_images(images):
+def export_images(settings, images):
     def export_image(image):
-        if EMBED_IMAGES:
+        if settings['images_embed_data']:
             pixels = bytearray([int(p * 255) for p in image.pixels])
             uri = 'data:text/plain;base64,' + base64.b64encode(pixels).decode('ascii')
         else:
@@ -613,30 +751,185 @@ def export_images(images):
 
 def export_textures(textures):
     def export_texture(texture):
-        return {
+        gltf_texture = {
             'sampler' : 'default',
             'source' : texture.image.name,
         }
+        tformat = None
+        channels = texture.image.channels
+        use_srgb = texture.image.colorspace_settings.name == 'sRGB'
+
+        if channels == 3:
+            if use_srgb:
+                tformat = GL_SRGB
+            else:
+                tformat = GL_RGB
+        elif channels == 4:
+            if use_srgb:
+                tformat = GL_SRGB_ALPHA
+            else:
+                tformat = GL_RGBA
+
+        if tformat is None:
+            raise RuntimeError(
+                "Could not find a texture format for image (name={}, num channels={})".format(texture.image.name, channels)
+            )
+
+        gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
+
+        return gltf_texture
+
     return {texture.name: export_texture(texture) for texture in textures
         if type(texture) == bpy.types.ImageTexture}
 
 
-def export_gltf(scene_delta):
+_path_map = {
+    'location': 'translation',
+    'rotation_quaternion': 'rotation',
+    'scale': 'scale',
+}
+
+
+def _can_object_use_action(obj, action):
+    for fcurve in action.fcurves:
+        path = fcurve.data_path
+        if not path.startswith('pose'):
+            return obj.animation_data is not None
+
+        if obj.type == 'ARMATURE':
+            path = path.split('["')[-1]
+            path = path.split('"]')[0]
+            if path in [bone.name for bone in obj.data.bones]:
+                return True
+
+    return False
+
+
+def export_actions(actions):
+    def export_action(obj, action):
+        params = []
+
+        exported_paths = {}
+        channels = {}
+
+        sce = bpy.context.scene
+        prev_frame = sce.frame_current
+        prev_action = obj.animation_data.action
+
+        frame_start, frame_end = [int(x) for x in action.frame_range]
+        num_frames = frame_end - frame_start
+        obj.animation_data.action = action
+
+        channels[obj.name] = []
+
+        if obj.type == 'ARMATURE':
+            for pbone in obj.pose.bones:
+                channels[pbone.name] = []
+
+        for frame in range(frame_start, frame_end):
+            sce.frame_set(frame)
+
+            channels[obj.name].append(obj.matrix_local)
+
+            if obj.type == 'ARMATURE':
+                for pbone in obj.pose.bones:
+                    if pbone.parent:
+                        mat = pbone.parent.matrix.inverted() * pbone.matrix
+                    else:
+                        mat = pbone.matrix
+                    channels[pbone.name].append(mat)
+
+        gltf_channels = []
+
+        for targetid, chan in channels.items():
+            buf = Buffer('{}_{}'.format(targetid, action.name))
+            lbv = buf.add_view(num_frames * 3 * 4, Buffer.ARRAY_BUFFER)
+            ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
+            rbv = buf.add_view(num_frames * 4 * 4, Buffer.ARRAY_BUFFER)
+            rdata = buf.add_accessor(rbv, 0, 4 * 4, Buffer.FLOAT, num_frames, Buffer.VEC4)
+            sbv = buf.add_view(num_frames * 3 * 4, Buffer.ARRAY_BUFFER)
+            sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
+
+            for i in range(num_frames):
+                mat = chan[i]
+                loc, rot, scale = mat.decompose()
+                for j in range(3):
+                    ldata[(i * 3) + j] = loc[j]
+                    sdata[(i * 3) + j] = scale[j]
+                for j in range(4):
+                    rdata[(i * 4) + j] = rot[j]
+
+            g_buffers.append(buf)
+
+            if targetid != obj.name:
+                targetid = '{}_root_{}'.format(obj.data.name, targetid)
+
+            gltf_channels += [
+                {
+                    'id': targetid,
+                    'path': 'translation',
+                    'data': ldata.name,
+                },
+                {
+                    'id': targetid,
+                    'path': 'rotation',
+                    'data': rdata.name,
+                },
+                {
+                    'id': targetid,
+                    'path': 'scale',
+                    'data': sdata.name,
+                }
+            ]
+
+        gltf_action = {
+            'channels': gltf_channels,
+            'frames': num_frames,
+        }
+
+        obj.animation_data.action = prev_action
+        sce.frame_set(prev_frame)
+
+        return gltf_action
+
+    gltf_actions = {}
+    for obj in bpy.data.objects:
+        act_prefix = '{}_root'.format(obj.data.name) if obj.type == 'ARMATURE' else obj.name
+        gltf_actions.update({
+            '{}|{}'.format(act_prefix, action.name): export_action(obj, action)
+            for action in actions
+            if _can_object_use_action(obj, action)
+        })
+
+    return gltf_actions
+
+
+def export_gltf(scene_delta, settings={}):
     global g_buffers
+
+    # Fill in any missing settings with defaults
+    for key, value in default_settings.items():
+        settings.setdefault(key, value)
 
     shaders = {}
     programs = {}
     techniques = {}
+    skinned_meshes = {}
 
     gltf = {
         'asset': {'version': '1.0'},
         'cameras': export_cameras(scene_delta.get('cameras', [])),
-        'extras': {'lights' : export_lights(scene_delta.get('lamps', []))},
-        'images': export_images(scene_delta.get('images', [])),
-        'materials': export_materials(scene_delta.get('materials', []),
+        'extras': {
+            'lights' : export_lights(scene_delta.get('lamps', [])),
+            'actions': export_actions(scene_delta.get('actions', [])),
+        },
+        'images': export_images(settings, scene_delta.get('images', [])),
+        'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'meshes': export_meshes(scene_delta.get('meshes', [])),
-        'nodes': export_nodes(scene_delta.get('objects', [])),
+        'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes),
+        # Make sure meshes come after nodes to detect which meshes are skinned
+        'meshes': export_meshes(scene_delta.get('meshes', []), skinned_meshes),
+        'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
         'scene': bpy.context.scene.name,
@@ -647,8 +940,11 @@ def export_gltf(scene_delta):
 
         # TODO
         'animations': {},
-        'skins': {},
     }
+
+    # Retroactively add skins attribute to nodes
+    for mesh_name, obj in skinned_meshes.items():
+        gltf['nodes'][obj.name]['skin'] = '{}_skin'.format(mesh_name)
 
     gltf.update(export_buffers())
     g_buffers = []
