@@ -482,7 +482,7 @@ def export_meshes(settings, meshes, skinned_meshes):
             if poly.loop_total == 3:
                 prim += indices
             elif poly.loop_total > 3:
-                for i in range(poly.loop_total-1):
+                for i in range(poly.loop_total-2):
                     prim += (indices[-1], indices[i], indices[i + 1])
             else:
                 raise RuntimeError("Invalid polygon with {} vertexes.".format(poly.loop_total))
