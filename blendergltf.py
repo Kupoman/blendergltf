@@ -928,7 +928,7 @@ def export_gltf(scene_delta, settings={}):
         'animations': {},
     }
 
-    if settings.get('export_textures', True) == True:
+    if settings['export_textures'] == True:
         gltf['samplers'] = {'default':{}}
         gltf['images'] = export_images(settings, scene_delta.get('images', []))
         gltf['textures'] = export_textures(scene_delta.get('textures', []))
