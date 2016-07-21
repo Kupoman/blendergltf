@@ -419,15 +419,23 @@ def export_meshes(settings, meshes, skinned_meshes):
         vert_list = [Vertex(me, loop) for loop in me.loops]
         num_verts = len(vert_list)
         va = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
-        vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+        vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts,
+                                 Buffer.VEC3)
+        ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts,
+                                 Buffer.VEC3)
+        tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT,
+                                  num_verts, Buffer.VEC2)
+                 for i in range(num_uv_layers)]
 
         skin_vertex_size = (4 + 4) * 4
-        skin_va = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
-        jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
-        wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
+        skin_va = skin_buf.add_view(skin_vertex_size * num_verts,
+                                    Buffer.ARRAY_BUFFER)
+        jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size,
+                                      Buffer.FLOAT, num_verts, Buffer.VEC4)
+        wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size,
+                                      Buffer.FLOAT, num_verts, Buffer.VEC4)
 
+        # Copy vertex data
         for i, vtx in enumerate(vert_list):
             vtx.index = i
             co = vtx.co
@@ -486,7 +494,8 @@ def export_meshes(settings, meshes, skinned_meshes):
                 for i in range(poly.loop_total-2):
                     prim += (indices[-1], indices[i], indices[i + 1])
             else:
-                raise RuntimeError("Invalid polygon with {} vertexes.".format(poly.loop_total))
+                raise RuntimeError(("Invalid polygon with {} "
+                                    "vertexes.").format(poly.loop_total))
 
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
@@ -500,7 +509,8 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             ib = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
 
-            idata = buf.add_accessor(ib, 0, istride, ity, len(prim), Buffer.SCALAR)
+            idata = buf.add_accessor(ib, 0, istride, ity, len(prim),
+                                     Buffer.SCALAR)
             for i, v in enumerate(prim):
                 idata[i] = v
 
