@@ -280,9 +280,21 @@ class Buffer:
                      byte_stride,
                      component_type,
                      count,
-                     type):
-        accessor_name = '{}_accessor_{}'.format(self.name, len(self.accessors))
-        self.accessors[accessor_name] = self.Accessor(accessor_name, self, buffer_view, byte_offset, byte_stride, component_type, count, type)
+                     type,
+                     name=None):
+
+        # Use the name given as a parameter if possible
+        accessor_name = name
+        if accessor_name == None:
+            accessor_name = '{}_accessor_{}'.format(self.name,
+                     len(self.accessors))
+
+        # Add the accessor
+        self.accessors[accessor_name] = self.Accessor(
+            accessor_name, self, buffer_view, byte_offset, byte_stride,
+            component_type, count, type
+        )
+
         return self.accessors[accessor_name]
 
     def export_accessors(self):
