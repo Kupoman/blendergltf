@@ -74,6 +74,12 @@ else:
             description="Export textures and texture coordinates",
             default=True)
 
+        pretty_print = BoolProperty(
+            name="Pretty-print / indent JSON",
+            description="Export JSON with indentation and a newline",
+            default=True
+            )
+
         def execute(self, context):
             scene = {
                 'actions': bpy.data.actions,
@@ -121,7 +127,19 @@ else:
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
-                json.dump(gltf, fout, indent=4, sort_keys=True, check_circular=False)
+                # Figure out indentation
+                if self.pretty_print:
+                    indent = 4
+                else:
+                    indent = None
+
+                # Dump the JSON
+                json.dump(gltf, fout, indent=indent, sort_keys=True,
+                          check_circular=False)
+
+                if self.pretty_print:
+                    # Write a newline to the end of the file
+                    fout.write('\n')
 
             # Clean up meshes
             for mesh in scene['meshes']:
