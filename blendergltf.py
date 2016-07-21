@@ -239,15 +239,21 @@ class Buffer:
             'uri': uri,
         }
 
-    def add_view(self, bytelength, target):
+    def add_view(self, bytelength, target=None):
         buffer_name = '{}_view_{}'.format(self.name, len(self.buffer_views))
-        self.buffer_views[buffer_name] = {
-                'data': bytearray(bytelength),
-                'target': target,
-                'bytelength': bytelength,
-                'byteoffset': self.bytelength,
-            }
+        buf_view = {
+            'data': bytearray(bytelength),
+            'bytelength': bytelength,
+            'byteoffset': self.bytelength,
+        }
+
+        # No target means a CPU buffer
+        if target != None:
+            buf_view['target'] = target
+
+        self.buffer_views[buffer_name] = buf_view
         self.bytelength += bytelength
+
         return buffer_name
 
     def export_views(self):
@@ -258,8 +264,10 @@ class Buffer:
                 'buffer': self.name,
                 'byteLength': v['bytelength'],
                 'byteOffset': v['byteoffset'],
-                'target': v['target'],
             }
+            target = v.get('target', None)
+            if target != None:
+                gltf[k]['target'] = target
 
         return gltf
 
