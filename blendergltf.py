@@ -395,6 +395,32 @@ def export_materials(settings, materials, shaders, programs, techniques):
 
 
 def export_meshes(settings, meshes, skinned_meshes):
+    def triangulate(indices):
+
+        # Triangulate each polygon if necessary
+        if len(indices) == 3:
+            # No triangulation necessary
+            return indices
+        elif len(indices) > 3:
+            # Triangulation necessary
+            total_indices = []
+            for i in range(len(indices) - 2):
+                total_indices += (indices[-1], indices[i], indices[i + 1])
+            return total_indices
+        else:
+            # Bad polygon, probably an edge or something strange.
+            raise RuntimeError(
+                "Invalid polygon with {} vertexes.".format(len(indices))
+            )
+
+    def get_index_type_stride(max_index):
+        itype = Buffer.UNSIGNED_SHORT
+        istride = 2
+        if max_index > 65535:
+            itype = Buffer.UNSIGNED_INT
+            istride = 4
+        return itype, istride
+
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
@@ -487,29 +513,17 @@ def export_meshes(settings, meshes, skinned_meshes):
                 if i > max_vert_index:
                     max_vert_index = i
 
-            # Triangulate each polygon if necessary
-            if poly.loop_total == 3:
-                prim += indices
-            elif poly.loop_total > 3:
-                for i in range(poly.loop_total-2):
-                    prim += (indices[-1], indices[i], indices[i + 1])
-            else:
-                raise RuntimeError(("Invalid polygon with {} "
-                                    "vertexes.").format(poly.loop_total))
+            prim += triangulate(indices)
 
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
             # TODO (Maybe): Use a single buffer view for all elements.
 
-            ity = Buffer.UNSIGNED_SHORT
-            istride = 2
-            if max_vert_index > 65535:
-                ity = Buffer.UNSIGNED_INT
-                istride = 4
+            itype, istride = get_index_type_stride(max_vert_index)
 
             ib = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
 
-            idata = buf.add_accessor(ib, 0, istride, ity, len(prim),
+            idata = buf.add_accessor(ib, 0, istride, itype, len(prim),
                                      Buffer.SCALAR)
             for i, v in enumerate(prim):
                 idata[i] = v
