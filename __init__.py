@@ -70,10 +70,9 @@ else:
                 'scenes': bpy.data.scenes,
                 'textures': bpy.data.textures,
             }
+
             # Copy properties to settings
-            settings = blendergltf.default_settings.copy()
-            settings['materials_export_shader'] = self.materials_export_shader
-            settings['images_embed_data'] = self.images_embed_data
+            settings = self.as_keywords(ignore=("filter_glob",))
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
