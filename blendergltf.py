@@ -12,6 +12,7 @@ import struct
 default_settings = {
     'materials_export_shader': False,
     'images_embed_data': False,
+    'asset_profile': 'WEB',
 }
 
 
@@ -25,6 +26,12 @@ GL_LUMINANCE_ALPHA = 6410
 # sRGB texture formats (not actually part of WebGL 1.0 or glTF 1.0)
 GL_SRGB = 0x8C40
 GL_SRGB_ALPHA = 0x8C42
+
+
+profile_map = {
+    'WEB': {'api': 'WebGL', 'version': '1.0.3'},
+    'DESKTOP': {'api': 'OpenGL', 'version': '3.0'}
+}
 
 
 if 'imported' in locals():
@@ -353,7 +360,10 @@ def export_materials(settings, materials, shaders, programs, techniques):
         else:
             # Handle shaders
             shader_data = gpu.export_shader(bpy.context.scene, material)
-            shader_converter.to_130(shader_data)
+            if settings['asset_profile'] == 'DESKTOP':
+                shader_converter.to_130(shader_data)
+            else:
+                shader_converter.to_web(shader_data)
             fs_bytes = shader_data['fragment'].encode()
             fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
             shaders[material.name+'FS'] = {'type': 35632, 'uri': fs_uri}
@@ -429,8 +439,8 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 'uniforms' : {u['varname'] : u['valname'] for u in shader_data['uniforms']},
             }
 
-            # exp_materials[material.name] = {'technique': tech_name, 'values': values}
-            exp_materials[material.name] = {}
+            exp_materials[material.name] = {'technique': tech_name, 'values': values}
+            # exp_materials[material.name] = {}
 
     return exp_materials
 
@@ -917,7 +927,10 @@ def export_gltf(scene_delta, settings={}):
     skinned_meshes = {}
 
     gltf = {
-        'asset': {'version': '1.0'},
+        'asset': {
+            'version': '1.0',
+            'profile': profile_map[settings['asset_profile']]
+        },
         'cameras': export_cameras(scene_delta.get('cameras', [])),
         'extras': {
             'lights' : export_lights(scene_delta.get('lamps', [])),

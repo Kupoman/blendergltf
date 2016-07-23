@@ -40,6 +40,10 @@ else:
     from . import blendergltf
 
 
+    profile_items = (
+        ('WEB', 'Web', 'Export shaders for WebGL 1.0 use (shader version 100)'),
+        ('DESKTOP', 'Desktop', 'Export shaders for OpenGL 3.0 use (shader version 130)')
+    )
     class ExportGLTF(bpy.types.Operator, ExportHelper):
         """Save a Khronos glTF File"""
 
@@ -57,6 +61,7 @@ else:
         #blendergltf settings
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
+        asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
 
         def execute(self, context):
             scene = {
@@ -74,6 +79,7 @@ else:
             settings = blendergltf.default_settings.copy()
             settings['materials_export_shader'] = self.materials_export_shader
             settings['images_embed_data'] = self.images_embed_data
+            settings['asset_profile'] = self.asset_profile
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
