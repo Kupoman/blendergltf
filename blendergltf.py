@@ -84,6 +84,8 @@ class Buffer:
     UNSIGNED_BYTE = 5121
     SHORT = 5122
     UNSIGNED_SHORT = 5123
+    INT = 5124
+    UNSIGNED_INT = 5125
     FLOAT = 5126
 
     MAT4 = 'MAT4'
@@ -148,6 +150,10 @@ class Buffer:
                 self._ctype = '<h'
             elif component_type == Buffer.UNSIGNED_SHORT:
                 self._ctype = '<H'
+            elif component_type == Buffer.INT:
+                self._ctype = '<i'
+            elif component_type == Buffer.UNSIGNED_INT:
+                self._ctype = '<I'
             elif component_type == Buffer.FLOAT:
                 self._ctype = '<f'
             else:
@@ -233,15 +239,21 @@ class Buffer:
             'uri': uri,
         }
 
-    def add_view(self, bytelength, target):
+    def add_view(self, bytelength, target=None):
         buffer_name = '{}_view_{}'.format(self.name, len(self.buffer_views))
-        self.buffer_views[buffer_name] = {
-                'data': bytearray(bytelength),
-                'target': target,
-                'bytelength': bytelength,
-                'byteoffset': self.bytelength,
-            }
+        buf_view = {
+            'data': bytearray(bytelength),
+            'bytelength': bytelength,
+            'byteoffset': self.bytelength,
+        }
+
+        # No target means a CPU buffer
+        if target != None:
+            buf_view['target'] = target
+
+        self.buffer_views[buffer_name] = buf_view
         self.bytelength += bytelength
+
         return buffer_name
 
     def export_views(self):
@@ -253,6 +265,9 @@ class Buffer:
                 'byteLength': v['bytelength'],
                 'byteOffset': v['byteoffset'],
             }
+            target = v.get('target', None)
+            if target != None:
+                gltf[k]['target'] = target
 
             if v['target'] is not None:
                 gltf[k]['target'] = v['target']
@@ -268,9 +283,21 @@ class Buffer:
                      byte_stride,
                      component_type,
                      count,
-                     type):
-        accessor_name = '{}_accessor_{}'.format(self.name, len(self.accessors))
-        self.accessors[accessor_name] = self.Accessor(accessor_name, self, buffer_view, byte_offset, byte_stride, component_type, count, type)
+                     type,
+                     name=None):
+
+        # Use the name given as a parameter if possible
+        accessor_name = name
+        if accessor_name == None:
+            accessor_name = '{}_accessor_{}'.format(self.name,
+                     len(self.accessors))
+
+        # Add the accessor
+        self.accessors[accessor_name] = self.Accessor(
+            accessor_name, self, buffer_view, byte_offset, byte_stride,
+            component_type, count, type
+        )
+
         return self.accessors[accessor_name]
 
     def export_accessors(self):
@@ -370,7 +397,33 @@ def export_materials(settings, materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(meshes, skinned_meshes):
+def export_meshes(settings, meshes, skinned_meshes):
+    def triangulate(indices):
+
+        # Triangulate each polygon if necessary
+        if len(indices) == 3:
+            # No triangulation necessary
+            return indices
+        elif len(indices) > 3:
+            # Triangulation necessary
+            total_indices = []
+            for i in range(len(indices) - 2):
+                total_indices += (indices[-1], indices[i], indices[i + 1])
+            return total_indices
+        else:
+            # Bad polygon, probably an edge or something strange.
+            raise RuntimeError(
+                "Invalid polygon with {} vertexes.".format(len(indices))
+            )
+
+    def get_index_type_stride(max_index):
+        itype = Buffer.UNSIGNED_SHORT
+        istride = 2
+        if max_index > 65535:
+            itype = Buffer.UNSIGNED_INT
+            istride = 4
+        return itype, istride
+
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
@@ -392,18 +445,26 @@ def export_meshes(meshes, skinned_meshes):
 
         # Vertex data
 
-        vert_list = { Vertex(me, loop) : 0 for loop in me.loops}.keys()
+        vert_list = [Vertex(me, loop) for loop in me.loops]
         num_verts = len(vert_list)
         va = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
-        vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+        vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts,
+                                 Buffer.VEC3)
+        ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts,
+                                 Buffer.VEC3)
+        tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT,
+                                  num_verts, Buffer.VEC2)
+                 for i in range(num_uv_layers)]
 
         skin_vertex_size = (4 + 4) * 4
-        skin_va = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
-        jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
-        wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
+        skin_va = skin_buf.add_view(skin_vertex_size * num_verts,
+                                    Buffer.ARRAY_BUFFER)
+        jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size,
+                                      Buffer.FLOAT, num_verts, Buffer.VEC4)
+        wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size,
+                                      Buffer.FLOAT, num_verts, Buffer.VEC4)
 
+        # Copy vertex data
         for i, vtx in enumerate(vert_list):
             vtx.index = i
             co = vtx.co
@@ -426,32 +487,47 @@ def export_meshes(meshes, skinned_meshes):
                     jdata[(i * 4) + j] = joints[j]
                     wdata[(i * 4) + j] = weights[j]
 
+        # For each material, make an empty primitive set.
+        # This dictionary maps material names to list of indices that form the
+        # part of the mesh that the material should be applied to.
         prims = {ma.name if ma else '': [] for ma in me.materials}
         if not prims:
             prims = {'': []}
 
         # Index data
+        # Map loop indices to vertices
         vert_dict = {i : v for v in vert_list for i in v.loop_indices}
+
+        max_vert_index = 0
         for poly in me.polygons:
-            first = poly.loop_start
+            # Find the primitive that this polygon ought to belong to (by
+            # material).
             if len(me.materials) == 0:
                 prim = prims['']
             else:
                 mat = me.materials[poly.material_index]
                 prim = prims[mat.name if mat else '']
-            indices = [vert_dict[i].index for i in range(first, first+poly.loop_total)]
 
-            if poly.loop_total == 3:
-                prim += indices
-            elif poly.loop_total > 3:
-                for i in range(poly.loop_total-1):
-                    prim += (indices[-1], indices[i], indices[i + 1])
-            else:
-                raise RuntimeError("Invalid polygon with {} vertexes.".format(poly.loop_total))
+            # Find the vertex index associated with each loop in the polygon
+            indices = [vert_dict[i].index for i in poly.loop_indices]
+
+            # Record the maximum index.
+            for i in indices:
+                if i > max_vert_index:
+                    max_vert_index = i
+
+            prim += triangulate(indices)
 
         for mat, prim in prims.items():
-            ib = buf.add_view(2 * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim), Buffer.SCALAR)
+            # For each primitive set add an index buffer and accessor.
+            # TODO (Maybe): Use a single buffer view for all elements.
+
+            itype, istride = get_index_type_stride(max_vert_index)
+
+            ib = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
+
+            idata = buf.add_accessor(ib, 0, istride, itype, len(prim),
+                                     Buffer.SCALAR)
             for i, v in enumerate(prim):
                 idata[i] = v
 
@@ -464,8 +540,12 @@ def export_meshes(meshes, skinned_meshes):
                 'mode': 4,
                 'material': mat,
             }
-            for i, v in enumerate(tdata):
-                gltf_prim['attributes']['TEXCOORD_' + me.uv_layers[i].name] = v.name
+
+            # If we weren't asked to export textures, don't bother exporting
+            # texturing coordinates
+            if settings['export_textures'] == True:
+                for i, v in enumerate(tdata):
+                    gltf_prim['attributes']['TEXCOORD_' + str(i)] = v.name
 
             if is_skinned:
                 gltf_prim['attributes']['JOINT'] = jdata.name
@@ -478,7 +558,7 @@ def export_meshes(meshes, skinned_meshes):
             g_buffers.append(skin_buf)
         return gltf_mesh
 
-    return {me.name: export_mesh(me) for me in meshes if me.users != 0}
+    return {me.name: export_mesh(me) for me in meshes}
 
 
 def export_skins(skinned_meshes):
@@ -569,7 +649,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(objects, skinned_meshes):
+def export_nodes(objects, skinned_meshes, obj_meshes):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -592,7 +672,7 @@ def export_nodes(objects, skinned_meshes):
         }
 
         if obj.type == 'MESH':
-            ob['meshes'] = [obj.data.name]
+            ob['meshes'] = [obj_meshes[obj].name]
             if obj.find_armature():
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[obj.data.name] = obj
@@ -715,7 +795,7 @@ def export_textures(textures):
         return gltf_texture
 
     return {texture.name: export_texture(texture) for texture in textures
-        if type(texture) == bpy.types.ImageTexture}
+            if type(texture) == bpy.types.ImageTexture and len(texture.users_material) > 0}
 
 
 _path_map = {
@@ -858,24 +938,28 @@ def export_gltf(scene_delta, settings={}):
             'lights' : export_lights(scene_delta.get('lamps', [])),
             'actions': export_actions(scene_delta.get('actions', [])),
         },
-        'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
-            shaders, programs, techniques),
-        'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes),
+                                      shaders, programs, techniques),
+        'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes,
+                              scene_delta.get('obj_meshes', [])),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(scene_delta.get('meshes', []), skinned_meshes),
+        'meshes': export_meshes(settings, scene_delta.get('meshes', []),
+                                skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
-        'samplers': {'default':{}},
         'scene': bpy.context.scene.name,
         'scenes': export_scenes(scene_delta.get('scenes', [])),
         'shaders': shaders,
         'techniques': techniques,
-        'textures': export_textures(scene_delta.get('textures', [])),
 
         # TODO
         'animations': {},
     }
+
+    if settings['export_textures'] == True:
+        gltf['samplers'] = {'default':{}}
+        gltf['images'] = export_images(settings, scene_delta.get('images', []))
+        gltf['textures'] = export_textures(scene_delta.get('textures', []))
 
     # Retroactively add skins attribute to nodes
     for mesh_name, obj in skinned_meshes.items():
