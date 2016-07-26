@@ -252,8 +252,10 @@ class Buffer:
                 'buffer': self.name,
                 'byteLength': v['bytelength'],
                 'byteOffset': v['byteoffset'],
-                'target': v['target'],
             }
+
+            if v['target'] is not None:
+                gltf[k]['target'] = v['target']
 
         return gltf
 
@@ -491,7 +493,7 @@ def export_skins(skinned_meshes):
         element_size = 16 * 4
         num_elements = len(obj.vertex_groups)
         buf = Buffer('IBM_{}_skin'.format(obj.name))
-        buf_view = buf.add_view(element_size * num_elements, Buffer.ARRAY_BUFFER)
+        buf_view = buf.add_view(element_size * num_elements, None)
         idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
 
         for i in range(num_elements):
@@ -776,11 +778,11 @@ def export_actions(actions):
 
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
-            lbv = buf.add_view(num_frames * 3 * 4, Buffer.ARRAY_BUFFER)
+            lbv = buf.add_view(num_frames * 3 * 4, None)
             ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
-            rbv = buf.add_view(num_frames * 4 * 4, Buffer.ARRAY_BUFFER)
+            rbv = buf.add_view(num_frames * 4 * 4, None)
             rdata = buf.add_accessor(rbv, 0, 4 * 4, Buffer.FLOAT, num_frames, Buffer.VEC4)
-            sbv = buf.add_view(num_frames * 3 * 4, Buffer.ARRAY_BUFFER)
+            sbv = buf.add_view(num_frames * 3 * 4, None)
             sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
 
             for i in range(num_frames):
