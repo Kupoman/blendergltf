@@ -718,13 +718,6 @@ def export_textures(textures):
         if type(texture) == bpy.types.ImageTexture}
 
 
-_path_map = {
-    'location': 'translation',
-    'rotation_quaternion': 'rotation',
-    'scale': 'scale',
-}
-
-
 def _can_object_use_action(obj, action):
     for fcurve in action.fcurves:
         path = fcurve.data_path
