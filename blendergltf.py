@@ -371,37 +371,6 @@ def export_materials(settings, materials, shaders, programs, techniques):
 
 
 def export_meshes(meshes, skinned_meshes):
-    def triangulate(indices):
-
-        # Triangulate each polygon if necessary
-        if len(indices) == 3:
-            # No triangulation necessary
-            return indices
-        elif len(indices) > 3:
-            # Triangulation necessary
-            total_indices = []
-            for i in range(len(indices) - 2):
-                total_indices += (indices[-1], indices[i], indices[i + 1])
-            return total_indices
-        else:
-            # Bad polygon, probably an edge or something strange.
-            raise RuntimeError(
-                "Invalid polygon with {} vertices.".format(len(indices))
-            )
-
-    def get_index_type_stride(max_index):
-        if max_index > 65535:
-            # Too large! In the future we may want to just split the mesh into
-            # smaller parts.
-            raise RuntimeError(
-                "Mesh is too large with {} vertices.".format(max_index)
-            )
-
-        # Otherwise the mesh will fit in a short just fine.
-        itype = Buffer.UNSIGNED_SHORT
-        istride = 2
-        return itype, istride
-
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
@@ -482,22 +451,34 @@ def export_meshes(meshes, skinned_meshes):
             # Find the (vertex) index associated with each loop in the polygon.
             indices = [vert_dict[i].index for i in poly.loop_indices]
 
-            # Record the maximum index. This isn't used now but may be used in
-            # the future to determine whether a mesh needs to be split or if
-            # integer indices are to be used, etc.
+            # Used to determine whether a mesh must be split.
             for i in indices:
                 if i > max_vert_index:
                     max_vert_index = i
 
-            prim += triangulate(indices)
+            if len(indices) == 3:
+                # No triangulation necessary
+                prim += indices
+            elif len(indices) > 3:
+                # Triangulation necessary
+                for i in range(len(indices) - 2):
+                    prim += (indices[-1], indices[i], indices[i + 1])
+            else:
+                # Bad polygon
+                raise RuntimeError(
+                    "Invalid polygon with {} vertices.".format(len(indices))
+                )
+
+        if max_vert_index > 65535:
+            # Mesh too big!
+            print(("Too many vertices ({}) in mesh {}").format(max_vert_index, me.name))
+            return None
 
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
 
-            itype, istride = get_index_type_stride(max_vert_index)
-
-            ib = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(ib, 0, istride, itype, len(prim),
+            ib = buf.add_view(2 * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
+            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim),
                                      Buffer.SCALAR)
 
             for i, v in enumerate(prim):
@@ -526,7 +507,13 @@ def export_meshes(meshes, skinned_meshes):
             g_buffers.append(skin_buf)
         return gltf_mesh
 
-    return {me.name: export_mesh(me) for me in meshes if me.users != 0}
+    exported_meshes = {}
+    for me in meshes:
+        if me.users != 0:
+            gltf_mesh = export_mesh(me)
+            if gltf_mesh != None:
+                exported_meshes.update({me.name: gltf_mesh})
+    return exported_meshes
 
 
 def export_skins(skinned_meshes):
