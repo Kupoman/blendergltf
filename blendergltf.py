@@ -883,6 +883,8 @@ def export_gltf(scene_delta, settings={}):
     if global_matrix != None:
         # If a global matrix was provided apply it to all objects.
         for obj in object_list:
+            if obj.type != 'MESH': continue
+
             # Find the mesh associated with this object
             if obj.name in mod_meshes:
                 # Use the modified mesh copy (completely safe to modify).
