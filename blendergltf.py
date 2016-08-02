@@ -453,8 +453,7 @@ def export_meshes(meshes, skinned_meshes):
 
             # Used to determine whether a mesh must be split.
             for i in indices:
-                if i > max_vert_index:
-                    max_vert_index = i
+                max_vert_index = max(i, max_vert_index)
 
             if len(indices) == 3:
                 # No triangulation necessary
