@@ -84,7 +84,8 @@ else:
             }
 
             # Copy properties to settings
-            settings = self.as_keywords(ignore=("filter_glob",))
+            settings = self.as_keywords(ignore=("filter_glob", "axis_up",
+                                                "axis_forward"))
 
             # Calculate a global matrix to apply to each mesh.
             settings['global_matrix'] = axis_conversion(
