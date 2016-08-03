@@ -13,6 +13,7 @@ default_settings = {
     'materials_export_shader': False,
     'meshes_apply_modifiers': True,
     'images_embed_data': False,
+    'global_matrix': mathutils.Matrix.Identity(4)
 }
 
 
