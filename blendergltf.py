@@ -843,6 +843,7 @@ def export_gltf(scene_delta, settings={}):
     programs = {}
     techniques = {}
     skinned_meshes = {}
+    g_buffers = []
 
     gltf = {
         'asset': {'version': '1.0'},
