@@ -871,13 +871,17 @@ def export_gltf(scene_delta, settings={}):
     gltf = {
         'asset': {'version': '1.0'},
         'cameras': export_cameras(scene_delta.get('cameras', [])),
+        'extensions': {
+            'BLENDER_actions': {
+                'actions': export_actions(scene_delta.get('actions', [])),
+            },
+        },
         'extensionsUsed': [
             'BLENDER_actions',
             'BLENDER_physics',
         ],
         'extras': {
             'lights' : export_lights(scene_delta.get('lamps', [])),
-            'actions': export_actions(scene_delta.get('actions', [])),
         },
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
