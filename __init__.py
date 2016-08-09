@@ -60,30 +60,48 @@ else:
 
         #blendergltf settings
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)
+        meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
         asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
 
+        pretty_print = BoolProperty(
+            name="Pretty-print / indent JSON",
+            description="Export JSON with indentation and a newline",
+            default=True
+            )
+
         def execute(self, context):
             scene = {
-                'actions': bpy.data.actions,
-                'camera': bpy.data.cameras,
-                'lamps': bpy.data.lamps,
-                'images': bpy.data.images,
-                'materials': bpy.data.materials,
-                'meshes': bpy.data.meshes,
-                'objects': bpy.data.objects,
-                'scenes': bpy.data.scenes,
-                'textures': bpy.data.textures,
+                'actions': list(bpy.data.actions),
+                'camera': list(bpy.data.cameras),
+                'lamps': list(bpy.data.lamps),
+                'images': list(bpy.data.images),
+                'materials': list(bpy.data.materials),
+                'meshes': list(bpy.data.meshes),
+                'objects': list(bpy.data.objects),
+                'scenes': list(bpy.data.scenes),
+                'textures': list(bpy.data.textures),
             }
+
             # Copy properties to settings
-            settings = blendergltf.default_settings.copy()
-            settings['materials_export_shader'] = self.materials_export_shader
-            settings['images_embed_data'] = self.images_embed_data
+            settings = self.as_keywords(ignore=("filter_glob",))
             settings['asset_profile'] = self.asset_profile
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
-                json.dump(gltf, fout, indent=4, sort_keys=True, check_circular=False)
+                # Figure out indentation
+                if self.pretty_print:
+                    indent = 4
+                else:
+                    indent = None
+
+                # Dump the JSON
+                json.dump(gltf, fout, indent=indent, sort_keys=True,
+                          check_circular=False)
+
+                if self.pretty_print:
+                    # Write a newline to the end of the file
+                    fout.write('\n')
             return {'FINISHED'}
 
 

@@ -11,6 +11,7 @@ import struct
 
 default_settings = {
     'materials_export_shader': False,
+    'meshes_apply_modifiers': True,
     'images_embed_data': False,
     'asset_profile': 'WEB',
 }
@@ -270,8 +271,10 @@ class Buffer:
                 'buffer': self.name,
                 'byteLength': v['bytelength'],
                 'byteOffset': v['byteoffset'],
-                'target': v['target'],
             }
+
+            if v['target'] is not None:
+                gltf[k]['target'] = v['target']
 
         return gltf
 
@@ -479,6 +482,7 @@ def export_meshes(meshes, skinned_meshes):
         jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
         wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
 
+        # Copy vertex data
         for i, vtx in enumerate(vert_list):
             vtx.index = i
             co = vtx.co
@@ -501,32 +505,59 @@ def export_meshes(meshes, skinned_meshes):
                     jdata[(i * 4) + j] = joints[j]
                     wdata[(i * 4) + j] = weights[j]
 
+        # For each material, make an empty primitive set.
+        # This dictionary maps material names to list of indices that form the
+        # part of the mesh that the material should be applied to.
         prims = {ma.name if ma else '': [] for ma in me.materials}
         if not prims:
             prims = {'': []}
 
         # Index data
+        # Map loop indices to vertices
         vert_dict = {i : v for v in vert_list for i in v.loop_indices}
+
+        max_vert_index = 0
         for poly in me.polygons:
-            first = poly.loop_start
+            # Find the primitive that this polygon ought to belong to (by
+            # material).
             if len(me.materials) == 0:
                 prim = prims['']
             else:
                 mat = me.materials[poly.material_index]
                 prim = prims[mat.name if mat else '']
-            indices = [vert_dict[i].index for i in range(first, first+poly.loop_total)]
 
-            if poly.loop_total == 3:
+            # Find the (vertex) index associated with each loop in the polygon.
+            indices = [vert_dict[i].index for i in poly.loop_indices]
+
+            # Used to determine whether a mesh must be split.
+            for i in indices:
+                max_vert_index = max(i, max_vert_index)
+
+            if len(indices) == 3:
+                # No triangulation necessary
                 prim += indices
-            elif poly.loop_total > 3:
-                for i in range(poly.loop_total-1):
+            elif len(indices) > 3:
+                # Triangulation necessary
+                for i in range(len(indices) - 2):
                     prim += (indices[-1], indices[i], indices[i + 1])
             else:
-                raise RuntimeError("Invalid polygon with {} vertexes.".format(poly.loop_total))
+                # Bad polygon
+                raise RuntimeError(
+                    "Invalid polygon with {} vertices.".format(len(indices))
+                )
+
+        if max_vert_index > 65535:
+            # Mesh too big!
+            print(("Too many vertices ({}) in mesh {}").format(max_vert_index, me.name))
+            return None
 
         for mat, prim in prims.items():
+            # For each primitive set add an index buffer and accessor.
+
             ib = buf.add_view(2 * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim), Buffer.SCALAR)
+            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim),
+                                     Buffer.SCALAR)
+
             for i, v in enumerate(prim):
                 idata[i] = v
 
@@ -553,7 +584,13 @@ def export_meshes(meshes, skinned_meshes):
             g_buffers.append(skin_buf)
         return gltf_mesh
 
-    return {me.name: export_mesh(me) for me in meshes if me.users != 0}
+    exported_meshes = {}
+    for me in meshes:
+        if me.users != 0:
+            gltf_mesh = export_mesh(me)
+            if gltf_mesh != None:
+                exported_meshes.update({me.name: gltf_mesh})
+    return exported_meshes
 
 
 def export_skins(skinned_meshes):
@@ -568,7 +605,7 @@ def export_skins(skinned_meshes):
         element_size = 16 * 4
         num_elements = len(obj.vertex_groups)
         buf = Buffer('IBM_{}_skin'.format(obj.name))
-        buf_view = buf.add_view(element_size * num_elements, Buffer.ARRAY_BUFFER)
+        buf_view = buf.add_view(element_size * num_elements, None)
         idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
 
         for i in range(num_elements):
@@ -644,7 +681,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(objects, skinned_meshes):
+def export_nodes(objects, skinned_meshes, modded_meshes):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -667,10 +704,11 @@ def export_nodes(objects, skinned_meshes):
         }
 
         if obj.type == 'MESH':
-            ob['meshes'] = [obj.data.name]
+            mesh = modded_meshes.get(obj.name, obj.data)
+            ob['meshes'] = [mesh.name]
             if obj.find_armature():
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
-                skinned_meshes[obj.data.name] = obj
+                skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
             ob['extras'] = {'light': obj.data.name}
         elif obj.type == 'CAMERA':
@@ -793,13 +831,6 @@ def export_textures(textures):
         if type(texture) == bpy.types.ImageTexture}
 
 
-_path_map = {
-    'location': 'translation',
-    'rotation_quaternion': 'rotation',
-    'scale': 'scale',
-}
-
-
 def _can_object_use_action(obj, action):
     for fcurve in action.fcurves:
         path = fcurve.data_path
@@ -853,11 +884,11 @@ def export_actions(actions):
 
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
-            lbv = buf.add_view(num_frames * 3 * 4, Buffer.ARRAY_BUFFER)
+            lbv = buf.add_view(num_frames * 3 * 4, None)
             ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
-            rbv = buf.add_view(num_frames * 4 * 4, Buffer.ARRAY_BUFFER)
+            rbv = buf.add_view(num_frames * 4 * 4, None)
             rdata = buf.add_accessor(rbv, 0, 4 * 4, Buffer.FLOAT, num_frames, Buffer.VEC4)
-            sbv = buf.add_view(num_frames * 3 * 4, Buffer.ARRAY_BUFFER)
+            sbv = buf.add_view(num_frames * 3 * 4, None)
             sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
 
             for i in range(num_frames):
@@ -924,7 +955,29 @@ def export_gltf(scene_delta, settings={}):
     shaders = {}
     programs = {}
     techniques = {}
+    mesh_list = []
+    mod_meshes = {}
     skinned_meshes = {}
+    g_buffers = []
+    object_list = list(scene_delta.get('objects', []))
+
+    # Apply modifiers
+    if settings['meshes_apply_modifiers']:
+        scene = bpy.context.scene
+        mod_obs = [ob for ob in object_list if ob.is_modified(scene, 'PREVIEW')]
+        for mesh in scene_delta.get('meshes', []):
+            mod_users = [ob for ob in mod_obs if ob.data == mesh]
+
+            # Only convert meshes with modifiers, otherwise each non-modifier
+            # user ends up with a copy of the mesh and we lose instancing
+            mod_meshes.update({ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users})
+
+            # Add unmodified meshes directly to the mesh list
+            if len(mod_users) < mesh.users:
+                mesh_list.append(mesh)
+        mesh_list.extend(mod_meshes.values())
+    else:
+        mesh_list = scene_delta.get('meshes', [])
 
     gltf = {
         'asset': {
@@ -932,16 +985,24 @@ def export_gltf(scene_delta, settings={}):
             'profile': profile_map[settings['asset_profile']]
         },
         'cameras': export_cameras(scene_delta.get('cameras', [])),
+        'extensions': {
+            'BLENDER_actions': {
+                'actions': export_actions(scene_delta.get('actions', [])),
+            },
+        },
+        'extensionsUsed': [
+            'BLENDER_actions',
+            'BLENDER_physics',
+        ],
         'extras': {
             'lights' : export_lights(scene_delta.get('lamps', [])),
-            'actions': export_actions(scene_delta.get('actions', [])),
         },
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'nodes': export_nodes(scene_delta.get('objects', []), skinned_meshes),
+        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(scene_delta.get('meshes', []), skinned_meshes),
+        'meshes': export_meshes(mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
@@ -963,5 +1024,9 @@ def export_gltf(scene_delta, settings={}):
     g_buffers = []
 
     gltf = {key: value for key, value in gltf.items() if value}
+
+    # Remove any temporary meshes from applying modifiers
+    for mesh in mod_meshes.values():
+        bpy.data.meshes.remove(mesh)
 
     return gltf
