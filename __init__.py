@@ -85,7 +85,6 @@ else:
 
             # Copy properties to settings
             settings = self.as_keywords(ignore=("filter_glob",))
-            settings['asset_profile'] = self.asset_profile
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
