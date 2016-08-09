@@ -372,11 +372,11 @@ def export_materials(settings, materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(meshes, skinned_meshes):
+def export_meshes(meshes, skinned_meshes, mesh_names):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
-                'name': me.name,
+                'name': mesh_names[me.name],
                 'primitives': [],
             }
 
@@ -480,7 +480,7 @@ def export_meshes(meshes, skinned_meshes):
             g_buffers.append(skin_buf)
         return gltf_mesh
 
-    return {me.name: export_mesh(me) for me in meshes}
+    return {mesh_names[me.name]: export_mesh(me) for me in meshes}
 
 
 def export_skins(skinned_meshes):
@@ -571,7 +571,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(objects, skinned_meshes, modded_meshes):
+def export_nodes(objects, skinned_meshes, modded_meshes, mesh_names):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -582,7 +582,7 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
         }
 
         if rb.collision_shape in ('CONVEX_HULL', 'MESH'):
-            physics['mesh'] = obj.data.name
+            physics['mesh'] = mesh_names[modded_meshes.get(obj.name,obj.data).name]
 
         return physics
 
@@ -595,7 +595,7 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
 
         if obj.type == 'MESH':
             mesh = modded_meshes.get(obj.name, obj.data)
-            ob['meshes'] = [mesh.name]
+            ob['meshes'] = [mesh_names[mesh.name]]
             if obj.find_armature():
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[mesh.name] = obj
@@ -852,56 +852,38 @@ def export_gltf(scene_delta, settings={}):
     shaders = {}
     programs = {}
     techniques = {}
-    mesh_list = []
-    mod_meshes = {}
     skinned_meshes = {}
+
     object_list = list(scene_delta.get('objects', []))
+    mod_meshes = {}
+    mesh_names = {}
 
-    # Apply modifiers
-    if settings['meshes_apply_modifiers']:
-        scene = bpy.context.scene
-        mod_obs = [ob for ob in object_list if ob.is_modified(scene, 'PREVIEW')]
-        for mesh in scene_delta.get('meshes', []):
-            mod_users = [ob for ob in mod_obs if ob.data == mesh]
+    global_mat = settings['global_matrix']
+    apply_modifiers = settings['meshes_apply_modifiers']
 
-            # Only convert meshes with modifiers, otherwise each non-modifier
-            # user ends up with a copy of the mesh and we lose instancing
-            mod_meshes.update({ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users})
+    # Apply modifiers and transform using the global matrix
+    scene = bpy.context.scene
+    for mesh in scene_delta.get('meshes', []):
+        # Find all users of this mesh
+        obj_users = [ob for ob in object_list if ob.data == mesh]
 
-            # Add unmodified meshes directly to the mesh list
-            if len(mod_users) < mesh.users:
-                mesh_list.append(mesh)
-        mesh_list.extend(mod_meshes.values())
-    else:
-        mesh_list = scene_delta.get('meshes', [])
+        # For each user of the mesh
+        for ob in obj_users:
 
-    # Use this to store objects that we need to transform back from their
-    # converted axis space. There is no need to copy meshes that don't have any
-    # modifiers applied but that means we have to be careful in modifying them.
-    user_objects = []
+            # Apply modifiers
+            mesh_copy = ob.to_mesh(scene, apply_modifiers, 'PREVIEW')
 
-    global_matrix = settings.get('global_matrix', None)
-    if global_matrix != None:
-        # If a global matrix was provided apply it to all objects.
-        for obj in object_list:
-            if obj.type != 'MESH': continue
+            world_mat = ob.matrix_world
+            inv_world_mat = world_mat.inverted()
 
-            # Find the mesh associated with this object
-            if obj.name in mod_meshes:
-                # Use the modified mesh copy (completely safe to modify).
-                mesh = mod_meshes[obj.name]
-            else:
-                # We have to remember to undo the transformation because this is
-                # a user mesh (not one we created).
-                mesh = obj.data
-                user_objects.append(obj)
+            # Transform the new mesh
+            mesh_copy.transform(inv_world_mat * global_mat * world_mat)
 
-            inv_world_mat = obj.matrix_world.inverted()
+            # Link the new mesh to the original object
+            mod_meshes[ob.name] = mesh_copy
+            mesh_names[mesh_copy.name] = mesh.name
 
-            # Transform the mesh from model space to blender world space, then
-            # converted-axis world space and finally back to a converted-axis
-            # model space, suitable for copying.
-            mesh.transform(inv_world_mat * global_matrix * obj.matrix_world)
+    mesh_list = mod_meshes.values()
 
     gltf = {
         'asset': {'version': '1.0'},
@@ -913,9 +895,10 @@ def export_gltf(scene_delta, settings={}):
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
+        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes,
+                              mesh_names),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(mesh_list, skinned_meshes),
+        'meshes': export_meshes(mesh_list, skinned_meshes, mesh_names),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
@@ -941,12 +924,5 @@ def export_gltf(scene_delta, settings={}):
     # Remove any temporary meshes from applying modifiers
     for mesh in mod_meshes.values():
         bpy.data.meshes.remove(mesh)
-
-    # Reset the transformation on meshes that we didn't create
-    if global_matrix != None:
-        for obj in user_objects:
-            inv_world_mat = obj.matrix_world.inverted()
-            inv_global_matrix = global_matrix.inverted()
-            mesh.transform(inv_world_mat * inv_global_matrix * obj.matrix_world)
 
     return gltf
