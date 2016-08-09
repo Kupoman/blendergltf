@@ -405,6 +405,7 @@ def export_meshes(meshes, skinned_meshes):
         jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
         wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
 
+        # Copy vertex data
         for i, vtx in enumerate(vert_list):
             vtx.index = i
             co = vtx.co
@@ -427,32 +428,59 @@ def export_meshes(meshes, skinned_meshes):
                     jdata[(i * 4) + j] = joints[j]
                     wdata[(i * 4) + j] = weights[j]
 
+        # For each material, make an empty primitive set.
+        # This dictionary maps material names to list of indices that form the
+        # part of the mesh that the material should be applied to.
         prims = {ma.name if ma else '': [] for ma in me.materials}
         if not prims:
             prims = {'': []}
 
         # Index data
+        # Map loop indices to vertices
         vert_dict = {i : v for v in vert_list for i in v.loop_indices}
+
+        max_vert_index = 0
         for poly in me.polygons:
-            first = poly.loop_start
+            # Find the primitive that this polygon ought to belong to (by
+            # material).
             if len(me.materials) == 0:
                 prim = prims['']
             else:
                 mat = me.materials[poly.material_index]
                 prim = prims[mat.name if mat else '']
-            indices = [vert_dict[i].index for i in range(first, first+poly.loop_total)]
 
-            if poly.loop_total == 3:
+            # Find the (vertex) index associated with each loop in the polygon.
+            indices = [vert_dict[i].index for i in poly.loop_indices]
+
+            # Used to determine whether a mesh must be split.
+            for i in indices:
+                max_vert_index = max(i, max_vert_index)
+
+            if len(indices) == 3:
+                # No triangulation necessary
                 prim += indices
-            elif poly.loop_total > 3:
-                for i in range(poly.loop_total-2):
+            elif len(indices) > 3:
+                # Triangulation necessary
+                for i in range(len(indices) - 2):
                     prim += (indices[-1], indices[i], indices[i + 1])
             else:
-                raise RuntimeError("Invalid polygon with {} vertexes.".format(poly.loop_total))
+                # Bad polygon
+                raise RuntimeError(
+                    "Invalid polygon with {} vertices.".format(len(indices))
+                )
+
+        if max_vert_index > 65535:
+            # Mesh too big!
+            print(("Too many vertices ({}) in mesh {}").format(max_vert_index, me.name))
+            return None
 
         for mat, prim in prims.items():
+            # For each primitive set add an index buffer and accessor.
+
             ib = buf.add_view(2 * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim), Buffer.SCALAR)
+            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim),
+                                     Buffer.SCALAR)
+
             for i, v in enumerate(prim):
                 idata[i] = v
 
@@ -479,7 +507,13 @@ def export_meshes(meshes, skinned_meshes):
             g_buffers.append(skin_buf)
         return gltf_mesh
 
-    return {me.name: export_mesh(me) for me in meshes if me.users != 0}
+    exported_meshes = {}
+    for me in meshes:
+        if me.users != 0:
+            gltf_mesh = export_mesh(me)
+            if gltf_mesh != None:
+                exported_meshes.update({me.name: gltf_mesh})
+    return exported_meshes
 
 
 def export_skins(skinned_meshes):
