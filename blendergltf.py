@@ -12,6 +12,7 @@ import struct
 default_settings = {
     'materials_export_shader': False,
     'meshes_apply_modifiers': True,
+    'meshes_vertex_format' : 'CONTIGUOUS',
     'images_embed_data': False,
     'asset_profile': 'WEB',
 }
@@ -448,7 +449,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(meshes, skinned_meshes):
+def export_meshes(settings, meshes, skinned_meshes):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
@@ -473,9 +474,16 @@ def export_meshes(meshes, skinned_meshes):
         vert_list = { Vertex(me, loop) : 0 for loop in me.loops}.keys()
         num_verts = len(vert_list)
         va = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
-        vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+
+        #Interleave
+        if settings['meshes_vertex_format'] == 'INTERLEAVED':
+            vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
+            ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
+            tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+        else:
+            vdata = buf.add_accessor(va, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+            ndata = buf.add_accessor(va, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+            tdata = [buf.add_accessor(va, num_verts*(24 + 8 * i), 8, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
 
         skin_vertex_size = (4 + 4) * 4
         skin_va = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
@@ -1002,7 +1010,7 @@ def export_gltf(scene_delta, settings={}):
             shaders, programs, techniques),
         'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(mesh_list, skinned_meshes),
+        'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
