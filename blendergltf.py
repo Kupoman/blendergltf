@@ -346,15 +346,35 @@ def export_cameras(cameras):
 
 def export_materials(settings, materials, shaders, programs, techniques):
     def export_material(material):
+        all_textures = [ts for ts in material.texture_slots if ts and ts.texture.type == 'IMAGE']
+        diffuse_textures = [t.texture.name for t in all_textures if t.use_map_color_diffuse]
+        emission_textures = [t.texture.name for t in all_textures if t.use_map_emit]
+        specular_textures = [t.texture.name for t in all_textures if t.use_map_color_spec]
+        diffuse_color = list((material.diffuse_color * material.diffuse_intensity)[:]) + [material.alpha]
+        emission_color = list((material.diffuse_color * material.emit)[:]) + [material.alpha]
+        specular_color = list((material.specular_color * material.specular_intensity)[:]) + [material.specular_alpha]
+        technique = 'PHONG'
+        if material.use_shadeless:
+            technique = 'CONSTANT'
+        elif material.specular_intensity == 0.0:
+            technique = 'LAMBERT'
+        elif material.specular_shader == 'BLINN':
+            technique = 'BLINN'
         return {
-                'values': {
-                    'diffuse': list((material.diffuse_color * material.diffuse_intensity)[:]) + [material.alpha],
-                    'specular': list((material.specular_color * material.specular_intensity)[:]) + [material.specular_alpha],
-                    'emission': list((material.diffuse_color * material.emit)[:]) + [material.alpha],
-                    'ambient': [material.ambient] * 4,
-                    'shininess': material.specular_hardness,
-                    'textures': [ts.texture.name for ts in material.texture_slots if ts and ts.texture.type == 'IMAGE'],
-                    'uv_layers': [ts.uv_layer for ts in material.texture_slots if ts]
+                'extensions': {
+                    'KHR_materials_common': {
+                        'technique': technique,
+                        'values': {
+                            'ambient': ([material.ambient]*3) + [1.0],
+                            'diffuse': diffuse_textures[-1] if diffuse_textures else diffuse_color,
+                            'doubleSided': not material.game_settings.use_backface_culling,
+                            'emission': emission_textures[-1] if emission_textures else emission_color,
+                            'specular': specular_textures[-1] if specular_textures else specular_color,
+                            'shininess': material.specular_hardness,
+                            'transparency': material.alpha,
+                            'transparent': material.use_transparency,
+                        }
+                    }
                 }
             }
     exp_materials = {}
@@ -1023,6 +1043,9 @@ def export_gltf(scene_delta, settings={}):
         # TODO
         'animations': {},
     }
+
+    if settings['materials_export_shader'] == False:
+        gltf['extensionsUsed'].append('KHR_materials_common')
 
     # Retroactively add skins attribute to nodes
     for mesh_name, obj in skinned_meshes.items():
