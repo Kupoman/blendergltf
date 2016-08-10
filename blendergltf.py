@@ -14,6 +14,7 @@ default_settings = {
     'meshes_apply_modifiers': True,
     'images_embed_data': False,
     'asset_profile': 'WEB',
+    'global_matrix': mathutils.Matrix.Identity(4)
 }
 
 
@@ -448,11 +449,11 @@ def export_materials(settings, materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(meshes, skinned_meshes):
+def export_meshes(meshes, skinned_meshes, mesh_names):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
-                'name': me.name,
+                'name': mesh_names[me.name],
                 'primitives': [],
             }
 
@@ -586,12 +587,10 @@ def export_meshes(meshes, skinned_meshes):
 
     exported_meshes = {}
     for me in meshes:
-        if me.users != 0:
-            gltf_mesh = export_mesh(me)
-            if gltf_mesh != None:
-                exported_meshes.update({me.name: gltf_mesh})
+        gltf_mesh = export_mesh(me)
+        if gltf_mesh != None:
+            exported_meshes.update({me.name: gltf_mesh})
     return exported_meshes
-
 
 def export_skins(skinned_meshes):
     def export_skin(obj):
@@ -680,8 +679,7 @@ def export_lights(lamps):
 
     return gltf
 
-
-def export_nodes(objects, skinned_meshes, modded_meshes):
+def export_nodes(objects, skinned_meshes, modded_meshes, mesh_names):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -692,7 +690,7 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
         }
 
         if rb.collision_shape in ('CONVEX_HULL', 'MESH'):
-            physics['mesh'] = obj.data.name
+            physics['mesh'] = mesh_names[modded_meshes.get(obj.name,obj.data).name]
 
         return physics
 
@@ -705,7 +703,7 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
 
         if obj.type == 'MESH':
             mesh = modded_meshes.get(obj.name, obj.data)
-            ob['meshes'] = [mesh.name]
+            ob['meshes'] = [mesh_names[mesh.name]]
             if obj.find_armature():
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[mesh.name] = obj
@@ -955,29 +953,39 @@ def export_gltf(scene_delta, settings={}):
     shaders = {}
     programs = {}
     techniques = {}
-    mesh_list = []
-    mod_meshes = {}
     skinned_meshes = {}
     g_buffers = []
+
     object_list = list(scene_delta.get('objects', []))
+    mod_meshes = {}
+    mesh_names = {}
 
-    # Apply modifiers
-    if settings['meshes_apply_modifiers']:
-        scene = bpy.context.scene
-        mod_obs = [ob for ob in object_list if ob.is_modified(scene, 'PREVIEW')]
-        for mesh in scene_delta.get('meshes', []):
-            mod_users = [ob for ob in mod_obs if ob.data == mesh]
+    global_mat = settings['global_matrix']
+    apply_modifiers = settings['meshes_apply_modifiers']
 
-            # Only convert meshes with modifiers, otherwise each non-modifier
-            # user ends up with a copy of the mesh and we lose instancing
-            mod_meshes.update({ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users})
+    # Apply modifiers and transform using the global matrix
+    scene = bpy.context.scene
+    for mesh in scene_delta.get('meshes', []):
+        # Find all users of this mesh
+        obj_users = [ob for ob in object_list if ob.data == mesh]
 
-            # Add unmodified meshes directly to the mesh list
-            if len(mod_users) < mesh.users:
-                mesh_list.append(mesh)
-        mesh_list.extend(mod_meshes.values())
-    else:
-        mesh_list = scene_delta.get('meshes', [])
+        # For each user of the mesh
+        for ob in obj_users:
+
+            # Apply modifiers
+            mesh_copy = ob.to_mesh(scene, apply_modifiers, 'PREVIEW')
+
+            world_mat = ob.matrix_world
+            inv_world_mat = world_mat.inverted()
+
+            # Transform the new mesh
+            mesh_copy.transform(inv_world_mat * global_mat * world_mat)
+
+            # Link the new mesh to the original object
+            mod_meshes[ob.name] = mesh_copy
+            mesh_names[mesh_copy.name] = mesh.name
+
+    mesh_list = mod_meshes.values()
 
     gltf = {
         'asset': {
@@ -1000,9 +1008,10 @@ def export_gltf(scene_delta, settings={}):
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
+        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes,
+                              mesh_names),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(mesh_list, skinned_meshes),
+        'meshes': export_meshes(mesh_list, skinned_meshes, mesh_names),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
