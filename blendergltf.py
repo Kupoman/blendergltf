@@ -28,12 +28,14 @@ GL_LUMINANCE_ALPHA = 6410
 GL_SRGB = 0x8C40
 GL_SRGB_ALPHA = 0x8C42
 
+OES_ELEMENT_INDEX_UINT = 'OES_element_index_uint'
 
 profile_map = {
     'WEB': {'api': 'WebGL', 'version': '1.0.3'},
     'DESKTOP': {'api': 'OpenGL', 'version': '3.0'}
 }
 
+g_glExtensionsUsed = []
 
 if 'imported' in locals():
     import imp
@@ -552,10 +554,10 @@ def export_meshes(settings, meshes, skinned_meshes):
                     "Invalid polygon with {} vertices.".format(len(indices))
                 )
 
-        if max_vert_index > 65535 and settings['asset_profile'] != 'DESKTOP':
-            # Mesh too big!
-            print(("Too many vertices ({}) in mesh {}").format(max_vert_index, me.name))
-            return None
+        if max_vert_index > 65535:
+            # Use the integer index extension
+            if OES_ELEMENT_INDEX_UINT not in g_glExtensionsUsed:
+                g_glExtensionsUsed.append(OES_ELEMENT_INDEX_UINT)
 
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
@@ -962,6 +964,7 @@ def export_actions(actions):
 
 def export_gltf(scene_delta, settings={}):
     global g_buffers
+    global g_glExtensionsUsed
 
     # Fill in any missing settings with defaults
     for key, value in default_settings.items():
@@ -973,7 +976,11 @@ def export_gltf(scene_delta, settings={}):
     mesh_list = []
     mod_meshes = {}
     skinned_meshes = {}
+
+    # Clear globals
     g_buffers = []
+    g_glExtensionsUsed = []
+
     object_list = list(scene_delta.get('objects', []))
 
     # Apply modifiers
@@ -1036,7 +1043,9 @@ def export_gltf(scene_delta, settings={}):
         gltf['nodes'][obj.name]['skin'] = '{}_skin'.format(mesh_name)
 
     gltf.update(export_buffers())
+    gltf.update({'glExtensionsUsed': g_glExtensionsUsed})
     g_buffers = []
+    g_glExtensionsUsed = []
 
     gltf = {key: value for key, value in gltf.items() if value}
 
