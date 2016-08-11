@@ -549,7 +549,9 @@ def export_meshes(meshes, skinned_meshes, mesh_names):
 
         if max_vert_index > 65535:
             # Mesh too big!
-            print(("Too many vertices ({}) in mesh {}").format(max_vert_index, me.name))
+            print(("Too many vertices ({}) in mesh {}").format(
+                max_vert_index, mesh_names[me.name]
+            ))
             return None
 
         for mat, prim in prims.items():
