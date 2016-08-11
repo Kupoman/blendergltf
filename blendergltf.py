@@ -591,7 +591,7 @@ def export_meshes(meshes, skinned_meshes, mesh_names):
     for me in meshes:
         gltf_mesh = export_mesh(me)
         if gltf_mesh != None:
-            exported_meshes.update({me.name: gltf_mesh})
+            exported_meshes.update({mesh_names[me.name]: gltf_mesh})
     return exported_meshes
 
 def export_skins(skinned_meshes):
