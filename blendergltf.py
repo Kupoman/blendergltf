@@ -28,12 +28,14 @@ GL_LUMINANCE_ALPHA = 6410
 GL_SRGB = 0x8C40
 GL_SRGB_ALPHA = 0x8C42
 
+OES_ELEMENT_INDEX_UINT = 'OES_element_index_uint'
 
 profile_map = {
     'WEB': {'api': 'WebGL', 'version': '1.0.3'},
     'DESKTOP': {'api': 'OpenGL', 'version': '3.0'}
 }
 
+g_glExtensionsUsed = []
 
 if 'imported' in locals():
     import imp
@@ -103,6 +105,9 @@ class Buffer:
     UNSIGNED_BYTE = 5121
     SHORT = 5122
     UNSIGNED_SHORT = 5123
+    INT = 5124
+    UNSIGNED_INT = 5125
+
     FLOAT = 5126
 
     MAT4 = 'MAT4'
@@ -167,6 +172,10 @@ class Buffer:
                 self._ctype = '<h'
             elif component_type == Buffer.UNSIGNED_SHORT:
                 self._ctype = '<H'
+            elif component_type == Buffer.INT:
+                self._ctype = '<i'
+            elif component_type == Buffer.UNSIGNED_INT:
+                self._ctype = '<I'
             elif component_type == Buffer.FLOAT:
                 self._ctype = '<f'
             else:
@@ -448,7 +457,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(meshes, skinned_meshes):
+def export_meshes(settings, meshes, skinned_meshes):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
@@ -546,15 +555,24 @@ def export_meshes(meshes, skinned_meshes):
                 )
 
         if max_vert_index > 65535:
-            # Mesh too big!
-            print(("Too many vertices ({}) in mesh {}").format(max_vert_index, me.name))
-            return None
+            # Use the integer index extension
+            if OES_ELEMENT_INDEX_UINT not in g_glExtensionsUsed:
+                g_glExtensionsUsed.append(OES_ELEMENT_INDEX_UINT)
 
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
 
-            ib = buf.add_view(2 * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(ib, 0, 2, Buffer.UNSIGNED_SHORT, len(prim),
+            # If we got this far use integers if we have to, if this is not
+            # desirable we would have bailed out by now.
+            if max_vert_index > 65535:
+                itype = Buffer.UNSIGNED_INT
+                istride = 4
+            else:
+                itype = Buffer.UNSIGNED_SHORT
+                istride = 2
+
+            ib = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
+            idata = buf.add_accessor(ib, 0, istride, itype, len(prim),
                                      Buffer.SCALAR)
 
             for i, v in enumerate(prim):
@@ -946,6 +964,7 @@ def export_actions(actions):
 
 def export_gltf(scene_delta, settings={}):
     global g_buffers
+    global g_glExtensionsUsed
 
     # Fill in any missing settings with defaults
     for key, value in default_settings.items():
@@ -957,7 +976,11 @@ def export_gltf(scene_delta, settings={}):
     mesh_list = []
     mod_meshes = {}
     skinned_meshes = {}
+
+    # Clear globals
     g_buffers = []
+    g_glExtensionsUsed = []
+
     object_list = list(scene_delta.get('objects', []))
 
     # Apply modifiers
@@ -1001,7 +1024,7 @@ def export_gltf(scene_delta, settings={}):
             shaders, programs, techniques),
         'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(mesh_list, skinned_meshes),
+        'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
@@ -1020,7 +1043,9 @@ def export_gltf(scene_delta, settings={}):
         gltf['nodes'][obj.name]['skin'] = '{}_skin'.format(mesh_name)
 
     gltf.update(export_buffers())
+    gltf.update({'glExtensionsUsed': g_glExtensionsUsed})
     g_buffers = []
+    g_glExtensionsUsed = []
 
     gltf = {key: value for key, value in gltf.items() if value}
 
