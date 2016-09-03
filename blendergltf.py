@@ -448,12 +448,11 @@ def export_materials(settings, materials, shaders, programs, techniques):
 
     return exp_materials
 
-
-def export_meshes(meshes, skinned_meshes, mesh_names):
+def export_meshes(settings, meshes, skinned_meshes):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
-                'name': mesh_names[me.name],
+                'name': me.name,
                 'primitives': [],
             }
 
@@ -591,7 +590,7 @@ def export_meshes(meshes, skinned_meshes, mesh_names):
     for me in meshes:
         gltf_mesh = export_mesh(me)
         if gltf_mesh != None:
-            exported_meshes.update({mesh_names[me.name]: gltf_mesh})
+            exported_meshes.update({me.name: gltf_mesh})
     return exported_meshes
 
 def export_skins(skinned_meshes):
@@ -681,7 +680,7 @@ def export_lights(lamps):
 
     return gltf
 
-def export_nodes(objects, skinned_meshes, modded_meshes, mesh_names):
+def export_nodes(objects, skinned_meshes, modded_meshes):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -692,7 +691,7 @@ def export_nodes(objects, skinned_meshes, modded_meshes, mesh_names):
         }
 
         if rb.collision_shape in ('CONVEX_HULL', 'MESH'):
-            physics['mesh'] = mesh_names[modded_meshes.get(obj.name,obj.data).name]
+            physics['mesh'] = modded_meshes.get(obj.name,obj.data).name
 
         return physics
 
@@ -705,7 +704,7 @@ def export_nodes(objects, skinned_meshes, modded_meshes, mesh_names):
 
         if obj.type == 'MESH':
             mesh = modded_meshes.get(obj.name, obj.data)
-            ob['meshes'] = [mesh_names[mesh.name]]
+            ob['meshes'] = [mesh.name]
             if obj.find_armature():
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[mesh.name] = obj
@@ -960,7 +959,6 @@ def export_gltf(scene_delta, settings={}):
 
     object_list = list(scene_delta.get('objects', []))
     mod_meshes = {}
-    mesh_names = {}
 
     global_mat = settings['global_matrix']
     apply_modifiers = settings['meshes_apply_modifiers']
@@ -985,7 +983,6 @@ def export_gltf(scene_delta, settings={}):
 
             # Link the new mesh to the original object
             mod_meshes[ob.name] = mesh_copy
-            mesh_names[mesh_copy.name] = mesh.name
 
     mesh_list = mod_meshes.values()
 
@@ -1010,10 +1007,9 @@ def export_gltf(scene_delta, settings={}):
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes,
-                              mesh_names),
+        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(mesh_list, skinned_meshes, mesh_names),
+        'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
