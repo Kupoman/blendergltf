@@ -7,6 +7,7 @@ import json
 import collections
 import base64
 import struct
+import zlib
 
 
 default_settings = {
@@ -800,11 +801,35 @@ def export_buffers():
     return gltf
 
 
+def image_to_data_uri(image):
+    width = image.size[0]
+    height = image.size[1]
+    buf = bytearray([int(p * 255) for p in image.pixels])
+
+    # reverse the vertical line order and add null bytes at the start
+    width_byte_4 = width * 4
+    raw_data = b''.join(b'\x00' + buf[span:span + width_byte_4]
+                        for span in range((height - 1) * width_byte_4, -1, - width_byte_4))
+
+    def png_pack(png_tag, data):
+        chunk_head = png_tag + data
+        return (struct.pack("!I", len(data)) +
+                chunk_head +
+                struct.pack("!I", 0xFFFFFFFF & zlib.crc32(chunk_head)))
+
+    png_bytes = b''.join([
+        b'\x89PNG\r\n\x1a\n',
+        png_pack(b'IHDR', struct.pack("!2I5B", width, height, 8, 6, 0, 0, 0)),
+        png_pack(b'IDAT', zlib.compress(raw_data, 9)),
+        png_pack(b'IEND', b'')])
+
+    return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
+
+
 def export_images(settings, images):
     def export_image(image):
         if settings['images_embed_data']:
-            pixels = bytearray([int(p * 255) for p in image.pixels])
-            uri = 'data:text/plain;base64,' + base64.b64encode(pixels).decode('ascii')
+            uri = image_to_data_uri(image)
         else:
             uri = image.filepath.replace('//', '')
 
