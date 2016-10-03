@@ -87,6 +87,7 @@ TYPE_TO_SEMANTIC = {
     GPU_DYNAMIC_LAMP_DYNIMAT : 'BL_DYNIMAT',
     GPU_DYNAMIC_LAMP_DYNPERSMAT : 'BL_DYNPERSMAT',
     CD_ORCO: 'POSITION',
+    CD_MTFACE: 'TEXCOORD_0',
     -1: 'NORMAL'        # Hack until the gpu module has something for normals
 }
 

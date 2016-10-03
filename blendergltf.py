@@ -445,11 +445,11 @@ def export_materials(settings, materials, shaders, programs, techniques):
                             value = getattr(lamp_obj.data, rnaname)
                     elif uniform['type'] in gpu_luts.MIST_TYPES:
                         valname = 'mist_' + valname
-                        settings = bpy.context.scene.world.mist_settings
+                        mist_settings = bpy.context.scene.world.mist_settings
                         if valname == 'mist_color':
                             value = bpy.context.scene.world.horizon_color
                         else:
-                            value = getattr(settings, rnaname)
+                            value = getattr(mist_settings, rnaname)
 
                         if valname == 'mist_falloff':
                             value = 0.0 if value == 'QUADRATIC' else 1.0 if 'LINEAR' else 2.0
@@ -459,6 +459,11 @@ def export_materials(settings, materials, shaders, programs, techniques):
                     elif uniform['type'] in gpu_luts.MATERIAL_TYPES:
                         value = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](getattr(material, rnaname))
                         values[valname] = value
+                    elif uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
+                        for ts in [ts for ts in material.texture_slots if ts and ts.texture.type == 'IMAGE']:
+                            if ts.texture.image.name == uniform['image'].name:
+                                value = ts.texture.name
+                                values[uniform['varname']] = value
                     else:
                         print('Unconverted uniform:', uniform)
 
@@ -469,7 +474,10 @@ def export_materials(settings, materials, shaders, programs, techniques):
                         parameter['node'] = node
                 else:
                     parameter['value'] = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](value)
-                parameter['type'] = gpu_luts.DATATYPE_TO_GLTF_TYPE[uniform['datatype']]
+                if uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
+                    parameter['type'] = 35678 #SAMPLER_2D
+                else:
+                    parameter['type'] = gpu_luts.DATATYPE_TO_GLTF_TYPE[uniform['datatype']]
                 parameters[valname] = parameter
                 uniform['valname'] = valname
 
