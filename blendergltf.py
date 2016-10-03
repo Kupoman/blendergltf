@@ -398,6 +398,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 shader_converter.to_130(shader_data)
             else:
                 shader_converter.to_web(shader_data)
+
             fs_bytes = shader_data['fragment'].encode()
             fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
             shaders[material.name+'FS'] = {'type': 35632, 'uri': fs_uri}
@@ -432,6 +433,8 @@ def export_materials(settings, materials, shaders, programs, techniques):
                     semantic = 'MODELVIEW'
                 elif uniform['varname'] == 'bl_ProjectionMatrix':
                     semantic = 'PROJECTION'
+                elif uniform['varname'] == 'bl_NormalMatrix':
+                    semantic = 'MODELVIEWINVERSETRANSPOSE'
                 else:
                     if uniform['type'] in gpu_luts.LAMP_TYPES:
                         node = uniform['lamp'].name

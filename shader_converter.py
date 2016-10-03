@@ -16,6 +16,11 @@ def vs_to_130(data):
         'type': 0,
         'datatype': gpu.GPU_DATA_16F,
     })
+    data['uniforms'].append( {
+        'varname': 'bl_NormalMatrix',
+        'type': 0,
+        'datatype': gpu.GPU_DATA_9F,
+    })
     src = data['vertex']
     src = '#version 130\nin vec4 bl_Vertex;\nin vec3 bl_Normal;\nuniform mat4 bl_ModelViewMatrix;\nuniform mat4 bl_ProjectionMatrix;\nuniform mat3 bl_NormalMatrix;\n' + src
     src = re.sub(r'#ifdef USE_OPENSUBDIV([^#]*)#endif', '', src)
@@ -36,6 +41,21 @@ def fs_to_130(data):
 
     # Cannot support node_bsdf functions without resolving use of gl_Light
     src = re.sub(r'void node_((bsdf)|(subsurface))_.*?^}', '', src, 0, re.DOTALL|re.MULTILINE)
+
+    # Need to gather light data from more general uniforms
+    decl_start_str = 'void main()\n{\n'
+    for uniform in data['uniforms']:
+        if uniform['type'] == gpu.GPU_DYNAMIC_LAMP_DYNCO:
+            varname = uniform['lamp'].name + '_transform'
+            uniform['datatype'] = gpu.GPU_DATA_16F
+            src = src.replace(
+                'uniform vec3 {};'.format(uniform['varname']),
+                'uniform mat4 {};'.format(varname)
+            )
+            var_decl_start = src.find(decl_start_str) + len(decl_start_str)
+            decl_str = '\tvec3 {} = {}[3].xyz;\n'.format(uniform['varname'], varname)
+            src = src[:var_decl_start] + decl_str + src[var_decl_start:]
+            uniform['varname'] = varname
 
     data['fragment'] = src.replace('\r\r\n', '')
 
