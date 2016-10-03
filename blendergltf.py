@@ -428,36 +428,42 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 node = None
                 value = None
 
-                if uniform['type'] in gpu_luts.LAMP_TYPES:
-                    node = uniform['lamp'].name
-                    valname = node + '_' + valname
-                    semantic = gpu_luts.TYPE_TO_SEMANTIC.get(uniform['type'], None)
-                    if not semantic:
-                        lamp_obj = bpy.data.objects[node]
-                        value = getattr(lamp_obj.data, rnaname)
-                elif uniform['type'] in gpu_luts.MIST_TYPES:
-                    valname = 'mist_' + valname
-                    settings = bpy.context.scene.world.mist_settings
-                    if valname == 'mist_color':
-                        value = bpy.context.scene.world.horizon_color
-                    else:
-                        value = getattr(settings, rnaname)
-
-                    if valname == 'mist_falloff':
-                        value = 0.0 if value == 'QUADRATIC' else 1.0 if 'LINEAR' else 2.0
-                elif uniform['type'] in gpu_luts.WORLD_TYPES:
-                    world = bpy.context.scene.world
-                    value = getattr(world, rnaname)
-                elif uniform['type'] in gpu_luts.MATERIAL_TYPES:
-                    value = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](getattr(material, rnaname))
-                    values[valname] = value
+                if uniform['varname'] == 'bl_ModelViewMatrix':
+                    semantic = 'MODELVIEW'
+                elif uniform['varname'] == 'bl_ProjectionMatrix':
+                    semantic = 'PROJECTION'
                 else:
-                    print('Unconverted uniform:', uniform)
+                    if uniform['type'] in gpu_luts.LAMP_TYPES:
+                        node = uniform['lamp'].name
+                        valname = node + '_' + valname
+                        semantic = gpu_luts.TYPE_TO_SEMANTIC.get(uniform['type'], None)
+                        if not semantic:
+                            lamp_obj = bpy.data.objects[node]
+                            value = getattr(lamp_obj.data, rnaname)
+                    elif uniform['type'] in gpu_luts.MIST_TYPES:
+                        valname = 'mist_' + valname
+                        settings = bpy.context.scene.world.mist_settings
+                        if valname == 'mist_color':
+                            value = bpy.context.scene.world.horizon_color
+                        else:
+                            value = getattr(settings, rnaname)
+
+                        if valname == 'mist_falloff':
+                            value = 0.0 if value == 'QUADRATIC' else 1.0 if 'LINEAR' else 2.0
+                    elif uniform['type'] in gpu_luts.WORLD_TYPES:
+                        world = bpy.context.scene.world
+                        value = getattr(world, rnaname)
+                    elif uniform['type'] in gpu_luts.MATERIAL_TYPES:
+                        value = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](getattr(material, rnaname))
+                        values[valname] = value
+                    else:
+                        print('Unconverted uniform:', uniform)
 
                 parameter = {}
                 if semantic:
                     parameter['semantic'] = semantic
-                    parameter['node'] = node
+                    if node:
+                        parameter['node'] = node
                 else:
                     parameter['value'] = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](value)
                 parameter['type'] = gpu_luts.DATATYPE_TO_GLTF_TYPE[uniform['datatype']]

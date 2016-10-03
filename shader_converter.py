@@ -4,8 +4,18 @@ import gpu
 
 
 def vs_to_130(data):
-    data['attributes'].append({'varname': 'bl_Vertex', 'type': gpu.CD_ORCO, 'datatype': gpu.GPU_DATA_3F})
+    data['attributes'].append({'varname': 'bl_Vertex', 'type': gpu.CD_ORCO, 'datatype': gpu.GPU_DATA_4F})
     data['attributes'].append({'varname': 'bl_Normal', 'type': -1, 'datatype': gpu.GPU_DATA_3F})
+    data['uniforms'].append( {
+        'varname': 'bl_ModelViewMatrix',
+        'type': 0,
+        'datatype': gpu.GPU_DATA_16F,
+    })
+    data['uniforms'].append( {
+        'varname': 'bl_ProjectionMatrix',
+        'type': 0,
+        'datatype': gpu.GPU_DATA_16F,
+    })
     src = data['vertex']
     src = '#version 130\nin vec4 bl_Vertex;\nin vec3 bl_Normal;\nuniform mat4 bl_ModelViewMatrix;\nuniform mat4 bl_ProjectionMatrix;\nuniform mat3 bl_NormalMatrix;\n' + src
     src = re.sub(r'#ifdef USE_OPENSUBDIV([^#]*)#endif', '', src)
