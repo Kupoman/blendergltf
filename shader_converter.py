@@ -43,10 +43,17 @@ def fs_to_130(data):
     src = re.sub(r'void node_((bsdf)|(subsurface))_.*?^}', '', src, 0, re.DOTALL|re.MULTILINE)
 
     # Need to gather light data from more general uniforms
+    light_count = 0
+    light_map = {}
     decl_start_str = 'void main()\n{\n'
     for uniform in data['uniforms']:
         if uniform['type'] == gpu.GPU_DYNAMIC_LAMP_DYNCO:
-            varname = uniform['lamp'].name + '_transform'
+            lamp_name = uniform['lamp'].name
+            if lamp_name not in light_map:
+                light_map[lamp_name] = light_count
+                light_count += 1
+            light_index = light_map[lamp_name]
+            varname = 'light{}_transform'.format(light_index)
             uniform['datatype'] = gpu.GPU_DATA_16F
             src = src.replace(
                 'uniform vec3 {};'.format(uniform['varname']),
