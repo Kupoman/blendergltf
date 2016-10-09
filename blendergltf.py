@@ -699,7 +699,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(objects, skinned_meshes, modded_meshes):
+def export_nodes(scenes, objects, skinned_meshes, modded_meshes):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -742,7 +742,8 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
 
         return ob
 
-    gltf_nodes = {obj.name: export_node(obj) for obj in objects}
+    is_visible = lambda obj: any(obj.is_visible(scene) for scene in scenes)
+    gltf_nodes = {obj.name: export_node(obj) for obj in objects if is_visible(obj)}
 
     def export_joint(arm_name, bone):
         gltf_joint = {
@@ -774,11 +775,10 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
 def export_scenes(scenes):
     def export_scene(scene):
         return {
-            'nodes': [ob.name for ob in scene.objects if ob.parent is None],
+            'nodes': [ob.name for ob in scene.objects if ob.parent is None and ob.is_visible(scene)],
             'extras': {
                 'background_color': scene.world.horizon_color[:],
                 'active_camera': scene.camera.name if scene.camera else '',
-                'hidden_nodes': [ob.name for ob in scene.objects if not ob.is_visible(scene)],
                 'frames_per_second': scene.render.fps,
             }
         }
@@ -1026,6 +1026,7 @@ def export_gltf(scene_delta, settings={}):
     else:
         mesh_list = scene_delta.get('meshes', [])
 
+    scenes = scene_delta.get('scenes', [])
     gltf = {
         'asset': {
             'version': '1.0',
@@ -1047,14 +1048,14 @@ def export_gltf(scene_delta, settings={}):
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
+        'nodes': export_nodes(scenes, object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
         'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
         'scene': bpy.context.scene.name,
-        'scenes': export_scenes(scene_delta.get('scenes', [])),
+        'scenes': export_scenes(scenes),
         'shaders': shaders,
         'techniques': techniques,
         'textures': export_textures(scene_delta.get('textures', [])),
