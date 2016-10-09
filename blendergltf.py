@@ -589,7 +589,7 @@ def export_meshes(settings, meshes, skinned_meshes):
                 'material': mat,
             }
             for i, v in enumerate(tdata):
-                gltf_prim['attributes']['TEXCOORD_' + me.uv_layers[i].name] = v.name
+                gltf_prim['attributes']['TEXCOORD_' + str(i)] = v.name
 
             if is_skinned:
                 gltf_prim['attributes']['JOINT'] = jdata.name
