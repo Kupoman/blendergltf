@@ -143,6 +143,7 @@ class Buffer:
                      component_type,
                      count,
                      type):
+            assert count >= 1
             self.name = name
             self.buffer = buffer
             self.buffer_view = buffer_view
