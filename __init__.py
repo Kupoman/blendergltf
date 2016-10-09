@@ -59,6 +59,7 @@ else:
         check_extension = True
 
         #blendergltf settings
+        nodes_selected_only = BoolProperty(name='Selection Only', default=False)
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
