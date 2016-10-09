@@ -579,6 +579,7 @@ def export_meshes(settings, meshes, skinned_meshes):
             for i, v in enumerate(prim):
                 idata[i] = v
 
+            assert len(idata.name) >= 1
             gltf_prim = {
                 'attributes': {
                     'POSITION': vdata.name,
@@ -586,8 +587,9 @@ def export_meshes(settings, meshes, skinned_meshes):
                 },
                 'indices': idata.name,
                 'mode': 4,
-                'material': mat,
             }
+            if len(mat) >= 1:
+                gltf_prim['material'] = mat
             for i, v in enumerate(tdata):
                 gltf_prim['attributes']['TEXCOORD_' + me.uv_layers[i].name] = v.name
 
