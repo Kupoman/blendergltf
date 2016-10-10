@@ -327,6 +327,19 @@ def togl(matrix):
     return [i for col in matrix.col for i in col]
 
 
+def selected_in_subtree(parent_obj):
+    """Return True if object or any of its children
+       is selected in the outline tree, False otherwise.
+
+    """
+    if parent_obj.select:
+        return True
+    if len(parent_obj.children) > 0:
+        return any(selected_in_subtree(child) for child in parent_obj.children)
+    else:
+        return False
+
+
 def export_cameras(cameras):
     def export_camera(camera):
         if camera.type == 'ORTHO':
@@ -714,19 +727,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
 
         return physics
 
-    def selected_in_subtree(parent_obj):
-        """Return True if object or any of its children
-           is selected in the outline tree, False otherwise.
-
-        """
-        if parent_obj.select:
-            return True
-        if len(parent_obj.children) > 0:
-            return any(selected_in_subtree(child) for child in parent_obj.children)
-        else:
-            return False
-
-    is_visible  = lambda obj: any(obj.is_visible(scene) for scene in scenes)
+    is_visible  = lambda obj: True if settings['nodes_export_hidden'] else any(obj.is_visible(scene) for scene in scenes)
     is_selected = lambda obj: selected_in_subtree(obj) if settings['nodes_selected_only'] else True
 
     def export_node(obj):
@@ -786,16 +787,25 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     return gltf_nodes
 
 
-def export_scenes(scenes):
+def export_scenes(settings, scenes):
+    is_selected = lambda obj: selected_in_subtree(obj) if settings['nodes_selected_only'] else True
+
     def export_scene(scene):
-        return {
-            'nodes': [ob.name for ob in scene.objects if ob.parent is None and ob.is_visible(scene)],
+        result = {
             'extras': {
                 'background_color': scene.world.horizon_color[:],
                 'active_camera': scene.camera.name if scene.camera else '',
                 'frames_per_second': scene.render.fps,
             }
         }
+
+        if settings['nodes_export_hidden']:
+            result['nodes'] = [ob.name for ob in scene.objects if ob.parent is None and is_selected(ob)]
+            result['extras']['hidden_nodes'] = [ob.name for ob in scene.objects if is_selected(ob) and not ob.is_visible(scene)]
+        else:
+            result['nodes'] = [ob.name for ob in scene.objects if ob.parent is None and is_selected(ob) and ob.is_visible(scene)]
+
+        return result
 
     return {scene.name: export_scene(scene) for scene in scenes}
 
@@ -1069,7 +1079,7 @@ def export_gltf(scene_delta, settings={}):
         'programs': programs,
         'samplers': {'default':{}},
         'scene': bpy.context.scene.name,
-        'scenes': export_scenes(scenes),
+        'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
         'techniques': techniques,
         'textures': export_textures(scene_delta.get('textures', [])),
