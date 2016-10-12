@@ -680,7 +680,7 @@ def export_lights(lamps):
 
     return gltf
 
-def export_nodes(objects, skinned_meshes, modded_meshes):
+def export_nodes(global_node_name, objects, skinned_meshes, modded_meshes, global_matrix):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -725,6 +725,12 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
 
     gltf_nodes = {obj.name: export_node(obj) for obj in objects}
 
+    # Export top level node
+    gltf_nodes[global_node_name] = {
+        'children': [obj.name for obj in objects],
+        'matrix': togl(global_matrix)
+    }
+
     def export_joint(arm_name, bone):
         gltf_joint = {
             'name': bone.name,
@@ -755,7 +761,7 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
 def export_scenes(scenes):
     def export_scene(scene):
         return {
-            'nodes': [ob.name for ob in scene.objects if ob.parent is None],
+            'nodes': [scene.name],
             'extras': {
                 'background_color': scene.world.horizon_color[:],
                 'active_camera': scene.camera.name if scene.camera else '',
@@ -960,10 +966,9 @@ def export_gltf(scene_delta, settings={}):
     object_list = list(scene_delta.get('objects', []))
     mod_meshes = {}
 
-    global_mat = settings['global_matrix']
     apply_modifiers = settings['meshes_apply_modifiers']
 
-    # Apply modifiers and transform using the global matrix
+    # Apply modifiers
     scene = bpy.context.scene
     for mesh in scene_delta.get('meshes', []):
         # Find all users of this mesh
@@ -974,12 +979,6 @@ def export_gltf(scene_delta, settings={}):
 
             # Apply modifiers
             mesh_copy = ob.to_mesh(scene, apply_modifiers, 'PREVIEW')
-
-            world_mat = ob.matrix_world
-            inv_world_mat = world_mat.inverted()
-
-            # Transform the new mesh
-            mesh_copy.transform(inv_world_mat * global_mat * world_mat)
 
             # Link the new mesh to the original object
             mod_meshes[ob.name] = mesh_copy
@@ -1007,7 +1006,9 @@ def export_gltf(scene_delta, settings={}):
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
+        'nodes': export_nodes(bpy.context.scene.name, object_list,
+                              skinned_meshes, mod_meshes,
+                              settings['global_matrix']),
         # Make sure meshes come after nodes to detect which meshes are skinned
         'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
