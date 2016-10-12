@@ -448,11 +448,11 @@ def export_materials(settings, materials, shaders, programs, techniques):
 
     return exp_materials
 
-def export_meshes(settings, meshes, skinned_meshes):
+def export_meshes(settings, meshes, skinned_meshes, mesh_names):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
-                'name': me.name,
+                'name': mesh_names[me.name],
                 'primitives': [],
             }
 
@@ -963,27 +963,54 @@ def export_gltf(scene_delta, settings={}):
     skinned_meshes = {}
     g_buffers = []
 
-    object_list = list(scene_delta.get('objects', []))
-    mod_meshes = {}
+    scene_meshes = scene_delta.get('meshes', [])
 
-    apply_modifiers = settings['meshes_apply_modifiers']
+    object_list = list(scene_delta.get('objects', []))
+
+    # List of meshes be exported
+    mesh_list = []
+    # Map objects to the mesh that will be exported
+    mod_meshes = {}
+    # Map a new mesh's ID to its old name.
+    mesh_names = {}
 
     # Apply modifiers
-    scene = bpy.context.scene
-    for mesh in scene_delta.get('meshes', []):
-        # Find all users of this mesh
-        obj_users = [ob for ob in object_list if ob.data == mesh]
+    if settings['meshes_apply_modifiers']:
+        scene = bpy.context.scene
+        # Find objects with modifiers
+        mod_obs = [ob for ob in object_list if ob.is_modified(scene, 'PREVIEW')]
 
-        # For each user of the mesh
-        for ob in obj_users:
+        # But for every mesh
+        for mesh in scene_meshes:
+            # If it's modified by an object we give each object its own copy of
+            # the mesh.
+            mod_users = [ob for ob in mod_obs if ob.data == mesh]
 
-            # Apply modifiers
-            mesh_copy = ob.to_mesh(scene, apply_modifiers, 'PREVIEW')
+            # Only convert meshes with modifiers, otherwise each non-modifier
+            # user ends up with a copy of the mesh and we lose instancing
+            mod_meshes.update({ob.name: ob.to_mesh(scene, True, 'PREVIEW') for
+                               ob in mod_users})
 
-            # Link the new mesh to the original object
-            mod_meshes[ob.name] = mesh_copy
+            # Use the object's original mesh to determine the name (not ID) of
+            # the exported mesh. We are mapping the new mesh's ID to the old
+            # name here.
+            mesh_names.update({mod_meshes[ob.name].name: ob.data.name
+                               for ob in mod_users})
 
-    mesh_list = mod_meshes.values()
+            # If the mesh isn't modified by at least one user, we have to
+            # export the original.
+            if len(mod_users) < mesh.users:
+                mesh_list.append(mesh)
+                # The name doesn't change!
+                mesh_names[mesh.name] = mesh.name
+
+        # Any meshes with modifiers still need to be exported
+        mesh_list.extend(mod_meshes.values())
+
+    else:
+        # No need to apply modifiers, use all meshes directly.
+        mesh_list = [mesh for mesh in scene_meshes]
+        mesh_names = {mesh.name: mesh.name for mesh in scene_delta.get('meshes', [])}
 
     gltf = {
         'asset': {
@@ -1010,7 +1037,7 @@ def export_gltf(scene_delta, settings={}):
                               skinned_meshes, mod_meshes,
                               settings['global_matrix']),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(settings, mesh_list, skinned_meshes),
+        'meshes': export_meshes(settings, mesh_list, skinned_meshes, mesh_names),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
