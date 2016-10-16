@@ -143,7 +143,7 @@ class Buffer:
                      component_type,
                      count,
                      type):
-            assert count >= 1
+            assert count >= 1, "Accessor '{}' has no count >= 1".format(name)
             self.name = name
             self.buffer = buffer
             self.buffer_view = buffer_view
