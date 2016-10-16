@@ -579,7 +579,7 @@ def export_meshes(settings, meshes, skinned_meshes):
             for i, v in enumerate(prim):
                 idata[i] = v
 
-            assert len(idata.name) >= 1
+            assert len(idata.name) >= 1, "Mesh '{}' has primitive with no indices".format(me.name)
             gltf_prim = {
                 'attributes': {
                     'POSITION': vdata.name,
