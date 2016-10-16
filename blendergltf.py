@@ -564,6 +564,10 @@ def export_meshes(settings, meshes, skinned_meshes):
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
 
+            # Do not add primitves with no indices
+            if not len(prim):
+                continue
+
             # If we got this far use integers if we have to, if this is not
             # desirable we would have bailed out by now.
             if max_vert_index > 65535:
