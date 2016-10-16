@@ -11,6 +11,8 @@ import zlib
 
 
 default_settings = {
+    'nodes_export_hidden': False,
+    'nodes_selected_only': False,
     'materials_export_shader': False,
     'meshes_apply_modifiers': True,
     'images_embed_data': False,
