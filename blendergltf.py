@@ -1010,6 +1010,8 @@ def export_actions(actions):
             for i in range(num_frames):
                 mat = chan[i]
                 loc, rot, scale = mat.decompose()
+                # w needs to be last.
+                rot = (rot.x, rot.y, rot.z, rot.w)
                 for j in range(3):
                     ldata[(i * 3) + j] = loc[j]
                     sdata[(i * 3) + j] = scale[j]
