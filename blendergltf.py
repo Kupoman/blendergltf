@@ -11,6 +11,8 @@ import zlib
 
 
 default_settings = {
+    'nodes_export_hidden': False,
+    'nodes_selected_only': False,
     'materials_export_shader': False,
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data' : True,
@@ -328,6 +330,19 @@ def togl(matrix):
     return [i for col in matrix.col for i in col]
 
 
+def selected_in_subtree(parent_obj):
+    """Return True if object or any of its children
+       is selected in the outline tree, False otherwise.
+
+    """
+    if parent_obj.select:
+        return True
+    if len(parent_obj.children) > 0:
+        return any(selected_in_subtree(child) for child in parent_obj.children)
+    else:
+        return False
+
+
 def export_cameras(cameras):
     def export_camera(camera):
         if camera.type == 'ORTHO':
@@ -634,7 +649,7 @@ def export_meshes(settings, meshes, skinned_meshes):
                 'material': mat,
             }
             for i, v in enumerate(tdata):
-                gltf_prim['attributes']['TEXCOORD_' + me.uv_layers[i].name] = v.name
+                gltf_prim['attributes']['TEXCOORD_' + str(i)] = v.name
 
             if is_skinned:
                 gltf_prim['attributes']['JOINT'] = jdata.name
@@ -744,7 +759,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(objects, skinned_meshes, modded_meshes):
+def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     def export_physics(obj):
         rb = obj.rigid_body
         physics =  {
@@ -759,10 +774,13 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
 
         return physics
 
+    is_visible  = lambda obj: True if settings['nodes_export_hidden'] else any(obj.is_visible(scene) for scene in scenes)
+    is_selected = lambda obj: selected_in_subtree(obj) if settings['nodes_selected_only'] else True
+
     def export_node(obj):
         ob = {
             'name': obj.name,
-            'children': [child.name for child in obj.children],
+            'children': [child.name for child in obj.children if is_visible(child) and is_selected(child)],
             'matrix': togl(obj.matrix_world),
         }
 
@@ -787,7 +805,7 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
 
         return ob
 
-    gltf_nodes = {obj.name: export_node(obj) for obj in objects}
+    gltf_nodes = {obj.name: export_node(obj) for obj in objects if is_visible(obj) and is_selected(obj)}
 
     def export_joint(arm_name, bone):
         gltf_joint = {
@@ -816,17 +834,25 @@ def export_nodes(objects, skinned_meshes, modded_meshes):
     return gltf_nodes
 
 
-def export_scenes(scenes):
+def export_scenes(settings, scenes):
+    is_selected = lambda obj: selected_in_subtree(obj) if settings['nodes_selected_only'] else True
+
     def export_scene(scene):
-        return {
-            'nodes': [ob.name for ob in scene.objects if ob.parent is None],
+        result = {
             'extras': {
                 'background_color': scene.world.horizon_color[:],
                 'active_camera': scene.camera.name if scene.camera else '',
-                'hidden_nodes': [ob.name for ob in scene.objects if not ob.is_visible(scene)],
                 'frames_per_second': scene.render.fps,
             }
         }
+
+        if settings['nodes_export_hidden']:
+            result['nodes'] = [ob.name for ob in scene.objects if ob.parent is None and is_selected(ob)]
+            result['extras']['hidden_nodes'] = [ob.name for ob in scene.objects if is_selected(ob) and not ob.is_visible(scene)]
+        else:
+            result['nodes'] = [ob.name for ob in scene.objects if ob.parent is None and is_selected(ob) and ob.is_visible(scene)]
+
+        return result
 
     return {scene.name: export_scene(scene) for scene in scenes}
 
@@ -1071,6 +1097,7 @@ def export_gltf(scene_delta, settings={}):
     else:
         mesh_list = scene_delta.get('meshes', [])
 
+    scenes = scene_delta.get('scenes', [])
     gltf = {
         'asset': {
             'version': '1.0',
@@ -1092,14 +1119,14 @@ def export_gltf(scene_delta, settings={}):
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
-        'nodes': export_nodes(object_list, skinned_meshes, mod_meshes),
+        'nodes': export_nodes(settings, scenes, object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
         'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'default':{}},
         'scene': bpy.context.scene.name,
-        'scenes': export_scenes(scene_delta.get('scenes', [])),
+        'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
         'techniques': techniques,
         'textures': export_textures(scene_delta.get('textures', [])),

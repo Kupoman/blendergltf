@@ -59,6 +59,8 @@ else:
         check_extension = True
 
         #blendergltf settings
+        nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
+        nodes_selected_only = BoolProperty(name='Selection Only', default=False)
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
