@@ -34,17 +34,26 @@ else:
     import bpy
     from bpy.props import *
     from bpy_extras.io_utils import (
-            ExportHelper,
-            )
+        ExportHelper,
+        orientation_helper_factory,
+        axis_conversion,
+    )
 
     from . import blendergltf
+
+
+    GLTFOrientationHelper = orientation_helper_factory(
+        "GLTFOrientationHelper", axis_forward='Y', axis_up='Z'
+    )
 
 
     profile_items = (
         ('WEB', 'Web', 'Export shaders for WebGL 1.0 use (shader version 100)'),
         ('DESKTOP', 'Desktop', 'Export shaders for OpenGL 3.0 use (shader version 130)')
     )
-    class ExportGLTF(bpy.types.Operator, ExportHelper):
+
+
+    class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         """Save a Khronos glTF File"""
 
         bl_idname = "export_scene.gltf"
@@ -87,7 +96,17 @@ else:
             }
 
             # Copy properties to settings
-            settings = self.as_keywords(ignore=("filter_glob",))
+            settings = self.as_keywords(ignore=(
+                "filter_glob",
+                "axis_up",
+                "axis_forward",
+            ))
+
+            # Calculate a global transform matrix to apply to a root node
+            settings['nodes_global_matrix'] = axis_conversion(
+                to_forward=self.axis_forward,
+                to_up=self.axis_up
+            ).to_4x4()
 
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:

@@ -12,6 +12,7 @@ import zlib
 
 default_settings = {
     'nodes_export_hidden': False,
+    'nodes_global_matrix': mathutils.Matrix.Identity(4),
     'nodes_selected_only': False,
     'materials_export_shader': False,
     'meshes_apply_modifiers': True,
@@ -1058,6 +1059,20 @@ def export_actions(actions):
     return gltf_actions
 
 
+def insert_root_nodes(gltf_data, root_matrix):
+    for name, scene in gltf_data['scenes'].items():
+        node_name = name + '_root'
+        # Generate a new root node for each scene
+        gltf_data['nodes'][node_name] = {
+            'children': scene['nodes'],
+            'matrix': root_matrix,
+            'name': node_name,
+        }
+
+        # Replace scene node lists to just point to the new root nodes
+        scene['nodes'] = [node_name]
+
+
 def export_gltf(scene_delta, settings={}):
     global g_buffers
     global g_glExtensionsUsed
@@ -1141,6 +1156,10 @@ def export_gltf(scene_delta, settings={}):
     # Retroactively add skins attribute to nodes
     for mesh_name, obj in skinned_meshes.items():
         gltf['nodes'][obj.name]['skin'] = '{}_skin'.format(mesh_name)
+
+    # Insert root nodes if axis conversion is needed
+    if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
+        insert_root_nodes(gltf, togl(settings['nodes_global_matrix']))
 
     gltf.update(export_buffers())
     gltf.update({'glExtensionsUsed': g_glExtensionsUsed})
