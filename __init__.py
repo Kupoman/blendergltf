@@ -61,6 +61,7 @@ else:
         #blendergltf settings
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
+        meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
         asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
 
