@@ -84,6 +84,9 @@ If this setting is enabled, tabs and newlines are inserted into the glTF output
 to make it more human readable. This option is useful if you wish to read through
 the glTF output. Otherwise, it should be disabled to make the glTF output smaller.
 
+## Recommended Settings
+### Three.js
+The Three.js glTF load does not handle interleaved vertex data at this time, so the Interleave Vertex Data option should be disabled when exporting for Three.js. 
 
 ## Roadmap
 
