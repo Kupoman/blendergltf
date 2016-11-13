@@ -36,6 +36,55 @@ Load a scene you wish to export to glTF, and click `File -> Export -> glTF (.glt
 Some glTF export options will appear in the lower-left margin, and a file dialog
 will ask for the location to save the exported file.
 
+## Add-On Settings
+### Forward and Up
+Together these settings define the axes convention of the glTF output. Conversion
+from Blender's Z-up convention to the target convention is handled by inserting
+an additional node with an appropriate transform matrix as the root node for a scene.
+If no conversion is necessary, no nodes are added.
+### Export Hidden Objects
+If this setting is enabled, nodes that are not on an active layer in Blender are
+excluded from the glTF output.
+### Selection Only
+If this setting is enabled, nodes that are not part of the current selection in 
+Blender are excluded from the glTF output.
+### Export Shaders
+If this setting is enabled, the GLSL shader for a material will be exported. This
+will be a version 130 shader if the profile setting is set to Desktop, and a version
+100 shader appropriate for use with WebGL if the profile setting is set to Web.
+If this setting is disabled, no shader information will be exported and the
+KHR_materials_common extension will be used instead.
+### Apply Modifiers
+If this setting is enabled, any modifiers will be applied to the mesh data. If the
+setting is disabled, no modifier information will be exported.
+### Interleave Vertex Data
+If this setting is enabled, all of the data for a single vertex will be contiguous
+in a mesh's buffer. If it is disabled, all vertex properties of the same type will
+be contiguous in a mesh's buffer (e.g. all positions, then all normals, then all
+texture coordinates). Usually this setting can be left alone, but some glTF loaders
+do not support interleaved vertex data.
+### Embed Image Data
+If this setting is enabled, image data is embedded into the glTF output as data
+URIs with a PNG mime type. If this setting is disabled, the path that Blender
+uses for the image is stored in the URI.
+### Profile
+This setting controls the profile in the asset's profile property in
+the glTF output. It also affects if shaders are exported for OpenGL or WebGL.
+### Export Physics Settings
+If this setting is enabled, a custom extension (BLENDER_physics) is used to write
+bullet physics data into the glTF output.
+### Export Actions
+If this setting is enabled, a custom extension (BLENDER_actions) is used to write
+animation data as individual actions instead of writing animation data as one
+block of data as described in the glTF specification. Currently, if this setting
+is disabled, no animation data is included in the glTF output. Regardless of this
+setting, skin data is included in the glTF output.
+### Pretty-print / indent JSON
+If this setting is enabled, tabs and newlines are inserted into the glTF output
+to make it more human readable. This option is useful if you wish to read through
+the glTF output. Otherwise, it should be disabled to make the glTF output smaller.
+
+
 ## Roadmap
 
 The current development goals, roughly in order of priority, are:
@@ -51,5 +100,5 @@ Blendergltf, and report any issues you find. This will help us identify where wo
 is still needed, and it will help make the addon more robust. If you want to
  contribute code, there are likely some tasks floating around the issue tracker. 
 If writing documentation is more your thing, we have some undocumented glTF 
-extensions as well as no documentation on the user interface.
+extensions.
 
