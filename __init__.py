@@ -75,6 +75,8 @@ else:
         meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
         asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
+        ext_export_physics = BoolProperty(name='Export Physics Settings', default=False)
+        ext_export_actions = BoolProperty(name='Export Actions', default=False)
 
         pretty_print = BoolProperty(
             name="Pretty-print / indent JSON",

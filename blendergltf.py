@@ -19,6 +19,8 @@ default_settings = {
     'meshes_interleave_vertex_data' : True,
     'images_embed_data': False,
     'asset_profile': 'WEB',
+    'ext_export_physics': False,
+    'ext_export_actions': False,
 }
 
 
@@ -799,7 +801,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
             # Expand dupli-groups
             ob['children'] += [i.name for i in obj.dupli_group.objects]
 
-        if obj.rigid_body:
+        if obj.rigid_body and settings['ext_export_physics']:
             ob['extensions'] = {
                 'BLENDER_physics': export_physics(obj)
             }
@@ -1119,15 +1121,8 @@ def export_gltf(scene_delta, settings={}):
             'profile': profile_map[settings['asset_profile']]
         },
         'cameras': export_cameras(scene_delta.get('cameras', [])),
-        'extensions': {
-            'BLENDER_actions': {
-                'actions': export_actions(scene_delta.get('actions', [])),
-            },
-        },
-        'extensionsUsed': [
-            'BLENDER_actions',
-            'BLENDER_physics',
-        ],
+        'extensions': {},
+        'extensionsUsed': [],
         'extras': {
             'lights' : export_lights(scene_delta.get('lamps', [])),
         },
@@ -1152,6 +1147,15 @@ def export_gltf(scene_delta, settings={}):
 
     if settings['materials_export_shader'] == False:
         gltf['extensionsUsed'].append('KHR_materials_common')
+
+    if settings['ext_export_actions']:
+        gltf['extensionsUsed'].append('BLENDER_actions')
+        gltf['extensions']['BLENDER_actions'] = {
+            'actions': export_actions(scene_delta.get('actions', [])),
+        }
+
+    if settings['ext_export_physics']:
+        gltf['extensionsUsed'].append('BLENDER_physics')
 
     # Retroactively add skins attribute to nodes
     for mesh_name, obj in skinned_meshes.items():
