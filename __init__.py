@@ -87,7 +87,7 @@ else:
         def execute(self, context):
             scene = {
                 'actions': list(bpy.data.actions),
-                'camera': list(bpy.data.cameras),
+                'cameras': list(bpy.data.cameras),
                 'lamps': list(bpy.data.lamps),
                 'images': list(bpy.data.images),
                 'materials': list(bpy.data.materials),
