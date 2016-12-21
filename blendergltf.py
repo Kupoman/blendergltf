@@ -1024,6 +1024,8 @@ def _can_object_use_action(obj, action):
 
 
 def export_actions(actions):
+    dt = 1.0 / bpy.context.scene.render.fps
+
     def export_action(obj, action):
         params = []
 
@@ -1058,9 +1060,13 @@ def export_actions(actions):
                     channels[pbone.name].append(mat)
 
         gltf_channels = []
+        gltf_parameters = {}
+        gltf_samplers = {}
 
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
+            tbv = buf.add_view(num_frames * 1 * 4, None)
+            tdata = buf.add_accessor(tbv, 0, 1 * 4, Buffer.FLOAT, num_frames, Buffer.SCALAR)
             lbv = buf.add_view(num_frames * 3 * 4, None)
             ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
             rbv = buf.add_view(num_frames * 4 * 4, None)
@@ -1068,9 +1074,12 @@ def export_actions(actions):
             sbv = buf.add_view(num_frames * 3 * 4, None)
             sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
 
+            time = 0
             for i in range(num_frames):
+                time += dt
                 mat = chan[i]
                 loc, rot, scale = mat.decompose()
+                tdata[i] = time
                 # w needs to be last.
                 rot = (rot.x, rot.y, rot.z, rot.w)
                 for j in range(3):
@@ -1084,27 +1093,35 @@ def export_actions(actions):
             if targetid != obj.name:
                 targetid = '{}_root_{}'.format(obj.data.name, targetid)
 
-            gltf_channels += [
-                {
-                    'id': targetid,
-                    'path': 'translation',
-                    'data': ldata.name,
-                },
-                {
-                    'id': targetid,
-                    'path': 'rotation',
-                    'data': rdata.name,
-                },
-                {
-                    'id': targetid,
-                    'path': 'scale',
-                    'data': sdata.name,
+            time_parameter_name = '{}_{}_time_parameter'.format(action.name, targetid)
+            gltf_parameters[time_parameter_name] = tdata.name
+
+            for path in ('translation', 'rotation', 'scale'):
+                sampler_name = '{}_{}_{}_sampler'.format(action.name, targetid, path)
+                parameter_name = '{}_{}_{}_parameter'.format(action.name, targetid, path)
+                gltf_channels.append({
+                    'sampler': sampler_name,
+                    'target': {
+                        'id': targetid,
+                        'path': path,
+                    }
+                })
+                gltf_samplers[sampler_name] = {
+                    'input': time_parameter_name,
+                    'interpolation': 'LINEAR',
+                    'output': parameter_name,
                 }
-            ]
+                gltf_parameters[parameter_name] = {
+                    'translation': ldata.name,
+                    'rotation': rdata.name,
+                    'scale': sdata.name,
+                }[path]
 
         gltf_action = {
+            'name': action.name,
             'channels': gltf_channels,
-            'frames': num_frames,
+            'samplers': gltf_samplers,
+            'parameters': gltf_parameters,
         }
 
         obj.animation_data.action = prev_action
@@ -1183,6 +1200,8 @@ def export_gltf(scene_delta, settings={}):
             'version': '1.0',
             'profile': profile_map[settings['asset_profile']]
         },
+        # 'animations': export_actions(scene_delta.get('actions', [])),
+        'animations': {},
         'cameras': export_cameras(scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
@@ -1203,19 +1222,16 @@ def export_gltf(scene_delta, settings={}):
         'shaders': shaders,
         'techniques': techniques,
         'textures': export_textures(scene_delta.get('textures', [])),
-
-        # TODO
-        'animations': {},
     }
 
     if settings['shaders_data_storage'] == None:
         gltf['extensionsUsed'].append('KHR_materials_common')
 
-    if settings['ext_export_actions']:
-        gltf['extensionsUsed'].append('BLENDER_actions')
-        gltf['extensions']['BLENDER_actions'] = {
-            'actions': export_actions(scene_delta.get('actions', [])),
-        }
+    # if settings['ext_export_actions']:
+        # gltf['extensionsUsed'].append('BLENDER_actions')
+        # gltf['extensions']['BLENDER_actions'] = {
+            # 'actions': export_actions(scene_delta.get('actions', [])),
+        # }
 
     if settings['ext_export_physics']:
         gltf['extensionsUsed'].append('BLENDER_physics')
