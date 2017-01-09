@@ -753,6 +753,13 @@ def export_lights(lamps):
                 },
                 'type': 'spot',
             }
+        elif light.type == 'HEMI':
+            return {
+                'hemi': {
+                    'color': (light.color * light.energy)[:],
+                },
+                'type': 'hemi',
+            }
         else:
             print("Unsupported lamp type on {}: {}".format(light.name, light.type))
             return {'type': 'unsupported'}
@@ -844,6 +851,7 @@ def export_scenes(settings, scenes):
         result = {
             'extras': {
                 'background_color': scene.world.horizon_color[:],
+                'ambient_color': scene.world.ambient_color[:],
                 'active_camera': scene.camera.name if scene.camera else '',
                 'frames_per_second': scene.render.fps,
             }
