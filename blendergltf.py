@@ -847,8 +847,8 @@ def export_scenes(settings, scenes):
                 'background_color': scene.world.horizon_color[:],
                 'active_camera': scene.camera.name if scene.camera else '',
                 'frames_per_second': scene.render.fps,
-                'name': scene.name,
-            }
+            },
+            'name': scene.name,
         }
 
         if settings['nodes_export_hidden']:
