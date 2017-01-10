@@ -68,8 +68,13 @@ class Vertex:
     def __init__(self, mesh, loop):
         vi = loop.vertex_index
         i = loop.index
+
+        # populate vert info from mesh data
         self.co = mesh.vertices[vi].co.freeze()
-        self.normal = loop.normal.freeze()
+        if __use_smooth_normal(mesh, loop):
+            self.normal = mesh.vertices[vi].normal.freeze()
+        else:
+            self.normal = loop.normal.freeze()
         self.uvs = tuple(layer.data[i].uv.freeze() for layer in mesh.uv_layers)
         self.loop_indices = [i]
 
@@ -88,6 +93,19 @@ class Vertex:
 
         self.index = 0
 
+    @staticmethod
+    def __use_smooth_normal(mesh, loop):
+        '''
+        Determine whether a vert should use the vertex normal or the face normal
+        :rtype: Boolean
+        '''
+
+        autosmooth = mesh.use_auto_smooth
+        edge_is_sharp = mesh.edges[loop.edge_index].use_edge_sharp
+
+        return autosmooth and not edge_is_sharp
+
+
     def __hash__(self):
         return hash((self.co, self.normal, self.uvs))
 
@@ -103,6 +121,26 @@ class Vertex:
             self.loop_indices = indices
             other.loop_indices = indices
         return eq
+
+class SmartVertexList:
+    '''
+    Keep track of loop vs vertex distinction
+
+    This class is responsible for maintaining a list of vertices. Each vertex
+    gets a unique index value, and is guaranteed to be unique.
+    '''
+
+    def __init__(self):
+        self.data = []
+
+    def add(self, mesh, loop):
+        test_vert = Vertex(mesh, loop)
+        if test_vert in self.data:
+            vert = self.data[self.data.index(test_vert)]
+            vert.loop_indices.push(loop.index)
+        else:
+            test_vert.index = len(self.data)
+            self.data.push(test_vert)
 
 class Buffer:
     ARRAY_BUFFER = 34962
@@ -536,8 +574,10 @@ def export_meshes(settings, meshes, skinned_meshes):
         skin_buf = Buffer('{}_skin'.format(me.name))
 
         # Vertex data
-
-        vert_list = { Vertex(me, loop) : 0 for loop in me.loops}.keys()
+        vert_list = SmartVertexList()
+        for loop in me.loops:
+            vert_list.add(me, loop)
+        vert_list = vert_list.data
         num_verts = len(vert_list)
         va = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
 
@@ -558,7 +598,6 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         # Copy vertex data
         for i, vtx in enumerate(vert_list):
-            vtx.index = i
             co = vtx.co
             normal = vtx.normal
 
