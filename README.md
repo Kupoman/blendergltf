@@ -86,7 +86,7 @@ the glTF output. Otherwise, it should be disabled to make the glTF output smalle
 
 ## Recommended Settings
 ### Three.js
-The Three.js glTF loader only supports interleaved vertex data in development builds. If you are not using a recent development of Three.js, you should disable the Interleave Vertex Data option.
+The Three.js glTF loader only supports interleaved vertex data in development builds. If you are not using a recent development build of Three.js, you should disable the Interleave Vertex Data option.
 
 ## Roadmap
 
