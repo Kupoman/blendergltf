@@ -131,20 +131,26 @@ class SmartVertexList:
     '''
 
     def __init__(self):
-        self.data = []
-        self.hashes = []
+        self.data = {}
+        self.hashes = set()
 
     def add(self, mesh, loop):
         test_vert = Vertex(mesh, loop)
         h = test_vert.__hash__()
 
         if h in self.hashes:
-            vert = self.data[self.data.index(test_vert)]
+            vert = self.data[h]
             vert.loop_indices.append(loop.index)
         else:
-            test_vert.index = len(self.data)
-            self.data.append(test_vert)
-            self.hashes.append(h)
+            test_vert.index = len(self.hashes)
+            self.data[h] = test_vert
+            self.hashes.add(h)
+
+    def get_list(self):
+        vertlist = list(self.data.values())
+        vertlist.sort(key=lambda v: v.index)
+        return vertlist
+
 
 class Buffer:
     ARRAY_BUFFER = 34962
@@ -581,7 +587,7 @@ def export_meshes(settings, meshes, skinned_meshes):
         vert_list = SmartVertexList()
         for loop in me.loops:
             vert_list.add(me, loop)
-        vert_list = vert_list.data
+        vert_list = vert_list.get_list()
         num_verts = len(vert_list)
         va = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
 
