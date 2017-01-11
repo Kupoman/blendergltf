@@ -71,7 +71,7 @@ class Vertex:
 
         # populate vert info from mesh data
         self.co = mesh.vertices[vi].co.freeze()
-        if __use_smooth_normal(mesh, loop):
+        if Vertex.__use_smooth_normal(mesh, loop):
             self.normal = mesh.vertices[vi].normal.freeze()
         else:
             self.normal = loop.normal.freeze()
@@ -137,10 +137,10 @@ class SmartVertexList:
         test_vert = Vertex(mesh, loop)
         if test_vert in self.data:
             vert = self.data[self.data.index(test_vert)]
-            vert.loop_indices.push(loop.index)
+            vert.loop_indices.append(loop.index)
         else:
             test_vert.index = len(self.data)
-            self.data.push(test_vert)
+            self.data.append(test_vert)
 
 class Buffer:
     ARRAY_BUFFER = 34962
