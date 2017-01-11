@@ -54,7 +54,6 @@ else:
     from . import gpu_luts
     from . import shader_converter
 
-
 class Vertex:
     __slots__ = (
         "co",
@@ -65,6 +64,7 @@ class Vertex:
         "weights",
         "joint_indexes",
         )
+
     def __init__(self, mesh, loop):
         vi = loop.vertex_index
         i = loop.index
@@ -93,6 +93,7 @@ class Vertex:
 
         self.index = 0
 
+    poly_lookup = {}
     @staticmethod
     def __use_smooth_normal(mesh, loop):
         '''
@@ -100,10 +101,15 @@ class Vertex:
         :rtype: Boolean
         '''
 
-        autosmooth = mesh.use_auto_smooth
-        edge_is_sharp = mesh.edges[loop.edge_index].use_edge_sharp
+        def get_poly_for_loop(mesh, loop):
+            ''' Helper function to look up and cache polygons '''
+            if mesh not in Vertex.poly_lookup:
+                Vertex.poly_lookup[mesh] = {i: p for p in mesh.polygons for i in p.loop_indices}
+            return Vertex.poly_lookup[mesh][loop.index]
 
-        return autosmooth and not edge_is_sharp
+        face = get_poly_for_loop(mesh, loop)
+
+        return face.use_smooth
 
 
     def __hash__(self):
