@@ -132,15 +132,19 @@ class SmartVertexList:
 
     def __init__(self):
         self.data = []
+        self.hashes = []
 
     def add(self, mesh, loop):
         test_vert = Vertex(mesh, loop)
-        if test_vert in self.data:
+        h = test_vert.__hash__()
+
+        if h in self.hashes:
             vert = self.data[self.data.index(test_vert)]
             vert.loop_indices.append(loop.index)
         else:
             test_vert.index = len(self.data)
             self.data.append(test_vert)
+            self.hashes.append(h)
 
 class Buffer:
     ARRAY_BUFFER = 34962
