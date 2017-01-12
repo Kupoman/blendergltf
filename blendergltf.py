@@ -240,28 +240,8 @@ class Buffer:
         data = bytearray()
         for bn, bv in self.buffer_views.items():
             data.extend(bv['data'])
-            #print(bn)
-
-            #if bv['target'] == Buffer.ARRAY_BUFFER:
-            #    idx = bv['byteoffset']
-            #    while idx < bv['byteoffset'] + bv['bytelength']:
-            #    	print(struct.unpack_from('<ffffff', data, idx))
-            #    	idx += 24
-            #if bv['target'] == Buffer.ELEMENT_ARRAY_BUFFER:
-            #    idx = bv['byteoffset']
-            #    while idx < bv['byteoffset'] + bv['bytelength']:
-            #    	print(struct.unpack_from('<HHH', data, idx))
-            #    	idx += 6
 
         uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
-        #fname = '{}.bin'.format(self.name)
-        #with open(fname, 'wb') as f:
-        #    for bv in self.buffer_views.values():
-        #    	f.write(bv['data'])
-
-        #uri = 'data:text/plain;base64,'
-        #with open(fname, 'rb') as f:
-        #    uri += str(base64.b64encode(f.read()), 'ascii')
 
         return {
             'byteLength': self.bytelength,
