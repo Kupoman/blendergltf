@@ -30,7 +30,6 @@ else:
 
 
     import json
-
     import bpy
     from bpy.props import *
     from bpy_extras.io_utils import (
@@ -74,6 +73,7 @@ else:
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
+        geo_embed_data = BoolProperty(name='Embed Geometry Data', default=True)
         asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
         ext_export_physics = BoolProperty(name='Export Physics Settings', default=False)
         ext_export_actions = BoolProperty(name='Export Actions', default=False)
@@ -110,7 +110,9 @@ else:
                 to_up=self.axis_up
             ).to_4x4()
 
-            gltf = blendergltf.export_gltf(scene, settings)
+            settings['filepath'] = self.filepath
+
+            gltf, data_bin = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
                 # Figure out indentation
                 if self.pretty_print:
@@ -125,6 +127,13 @@ else:
                 if self.pretty_print:
                     # Write a newline to the end of the file
                     fout.write('\n')
+
+            # output geometry data
+            if not settings['geo_embed_data']:
+                bin_filename = self.filepath[:-5] + '.bin'
+                with open(bin_filename, 'wb', buffering=0) as fout:
+                    fout.write(data_bin)
+
             return {'FINISHED'}
 
 

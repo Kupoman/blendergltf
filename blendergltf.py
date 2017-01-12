@@ -2,7 +2,7 @@ import bpy
 import mathutils
 import gpu
 
-
+import os
 import json
 import collections
 import base64
@@ -18,9 +18,10 @@ default_settings = {
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data' : True,
     'images_embed_data': False,
+    'geo_embed_data': True,
     'asset_profile': 'WEB',
     'ext_export_physics': False,
-    'ext_export_actions': False,
+    'ext_export_actions': False
 }
 
 
@@ -235,38 +236,21 @@ class Buffer:
         self.buffer_views = collections.OrderedDict()
         self.accessors = {}
 
-    def export_buffer(self):
+    def export_buffer(self, settings):
         data = bytearray()
         for bn, bv in self.buffer_views.items():
             data.extend(bv['data'])
-            #print(bn)
 
-            #if bv['target'] == Buffer.ARRAY_BUFFER:
-            #    idx = bv['byteoffset']
-            #    while idx < bv['byteoffset'] + bv['bytelength']:
-            #    	print(struct.unpack_from('<ffffff', data, idx))
-            #    	idx += 24
-            #if bv['target'] == Buffer.ELEMENT_ARRAY_BUFFER:
-            #    idx = bv['byteoffset']
-            #    while idx < bv['byteoffset'] + bv['bytelength']:
-            #    	print(struct.unpack_from('<HHH', data, idx))
-            #    	idx += 6
-
-        uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
-        #fname = '{}.bin'.format(self.name)
-        #with open(fname, 'wb') as f:
-        #    for bv in self.buffer_views.values():
-        #    	f.write(bv['data'])
-
-        #uri = 'data:text/plain;base64,'
-        #with open(fname, 'rb') as f:
-        #    uri += str(base64.b64encode(f.read()), 'ascii')
+        if settings['geo_embed_data']:
+            uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
+        else:
+            uri = os.path.split(settings['filepath'])[1][:-5] + '.bin'
 
         return {
             'byteLength': self.bytelength,
             'type': self.type,
             'uri': uri,
-        }
+        }, data
 
     def add_view(self, bytelength, target):
         buffer_name = '{}_view_{}'.format(self.name, len(self.buffer_views))
@@ -325,8 +309,24 @@ class Buffer:
 
         return gltf
 
+    def merge(self, other):
+        ''' Combine this buffer with another, and update byte offsets '''
 
-g_buffers = []
+        offset = self.bytelength
+
+        for bn, bv in other.buffer_views.items():
+            bv['byteoffset'] += offset
+            self.buffer_views[bn] = bv
+
+        for an, av in other.accessors.items():
+            self.accessors[an] = av
+
+        self.bytelength += other.bytelength
+
+        return self
+
+
+g_buffer = None
 
 
 def togl(matrix):
@@ -336,7 +336,6 @@ def togl(matrix):
 def selected_in_subtree(parent_obj):
     """Return True if object or any of its children
        is selected in the outline tree, False otherwise.
-
     """
     if parent_obj.select:
         return True
@@ -661,9 +660,9 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             gltf_mesh['primitives'].append(gltf_prim)
 
-        g_buffers.append(buf)
+        g_buffer.merge(buf)
         if is_skinned:
-            g_buffers.append(skin_buf)
+            g_buffer.merge(skin_buf)
         return gltf_mesh
 
     exported_meshes = {}
@@ -696,7 +695,7 @@ def export_skins(skinned_meshes):
                 idata[(i * 16) + j] = mat[j]
 
         gltf_skin['inverseBindMatrices'] = idata.name
-        g_buffers.append(buf)
+        g_buffer.merge(buf)
 
         return gltf_skin
 
@@ -862,19 +861,19 @@ def export_scenes(settings, scenes):
     return {scene.name: export_scene(scene) for scene in scenes}
 
 
-def export_buffers():
+def export_buffers(settings):
     gltf = {
         'buffers': {},
         'bufferViews': {},
         'accessors': {},
     }
 
-    for buf in g_buffers:
-        gltf['buffers'][buf.name] = buf.export_buffer()
-        gltf['bufferViews'].update(buf.export_views())
-        gltf['accessors'].update(buf.export_accessors())
+    buf, data = g_buffer, None
+    gltf['buffers'][buf.name], data = buf.export_buffer(settings)
+    gltf['bufferViews'].update(buf.export_views())
+    gltf['accessors'].update(buf.export_accessors())
 
-    return gltf
+    return gltf, data
 
 
 def image_to_data_uri(image):
@@ -1020,7 +1019,7 @@ def export_actions(actions):
                 for j in range(4):
                     rdata[(i * 4) + j] = rot[j]
 
-            g_buffers.append(buf)
+            g_buffer.merge(buf)
 
             if targetid != obj.name:
                 targetid = '{}_root_{}'.format(obj.data.name, targetid)
@@ -1080,7 +1079,7 @@ def insert_root_nodes(gltf_data, root_matrix):
 
 
 def export_gltf(scene_delta, settings={}):
-    global g_buffers
+    global g_buffer
     global g_glExtensionsUsed
 
     # Fill in any missing settings with defaults
@@ -1094,8 +1093,8 @@ def export_gltf(scene_delta, settings={}):
     mod_meshes = {}
     skinned_meshes = {}
 
-    # Clear globals
-    g_buffers = []
+    # initialize globals
+    g_buffer = Buffer('unified')
     g_glExtensionsUsed = []
 
     object_list = list(scene_delta.get('objects', []))
@@ -1169,9 +1168,10 @@ def export_gltf(scene_delta, settings={}):
     if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
         insert_root_nodes(gltf, togl(settings['nodes_global_matrix']))
 
-    gltf.update(export_buffers())
+    data, data_bin = export_buffers(settings)
+    gltf.update(data)
     gltf.update({'glExtensionsUsed': g_glExtensionsUsed})
-    g_buffers = []
+    g_buffer = None
     g_glExtensionsUsed = []
 
     gltf = {key: value for key, value in gltf.items() if value}
@@ -1180,4 +1180,4 @@ def export_gltf(scene_delta, settings={}):
     for mesh in mod_meshes.values():
         bpy.data.meshes.remove(mesh)
 
-    return gltf
+    return gltf, data_bin
