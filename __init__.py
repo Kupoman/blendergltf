@@ -69,6 +69,8 @@ else:
         check_extension = True
 
         #blendergltf settings
+        buffers_embed_data = BoolProperty(name='Embed Buffer Data', default=False)
+        buffers_combine_data = BoolProperty(name='Combine Buffer Data', default=True)
         nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
         nodes_selected_only = BoolProperty(name='Selection Only', default=False)
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)

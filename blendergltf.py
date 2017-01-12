@@ -6,12 +6,16 @@ import gpu
 import json
 import collections
 import base64
+import functools
+import os
 import struct
 import zlib
 
 
 default_settings = {
     'gltf_output_dir': '',
+    'buffers_embed_data': True,
+    'buffers_combine_data': False,
     'nodes_export_hidden': False,
     'nodes_global_matrix': mathutils.Matrix.Identity(4),
     'nodes_selected_only': False,
@@ -224,7 +228,6 @@ class Buffer:
         "name",
         "type",
         "bytelength",
-        "uri",
         "buffer_views",
         "accessors",
         )
@@ -232,16 +235,20 @@ class Buffer:
         self.name = '{}_buffer'.format(name)
         self.type = 'arraybuffer'
         self.bytelength = 0
-        self.uri = uri
         self.buffer_views = collections.OrderedDict()
         self.accessors = {}
 
-    def export_buffer(self):
+    def export_buffer(self, settings):
         data = bytearray()
         for bn, bv in self.buffer_views.items():
             data.extend(bv['data'])
 
-        uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
+        if settings['buffers_embed_data']:
+            uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
+        else:
+            uri = self.name + '.bin'
+            with open(os.path.join(settings['gltf_output_dir'], uri), 'wb') as fout:
+                fout.write(data)
 
         return {
             'byteLength': self.bytelength,
@@ -305,6 +312,21 @@ class Buffer:
             }
 
         return gltf
+
+    def __add__(self, other):
+        # Handle the simple stuff
+        combined = Buffer('combined')
+        combined.bytelength = self.bytelength + other.bytelength
+        combined.accessors = {**self.accessors, **other.accessors}
+
+        # Need to update byte offsets in buffer views
+        combined.buffer_views = self.buffer_views.copy()
+        other_views = other.buffer_views.copy()
+        for key in other_views.keys():
+            other_views[key]['byteoffset'] += self.bytelength
+        combined.buffer_views.update(other_views)
+
+        return combined
 
 
 g_buffers = []
@@ -843,15 +865,20 @@ def export_scenes(settings, scenes):
     return {scene.name: export_scene(scene) for scene in scenes}
 
 
-def export_buffers():
+def export_buffers(settings):
     gltf = {
         'buffers': {},
         'bufferViews': {},
         'accessors': {},
     }
 
-    for buf in g_buffers:
-        gltf['buffers'][buf.name] = buf.export_buffer()
+    if settings['buffers_combine_data']:
+        buffers = [functools.reduce(lambda x, y: x+y, g_buffers)]
+    else:
+        buffers = g_buffers
+
+    for buf in buffers:
+        gltf['buffers'][buf.name] = buf.export_buffer(settings)
         gltf['bufferViews'].update(buf.export_views())
         gltf['accessors'].update(buf.export_accessors())
 
@@ -1150,7 +1177,7 @@ def export_gltf(scene_delta, settings={}):
     if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
         insert_root_nodes(gltf, togl(settings['nodes_global_matrix']))
 
-    gltf.update(export_buffers())
+    gltf.update(export_buffers(settings))
     gltf.update({'glExtensionsUsed': g_glExtensionsUsed})
     g_buffers = []
     g_glExtensionsUsed = []
