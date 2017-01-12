@@ -53,6 +53,12 @@ else:
         ('DESKTOP', 'Desktop', 'Export shaders for OpenGL 3.0 use (shader version 130)')
     )
 
+    image_storage_items = (
+        ('EMBED', 'Embed', 'Embed image data into the glTF file'),
+        ('REFERENCE', 'Reference', 'Use the same filepath that Blender uses for images'),
+        ('COPY', 'Copy', 'Copy images to output directory and use a relative reference')
+    )
+
 
     class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         """Save a Khronos glTF File"""
@@ -77,6 +83,7 @@ else:
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
         images_embed_data = BoolProperty(name='Embed Image Data', default=False)
+        images_data_storage = EnumProperty(items=image_storage_items, name='Image Storage', default='COPY')
         asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
         ext_export_physics = BoolProperty(name='Export Physics Settings', default=False)
         ext_export_actions = BoolProperty(name='Export Actions', default=False)

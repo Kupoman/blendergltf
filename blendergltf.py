@@ -8,6 +8,7 @@ import collections
 import base64
 import functools
 import os
+import shutil
 import struct
 import zlib
 
@@ -22,7 +23,7 @@ default_settings = {
     'materials_export_shader': False,
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data' : True,
-    'images_embed_data': False,
+    'images_data_storage': 'COPY',
     'asset_profile': 'WEB',
     'ext_export_physics': False,
     'ext_export_actions': False,
@@ -912,10 +913,18 @@ def image_to_data_uri(image):
 
 def export_images(settings, images):
     def export_image(image):
-        if settings['images_embed_data']:
+        uri = ''
+
+        storage_setting = settings['images_data_storage']
+        if storage_setting == 'COPY':
+            shutil.copy(bpy.path.abspath(image.filepath), settings['gltf_output_dir'])
+            uri = os.path.basename(image.filepath)
+        elif storage_setting == 'REFERENCE':
+            uri = image.filepath.replace('//', '')
+        elif storage_setting == 'EMBED':
             uri = image_to_data_uri(image)
         else:
-            uri = image.filepath.replace('//', '')
+            print('Encountered unknown option ({}) for images_data_storage setting'.format(storage_setting));
 
         return {
             'uri': uri,
