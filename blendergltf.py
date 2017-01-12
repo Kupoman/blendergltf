@@ -20,7 +20,7 @@ default_settings = {
     'nodes_export_hidden': False,
     'nodes_global_matrix': mathutils.Matrix.Identity(4),
     'nodes_selected_only': False,
-    'materials_export_shader': False,
+    'shaders_data_storage': 'NONE',
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data' : True,
     'images_data_storage': 'COPY',
@@ -412,7 +412,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
             }
     exp_materials = {}
     for material in materials:
-        if settings['materials_export_shader'] == False:
+        if settings['shaders_data_storage'] == 'NONE':
             exp_materials[material.name] = export_material(material)
         else:
             # Handle shaders
@@ -422,12 +422,27 @@ def export_materials(settings, materials, shaders, programs, techniques):
             else:
                 shader_converter.to_web(shader_data)
 
-            fs_bytes = shader_data['fragment'].encode()
-            fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
-            shaders[material.name+'FS'] = {'type': 35632, 'uri': fs_uri}
-            vs_bytes = shader_data['vertex'].encode()
-            vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
-            shaders[material.name+'VS'] = {'type': 35633, 'uri': vs_uri}
+            fs_name = material.name + 'FS'
+            vs_name = material.name + 'VS'
+            storage_setting = settings['shaders_data_storage']
+            if storage_setting == 'EMBED':
+                fs_bytes = shader_data['fragment'].encode()
+                fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
+                vs_bytes = shader_data['vertex'].encode()
+                vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
+            elif storage_setting == 'EXTERNAL':
+                names = (vs_name + '.glsl', fs_name + '.glsl')
+                data = (shader_data['vertex'], shader_data['fragment'])
+                for name, data in zip(names, data):
+                    filename = os.path.join(settings['gltf_output_dir'], name)
+                    with open(filename, 'w') as fout:
+                        fout.write(data)
+                vs_uri, fs_uri = names
+            else:
+                print('Encountered unknown option ({}) for shaders_data_storage setting'.format(storage_setting));
+
+            shaders[fs_name] = {'type': 35632, 'uri': fs_uri}
+            shaders[vs_name] = {'type': 35633, 'uri': vs_uri}
 
             # Handle programs
             programs[material.name+'Program'] = {
@@ -1166,7 +1181,7 @@ def export_gltf(scene_delta, settings={}):
         'animations': {},
     }
 
-    if settings['materials_export_shader'] == False:
+    if settings['shaders_data_storage'] == None:
         gltf['extensionsUsed'].append('KHR_materials_common')
 
     if settings['ext_export_actions']:

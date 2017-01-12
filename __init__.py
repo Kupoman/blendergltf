@@ -59,6 +59,12 @@ else:
         ('COPY', 'Copy', 'Copy images to output directory and use a relative reference')
     )
 
+    shader_storage_items = (
+        ('EMBED', 'Embed', 'Embed shader data into the glTF file'),
+        ('NONE', 'None', 'Use the KHR_material_common extension instead of a shader'),
+        ('EXTERNAL', 'External', 'Save shaders to the output directory')
+    )
+
 
     class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         """Save a Khronos glTF File"""
@@ -79,6 +85,7 @@ else:
         buffers_combine_data = BoolProperty(name='Combine Buffer Data', default=True)
         nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
         nodes_selected_only = BoolProperty(name='Selection Only', default=False)
+        shaders_data_storage = EnumProperty(items=shader_storage_items, name='Shader Storage', default='NONE')
         materials_export_shader = BoolProperty(name='Export Shaders', default=False)
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
