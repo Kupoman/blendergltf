@@ -30,6 +30,7 @@ else:
 
 
     import json
+    import os
 
     import bpy
     from bpy.props import *
@@ -103,6 +104,9 @@ else:
                 "axis_up",
                 "axis_forward",
             ))
+
+            # Set the output directory based on the supplied file path
+            settings['gltf_output_dir'] = os.path.dirname(self.filepath)
 
             # Calculate a global transform matrix to apply to a root node
             settings['nodes_global_matrix'] = axis_conversion(

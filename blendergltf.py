@@ -11,6 +11,7 @@ import zlib
 
 
 default_settings = {
+    'gltf_output_dir': '',
     'nodes_export_hidden': False,
     'nodes_global_matrix': mathutils.Matrix.Identity(4),
     'nodes_selected_only': False,
