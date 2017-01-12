@@ -18,9 +18,10 @@ default_settings = {
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data' : True,
     'images_embed_data': False,
+    'geo_embed_data': True,
     'asset_profile': 'WEB',
     'ext_export_physics': False,
-    'ext_export_actions': False,
+    'ext_export_actions': False
 }
 
 
@@ -235,7 +236,7 @@ class Buffer:
         self.buffer_views = collections.OrderedDict()
         self.accessors = {}
 
-    def export_buffer(self):
+    def export_buffer(self, settings):
         data = bytearray()
         for bn, bv in self.buffer_views.items():
             data.extend(bv['data'])
@@ -877,7 +878,7 @@ def export_scenes(settings, scenes):
     return {scene.name: export_scene(scene) for scene in scenes}
 
 
-def export_buffers():
+def export_buffers(settings):
     gltf = {
         'buffers': {},
         'bufferViews': {},
@@ -885,7 +886,7 @@ def export_buffers():
     }
 
     buf = g_buffer, data = None
-    gltf['buffers'][buf.name], data = buf.export_buffer()
+    gltf['buffers'][buf.name], data = buf.export_buffer(settings)
     gltf['bufferViews'].update(buf.export_views())
     gltf['accessors'].update(buf.export_accessors())
 
@@ -1184,7 +1185,7 @@ def export_gltf(scene_delta, settings={}):
     if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
         insert_root_nodes(gltf, togl(settings['nodes_global_matrix']))
 
-    data, data_bin = export_buffers()
+    data, data_bin = export_buffers(settings)
     gltf.update(data)
     gltf.update({'glExtensionsUsed': g_glExtensionsUsed})
     g_buffer = None
