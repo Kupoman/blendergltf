@@ -247,7 +247,7 @@ class Buffer:
         if settings['buffers_embed_data']:
             uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
         else:
-            uri = self.name + '.bin'
+            uri = bpy.path.clean_name(self.name) + '.bin'
             with open(os.path.join(settings['gltf_output_dir'], uri), 'wb') as fout:
                 fout.write(data)
 
@@ -431,7 +431,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 vs_bytes = shader_data['vertex'].encode()
                 vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
             elif storage_setting == 'EXTERNAL':
-                names = (vs_name + '.glsl', fs_name + '.glsl')
+                names = [bpy.path.clean_name(name) + '.glsl' for name in (vs_name, fs_name)]
                 data = (shader_data['vertex'], shader_data['fragment'])
                 for name, data in zip(names, data):
                     filename = os.path.join(settings['gltf_output_dir'], name)
