@@ -932,7 +932,11 @@ def export_images(settings, images):
 
         storage_setting = settings['images_data_storage']
         if storage_setting == 'COPY':
-            shutil.copy(bpy.path.abspath(image.filepath), settings['gltf_output_dir'])
+            try:
+                shutil.copy(bpy.path.abspath(image.filepath), settings['gltf_output_dir'])
+            except shutil.SameFileError:
+                # If the file already exists, no need to copy
+                pass
             uri = os.path.basename(image.filepath)
         elif storage_setting == 'REFERENCE':
             uri = image.filepath.replace('//', '')
