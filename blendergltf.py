@@ -669,8 +669,12 @@ def export_meshes(settings, meshes, skinned_meshes):
                 },
                 'indices': idata.name,
                 'mode': 4,
-                'material': mat,
             }
+
+            # Add the material reference after checking that it is valid
+            if mat:
+                gltf_prim['material'] = mat
+
             for i, v in enumerate(tdata):
                 gltf_prim['attributes']['TEXCOORD_' + str(i)] = v.name
 
