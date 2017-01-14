@@ -1208,7 +1208,7 @@ def export_gltf(scene_delta, settings={}):
         'animations': {},
     }
 
-    if settings['shaders_data_storage'] == None:
+    if settings['shaders_data_storage'] == 'NONE':
         gltf['extensionsUsed'].append('KHR_materials_common')
 
     if settings['ext_export_actions']:
