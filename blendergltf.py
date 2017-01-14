@@ -709,7 +709,7 @@ def export_skins(skinned_meshes):
             'name': obj.name,
         }
         arm = obj.find_armature()
-        gltf_skin['jointNames'] = ['{}_{}'.format(arm.name, group.name) for group in obj.vertex_groups]
+        gltf_skin['jointNames'] = ['node_{}_{}'.format(arm.name, group.name) for group in obj.vertex_groups]
 
         element_size = 16 * 4
         num_elements = len(obj.vertex_groups)
@@ -1222,7 +1222,7 @@ def export_gltf(scene_delta, settings={}):
 
     # Retroactively add skins attribute to nodes
     for mesh_name, obj in skinned_meshes.items():
-        gltf['nodes'][obj.name]['skin'] = '{}_skin'.format(mesh_name)
+        gltf['nodes']['node_' + obj.name]['skin'] = 'skin_{}'.format(mesh_name)
 
     # Insert root nodes if axis conversion is needed
     if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
