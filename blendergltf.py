@@ -927,6 +927,20 @@ def image_to_data_uri(image):
 
 
 def export_images(settings, images):
+    def check_image(image):
+        errors = []
+        if image.size[0] == 0:
+            errors.add('x dimension is 0')
+        if image.size[1] == 0:
+            errors.add('y dimension is 0')
+
+        if errors:
+            err_list = '\n\t'.join(errors)
+            print('Unable to export image {} due to the following errors:\n\t{}'.format(image.name, err_list))
+            return False
+
+        return True
+
     def export_image(image):
         uri = ''
 
@@ -948,7 +962,8 @@ def export_images(settings, images):
         return {
             'uri': uri,
         }
-    return {image.name: export_image(image) for image in images}
+
+    return {image.name: export_image(image) for image in images if check_image(image)}
 
 
 def export_textures(textures):
