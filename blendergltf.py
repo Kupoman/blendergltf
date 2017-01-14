@@ -233,7 +233,7 @@ class Buffer:
         "accessors",
         )
     def __init__(self, name, uri=None):
-        self.name = '{}_buffer'.format(name)
+        self.name = 'buffer_{}'.format(name)
         self.type = 'arraybuffer'
         self.bytelength = 0
         self.buffer_views = collections.OrderedDict()
@@ -258,7 +258,7 @@ class Buffer:
         }
 
     def add_view(self, bytelength, target):
-        buffer_name = '{}_view_{}'.format(self.name, len(self.buffer_views))
+        buffer_name = 'bufferView_{}_{}'.format(self.name, len(self.buffer_views))
         self.buffer_views[buffer_name] = {
                 'data': bytearray(bytelength),
                 'target': target,
@@ -293,7 +293,7 @@ class Buffer:
                      component_type,
                      count,
                      type):
-        accessor_name = '{}_accessor_{}'.format(self.name, len(self.accessors))
+        accessor_name = 'accessor_{}_{}'.format(self.name, len(self.accessors))
         self.accessors[accessor_name] = self.Accessor(accessor_name, self, buffer_view, byte_offset, byte_stride, component_type, count, type)
         return self.accessors[accessor_name]
 
@@ -377,15 +377,15 @@ def export_cameras(cameras):
                 'type': 'perspective',
             }
 
-    return {camera.name: export_camera(camera) for camera in cameras}
+    return {'camera_' + camera.name: export_camera(camera) for camera in cameras}
 
 
 def export_materials(settings, materials, shaders, programs, techniques):
     def export_material(material):
         all_textures = [ts for ts in material.texture_slots if ts and ts.texture.type == 'IMAGE']
-        diffuse_textures = [t.texture.name for t in all_textures if t.use_map_color_diffuse]
-        emission_textures = [t.texture.name for t in all_textures if t.use_map_emit]
-        specular_textures = [t.texture.name for t in all_textures if t.use_map_color_spec]
+        diffuse_textures = ['texture_' + t.texture.name for t in all_textures if t.use_map_color_diffuse]
+        emission_textures = ['texture_' + t.texture.name for t in all_textures if t.use_map_emit]
+        specular_textures = ['texture_' + t.texture.name for t in all_textures if t.use_map_color_spec]
         diffuse_color = list((material.diffuse_color * material.diffuse_intensity)[:]) + [material.alpha]
         emission_color = list((material.diffuse_color * material.emit)[:]) + [material.alpha]
         specular_color = list((material.specular_color * material.specular_intensity)[:]) + [material.specular_alpha]
@@ -417,7 +417,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
     exp_materials = {}
     for material in materials:
         if settings['shaders_data_storage'] == 'NONE':
-            exp_materials[material.name] = export_material(material)
+            exp_materials['material_' + material.name] = export_material(material)
         else:
             # Handle shaders
             shader_data = gpu.export_shader(bpy.context.scene, material)
@@ -426,8 +426,8 @@ def export_materials(settings, materials, shaders, programs, techniques):
             else:
                 shader_converter.to_web(shader_data)
 
-            fs_name = material.name + 'FS'
-            vs_name = material.name + 'VS'
+            fs_name = 'shader_{}_FS'.format(material.name)
+            vs_name = 'shader_{}_VS'.format(material.name)
             storage_setting = settings['shaders_data_storage']
             if storage_setting == 'EMBED':
                 fs_bytes = shader_data['fragment'].encode()
@@ -435,7 +435,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 vs_bytes = shader_data['vertex'].encode()
                 vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
             elif storage_setting == 'EXTERNAL':
-                names = [bpy.path.clean_name(name) + '.glsl' for name in (vs_name, fs_name)]
+                names = [bpy.path.clean_name(name) + '.glsl' for name in (material.name+'VS', material.name+'FS')]
                 data = (shader_data['vertex'], shader_data['fragment'])
                 for name, data in zip(names, data):
                     filename = os.path.join(settings['gltf_output_dir'], name)
@@ -449,10 +449,10 @@ def export_materials(settings, materials, shaders, programs, techniques):
             shaders[vs_name] = {'type': 35633, 'uri': vs_uri}
 
             # Handle programs
-            programs[material.name+'Program'] = {
+            programs['program_' + material.name] = {
                 'attributes' : [a['varname'] for a in shader_data['attributes']],
-                'fragmentShader' : material.name+'FS',
-                'vertexShader' : material.name+'VS',
+                'fragmentShader' : 'shader_{}_FS'.format(material.name),
+                'vertexShader' : 'shader_{}_VS'.format(material.name),
             }
 
             # Handle parameters/values
@@ -504,7 +504,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
                     elif uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
                         for ts in [ts for ts in material.texture_slots if ts and ts.texture.type == 'IMAGE']:
                             if ts.texture.image.name == uniform['image'].name:
-                                value = ts.texture.name
+                                value = 'texture_' + ts.texture.name
                                 values[uniform['varname']] = value
                     else:
                         print('Unconverted uniform:', uniform)
@@ -513,7 +513,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 if semantic:
                     parameter['semantic'] = semantic
                     if node:
-                        parameter['node'] = node
+                        parameter['node'] = 'node_' + node
                 else:
                     parameter['value'] = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](value)
                 if uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
@@ -524,15 +524,15 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 uniform['valname'] = valname
 
             # Handle techniques
-            tech_name = material.name + 'Technique'
+            tech_name = 'technique_' + material.name
             techniques[tech_name] = {
                 'parameters' : parameters,
-                'program' : material.name+'Program',
+                'program' : 'program_' + material.name,
                 'attributes' : {a['varname'] : a['varname'] for a in shader_data['attributes']},
                 'uniforms' : {u['varname'] : u['valname'] for u in shader_data['uniforms']},
             }
 
-            exp_materials[material.name] = {'technique': tech_name, 'values': values}
+            exp_materials['material_' + material.name] = {'technique': tech_name, 'values': values}
             # exp_materials[material.name] = {}
 
     return exp_materials
@@ -677,7 +677,7 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             # Add the material reference after checking that it is valid
             if mat:
-                gltf_prim['material'] = mat
+                gltf_prim['material'] = 'material_' + mat
 
             for i, v in enumerate(tdata):
                 gltf_prim['attributes']['TEXCOORD_' + str(i)] = v.name
@@ -698,7 +698,7 @@ def export_meshes(settings, meshes, skinned_meshes):
         if me.users != 0:
             gltf_mesh = export_mesh(me)
             if gltf_mesh != None:
-                exported_meshes.update({me.name: gltf_mesh})
+                exported_meshes.update({'mesh_' + me.name: gltf_mesh})
     return exported_meshes
 
 
@@ -727,7 +727,7 @@ def export_skins(skinned_meshes):
 
         return gltf_skin
 
-    return {'{}_skin'.format(mesh_name): export_skin(obj) for mesh_name, obj in skinned_meshes.items()}
+    return {'skin_' + mesh_name: export_skin(obj) for mesh_name, obj in skinned_meshes.items()}
 
 
 def export_lights(lamps):
@@ -811,23 +811,23 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     def export_node(obj):
         ob = {
             'name': obj.name,
-            'children': [child.name for child in obj.children if is_visible(child) and is_selected(child)],
+            'children': ['node_' + child.name for child in obj.children if is_visible(child) and is_selected(child)],
             'matrix': togl(obj.matrix_world),
         }
 
         if obj.type == 'MESH':
             mesh = modded_meshes.get(obj.name, obj.data)
-            ob['meshes'] = [mesh.name]
+            ob['meshes'] = ['mesh_' + mesh.name]
             if obj.find_armature():
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
-            ob['extras'] = {'light': obj.data.name}
+            ob['extras'] = {'light': 'node_' + obj.data.name}
         elif obj.type == 'CAMERA':
             ob['camera'] = obj.data.name
         elif obj.type == 'EMPTY' and obj.dupli_group is not None:
             # Expand dupli-groups
-            ob['children'] += [i.name for i in obj.dupli_group.objects]
+            ob['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
 
         if obj.rigid_body and settings['ext_export_physics']:
             ob['extensions'] = {
@@ -836,13 +836,13 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
 
         return ob
 
-    gltf_nodes = {obj.name: export_node(obj) for obj in objects if is_visible(obj) and is_selected(obj)}
+    gltf_nodes = {'node_' + obj.name: export_node(obj) for obj in objects if is_visible(obj) and is_selected(obj)}
 
     def export_joint(arm_name, bone):
         gltf_joint = {
             'name': bone.name,
             'jointName': '{}_{}'.format(arm_name, bone.name),
-            'children': ['{}_{}'.format(arm_name, child.name) for child in bone.children],
+            'children': ['node_{}_{}'.format(arm_name, child.name) for child in bone.children],
         }
 
         if bone.parent:
@@ -854,11 +854,11 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
 
     for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
         arm = obj.data
-        gltf_nodes.update({"{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
-        gltf_nodes['{}_root'.format(arm.name)] = {
+        gltf_nodes.update({"node_{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
+        gltf_nodes['node_{}_root'.format(arm.name)] = {
             'name': arm.name,
             'jointName': arm.name,
-            'children': ['{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
+            'children': ['node_{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
             'matrix': togl(obj.matrix_world),
         }
 
@@ -879,14 +879,14 @@ def export_scenes(settings, scenes):
         }
 
         if settings['nodes_export_hidden']:
-            result['nodes'] = [ob.name for ob in scene.objects if ob.parent is None and is_selected(ob)]
+            result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and is_selected(ob)]
             result['extras']['hidden_nodes'] = [ob.name for ob in scene.objects if is_selected(ob) and not ob.is_visible(scene)]
         else:
-            result['nodes'] = [ob.name for ob in scene.objects if ob.parent is None and is_selected(ob) and ob.is_visible(scene)]
+            result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and is_selected(ob) and ob.is_visible(scene)]
 
         return result
 
-    return {scene.name: export_scene(scene) for scene in scenes}
+    return {'scene_' + scene.name: export_scene(scene) for scene in scenes}
 
 
 def export_buffers(settings):
@@ -971,14 +971,14 @@ def export_images(settings, images):
             'uri': uri,
         }
 
-    return {image.name: export_image(image) for image in images if check_image(image)}
+    return {'image_' + image.name: export_image(image) for image in images if check_image(image)}
 
 
 def export_textures(textures):
     def export_texture(texture):
         gltf_texture = {
-            'sampler' : 'default',
-            'source' : texture.image.name,
+            'sampler' : 'sampler_default',
+            'source' : 'image_' + texture.image.name,
         }
         tformat = None
         channels = texture.image.channels
@@ -1004,7 +1004,7 @@ def export_textures(textures):
 
         return gltf_texture
 
-    return {texture.name: export_texture(texture) for texture in textures
+    return {'texture_' + texture.name: export_texture(texture) for texture in textures
         if type(texture) == bpy.types.ImageTexture}
 
 
@@ -1126,7 +1126,7 @@ def export_actions(actions):
 
 def insert_root_nodes(gltf_data, root_matrix):
     for name, scene in gltf_data['scenes'].items():
-        node_name = name + '_root'
+        node_name = 'node_{}_root'.format(name)
         # Generate a new root node for each scene
         gltf_data['nodes'][node_name] = {
             'children': scene['nodes'],
@@ -1197,7 +1197,7 @@ def export_gltf(scene_delta, settings={}):
         'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
-        'samplers': {'default':{}},
+        'samplers': {'sampler_default':{}},
         'scene': bpy.context.scene.name,
         'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
