@@ -1198,7 +1198,7 @@ def export_gltf(scene_delta, settings={}):
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'sampler_default':{}},
-        'scene': bpy.context.scene.name,
+        'scene': 'scene_' + bpy.context.scene.name,
         'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
         'techniques': techniques,
