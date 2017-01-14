@@ -301,6 +301,10 @@ class Buffer:
         gltf = {}
 
         for k, v in self.accessors.items():
+            # Do not export an empty accessor
+            if v.count == 0:
+                continue
+
             gltf[k] = {
                 'bufferView': v.buffer_view,
                 'byteOffset': v.byte_offset,
