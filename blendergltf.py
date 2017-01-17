@@ -250,7 +250,12 @@ class Buffer:
         if settings['buffers_embed_data']:
             uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
         else:
-            uri = bpy.path.clean_name(self.name) + '.bin'
+            if settings['buffers_combine_data']:
+                parts = os.path.splitext(os.path.basename(settings['filepath']))
+                uri = parts[0] + '.bin'
+            else:
+                uri = bpy.path.clean_name(self.name) + '.bin'
+
             with open(os.path.join(settings['gltf_output_dir'], uri), 'wb') as fout:
                 fout.write(data)
 
