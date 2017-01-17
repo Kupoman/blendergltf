@@ -66,6 +66,7 @@ class Vertex:
         "co",
         "normal",
         "uvs",
+        "colors",
         "loop_indices",
         "index",
         "weights",
@@ -77,6 +78,7 @@ class Vertex:
         self.co = mesh.vertices[vi].co.freeze()
         self.normal = loop.normal.freeze()
         self.uvs = tuple(layer.data[i].uv.freeze() for layer in mesh.uv_layers)
+        self.colors = tuple(layer.data[i].color.freeze() for layer in mesh.vertex_colors)
         self.loop_indices = [i]
 
         # Take the four most influential groups
@@ -95,13 +97,14 @@ class Vertex:
         self.index = 0
 
     def __hash__(self):
-        return hash((self.co, self.normal, self.uvs))
+        return hash((self.co, self.normal, self.uvs, self.colors))
 
     def __eq__(self, other):
         eq = (
             (self.co == other.co) and
             (self.normal == other.normal) and
-            (self.uvs == other.uvs)
+            (self.uvs == other.uvs) and
+            (self.colors == other.colors)
             )
 
         if eq:
@@ -553,7 +556,8 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         num_loops = len(me.loops)
         num_uv_layers = len(me.uv_layers)
-        vertex_size = (3 + 3 + num_uv_layers * 2) * 4
+        num_col_layers = len(me.vertex_colors)
+        vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * 3) * 4
 
         buf = Buffer(me.name)
         skin_buf = Buffer('{}_skin'.format(me.name))
@@ -569,10 +573,14 @@ def export_meshes(settings, meshes, skinned_meshes):
             vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+            cdata = [buf.add_accessor(va, 24 + 8*num_uv_layers + 12*i,
+                vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3) for i in range(num_col_layers)]
         else:
             vdata = buf.add_accessor(va, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(va, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
             tdata = [buf.add_accessor(va, num_verts*(24 + 8 * i), 8, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+            cdata = [buf.add_accessor(va, num_verts*(24 + 8*num_uv_layers + 12*i),
+                12, Buffer.FLOAT, num_verts, Buffer.VEC3) for i in range(num_col_layers)]
 
         skin_vertex_size = (4 + 4) * 4
         skin_va = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
@@ -592,6 +600,11 @@ def export_meshes(settings, meshes, skinned_meshes):
             for j, uv in enumerate(vtx.uvs):
                 tdata[j][i * 2] = uv.x
                 tdata[j][i * 2 + 1] = uv.y
+
+            for j, col in enumerate(vtx.colors):
+                cdata[j][i * 3] = col[0]
+                cdata[j][i * 3 + 1] = col[1]
+                cdata[j][i * 3 + 2] = col[2]
 
         if is_skinned:
             for i, vtx in enumerate(vert_list):
@@ -681,6 +694,8 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             for i, v in enumerate(tdata):
                 gltf_prim['attributes']['TEXCOORD_' + str(i)] = v.name
+            for i, v in enumerate(cdata):
+                gltf_prim['attributes']['COLOR_' + str(i)] = v.name
 
             if is_skinned:
                 gltf_prim['attributes']['JOINT'] = jdata.name
