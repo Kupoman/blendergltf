@@ -968,7 +968,11 @@ def export_images(settings, images):
         uri = ''
 
         storage_setting = settings['images_data_storage']
-        if storage_setting == 'COPY':
+        image_packed = image.packed_file != None
+        if image_packed and storage_setting in ['COPY','REFERENCE']:
+            # TODO: output packed image to appropriate location
+            pass
+        elif storage_setting == 'COPY':
             try:
                 shutil.copy(bpy.path.abspath(image.filepath), settings['gltf_output_dir'])
             except shutil.SameFileError:
