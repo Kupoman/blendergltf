@@ -962,7 +962,7 @@ def export_images(settings, images):
         if image.type != 'IMAGE':
             errors.append('not an image')
 
-        if len(errors) > 0:
+        if errors:
             err_list = '\n\t'.join(errors)
             print('Unable to export image {} due to the following errors:\n\t{}'.format(image.name, err_list))
             return False
@@ -976,7 +976,7 @@ def export_images(settings, images):
         storage_setting = settings['images_data_storage']
         image_packed = image.packed_file != None
         if image_packed and storage_setting in ['COPY','REFERENCE']:
-            if image.file_format in extMap and False:
+            if image.file_format in extMap:
                 # save the file to the output directory
                 uri = '.'.join([image.name, extMap[image.file_format]])
                 temp = image.filepath
@@ -1019,7 +1019,7 @@ def export_textures(textures):
         else if texture.image.channels not in [3,4]:
             errors.append('points to {}-channel image (must be 3 or 4)'.format(texture.image.channels))
 
-        if len(errors) > 0:
+        if errors:
             err_list = '\n\t'.join(errors)
             print('Unable to export texture {} due to the following errors:\n\t{}'.format(texture.name, err_list))
             return False
