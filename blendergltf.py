@@ -956,6 +956,8 @@ def export_images(settings, images):
             errors.append('x dimension is 0')
         if image.size[1] == 0:
             errors.append('y dimension is 0')
+        if image.type != 'IMAGE':
+            errors.append('not an image')
 
         if len(errors) > 0:
             err_list = '\n\t'.join(errors)
@@ -964,14 +966,28 @@ def export_images(settings, images):
 
         return True
 
+    extMap = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
     def export_image(image):
         uri = ''
 
         storage_setting = settings['images_data_storage']
         image_packed = image.packed_file != None
         if image_packed and storage_setting in ['COPY','REFERENCE']:
-            # TODO: output packed image to appropriate location
-            pass
+            if image.file_format in extMap and False:
+                # save the file to the output directory
+                uri = '.'.join([image.name, extMap[image.file_format]])
+                temp = image.filepath
+                image.filepath = os.path.join(settings['gltf_output_dir'], uri)
+                image.save()
+                image.filepath = temp
+            else:
+                # convert to png and save
+                uri = '.'.join([image.name, 'png'])
+                data_uri = image_to_data_uri(image)
+                png = base64.b64decode(data_uri[22:])
+                with open( os.path.join(settings['gltf_output_dir'], uri), 'wb' ) as outfile:
+                    outfile.write(png)
+
         elif storage_setting == 'COPY':
             try:
                 shutil.copy(bpy.path.abspath(image.filepath), settings['gltf_output_dir'])
@@ -995,6 +1011,10 @@ def export_images(settings, images):
 
 def export_textures(textures):
     def export_texture(texture):
+        if texture.image == None:
+            print('Texture {} has no corresponding image'.format(texture.name))
+            return None
+
         gltf_texture = {
             'sampler' : 'sampler_default',
             'source' : 'image_' + texture.image.name,
@@ -1015,9 +1035,7 @@ def export_textures(textures):
                 tformat = GL_RGBA
 
         if tformat is None:
-            raise RuntimeError(
-                "Could not find a texture format for image (name={}, num channels={})".format(texture.image.name, channels)
-            )
+            print("Could not find a texture format for image (name={}, num channels={})".format(texture.image.name, channels))
 
         gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
 
