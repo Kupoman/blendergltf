@@ -1012,11 +1012,21 @@ def export_images(settings, images):
 
 
 def export_textures(textures):
-    def export_texture(texture):
+    def check_texture(texture):
+        errors = []
         if texture.image == None:
-            print('Texture {} has no corresponding image'.format(texture.name))
-            return None
+            errors.append('has no image reference')
+        else if texture.image.channels not in [3,4]:
+            errors.append('points to {}-channel image (must be 3 or 4)'.format(texture.image.channels))
 
+        if len(errors) > 0:
+            err_list = '\n\t'.join(errors)
+            print('Unable to export texture {} due to the following errors:\n\t{}'.format(texture.name, err_list))
+            return False
+
+        return True
+
+    def export_texture(texture):
         gltf_texture = {
             'sampler' : 'sampler_default',
             'source' : 'image_' + texture.image.name,
@@ -1036,15 +1046,12 @@ def export_textures(textures):
             else:
                 tformat = GL_RGBA
 
-        if tformat is None:
-            print("Could not find a texture format for image (name={}, num channels={})".format(texture.image.name, channels))
-
         gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
 
         return gltf_texture
 
     return {'texture_' + texture.name: export_texture(texture) for texture in textures
-        if type(texture) == bpy.types.ImageTexture}
+        if type(texture) == bpy.types.ImageTexture and check_texture(texture)}
 
 
 def _can_object_use_action(obj, action):
