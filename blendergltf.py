@@ -924,7 +924,7 @@ def export_buffers(settings):
     return gltf
 
 
-def image_to_data_uri(image):
+def image_to_data_uri(image, bytes=False):
     width = image.size[0]
     height = image.size[1]
     buf = bytearray([int(p * 255) for p in image.pixels])
@@ -946,7 +946,10 @@ def image_to_data_uri(image):
         png_pack(b'IDAT', zlib.compress(raw_data, 9)),
         png_pack(b'IEND', b'')])
 
-    return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
+    if bytes:
+        return png_bytes
+    else:
+        return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
 
 
 def export_images(settings, images):
@@ -983,8 +986,7 @@ def export_images(settings, images):
             else:
                 # convert to png and save
                 uri = '.'.join([image.name, 'png'])
-                data_uri = image_to_data_uri(image)
-                png = base64.b64decode(data_uri[22:])
+                png = image_to_data_uri(image, bytes=True)
                 with open( os.path.join(settings['gltf_output_dir'], uri), 'wb' ) as outfile:
                     outfile.write(png)
 
