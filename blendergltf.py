@@ -924,7 +924,7 @@ def export_buffers(settings):
     return gltf
 
 
-def image_to_data_uri(image):
+def image_to_data_uri(image, bytes=False):
     width = image.size[0]
     height = image.size[1]
     buf = bytearray([int(p * 255) for p in image.pixels])
@@ -946,16 +946,21 @@ def image_to_data_uri(image):
         png_pack(b'IDAT', zlib.compress(raw_data, 9)),
         png_pack(b'IEND', b'')])
 
-    return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
+    if bytes:
+        return png_bytes
+    else:
+        return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
 
 
 def export_images(settings, images):
     def check_image(image):
         errors = []
         if image.size[0] == 0:
-            errors.add('x dimension is 0')
+            errors.append('x dimension is 0')
         if image.size[1] == 0:
-            errors.add('y dimension is 0')
+            errors.append('y dimension is 0')
+        if image.type != 'IMAGE':
+            errors.append('not an image')
 
         if errors:
             err_list = '\n\t'.join(errors)
@@ -964,11 +969,28 @@ def export_images(settings, images):
 
         return True
 
+    extMap = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
     def export_image(image):
         uri = ''
 
         storage_setting = settings['images_data_storage']
-        if storage_setting == 'COPY':
+        image_packed = image.packed_file != None
+        if image_packed and storage_setting in ['COPY','REFERENCE']:
+            if image.file_format in extMap:
+                # save the file to the output directory
+                uri = '.'.join([image.name, extMap[image.file_format]])
+                temp = image.filepath
+                image.filepath = os.path.join(settings['gltf_output_dir'], uri)
+                image.save()
+                image.filepath = temp
+            else:
+                # convert to png and save
+                uri = '.'.join([image.name, 'png'])
+                png = image_to_data_uri(image, bytes=True)
+                with open( os.path.join(settings['gltf_output_dir'], uri), 'wb' ) as outfile:
+                    outfile.write(png)
+
+        elif storage_setting == 'COPY':
             try:
                 shutil.copy(bpy.path.abspath(image.filepath), settings['gltf_output_dir'])
             except shutil.SameFileError:
@@ -990,6 +1012,20 @@ def export_images(settings, images):
 
 
 def export_textures(textures):
+    def check_texture(texture):
+        errors = []
+        if texture.image == None:
+            errors.append('has no image reference')
+        else if texture.image.channels not in [3,4]:
+            errors.append('points to {}-channel image (must be 3 or 4)'.format(texture.image.channels))
+
+        if errors:
+            err_list = '\n\t'.join(errors)
+            print('Unable to export texture {} due to the following errors:\n\t{}'.format(texture.name, err_list))
+            return False
+
+        return True
+
     def export_texture(texture):
         gltf_texture = {
             'sampler' : 'sampler_default',
@@ -1010,17 +1046,12 @@ def export_textures(textures):
             else:
                 tformat = GL_RGBA
 
-        if tformat is None:
-            raise RuntimeError(
-                "Could not find a texture format for image (name={}, num channels={})".format(texture.image.name, channels)
-            )
-
         gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
 
         return gltf_texture
 
     return {'texture_' + texture.name: export_texture(texture) for texture in textures
-        if type(texture) == bpy.types.ImageTexture}
+        if type(texture) == bpy.types.ImageTexture and check_texture(texture)}
 
 
 def _can_object_use_action(obj, action):
