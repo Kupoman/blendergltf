@@ -1016,7 +1016,7 @@ def export_textures(textures):
         errors = []
         if texture.image == None:
             errors.append('has no image reference')
-        else if texture.image.channels not in [3,4]:
+        elif texture.image.channels not in [3,4]:
             errors.append('points to {}-channel image (must be 3 or 4)'.format(texture.image.channels))
 
         if errors:
