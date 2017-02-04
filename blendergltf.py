@@ -77,9 +77,18 @@ class Vertex:
         i = loop.index
         self.co = mesh.vertices[vi].co.freeze()
         self.normal = loop.normal.freeze()
-        self.uvs = tuple(layer.data[i].uv.freeze() for layer in mesh.uv_layers)
         self.colors = tuple(layer.data[i].color.freeze() for layer in mesh.vertex_colors)
         self.loop_indices = [i]
+
+        if len(mesh.uv_layers) > 0:
+            ai = mesh.uv_layers.active_index
+            nonactive_layers = mesh.uv_layers[:ai] + mesh.uv_layers[ai+1:]
+            self.uvs = tuple(
+                [mesh.uv_layers.active.data[i].uv.freeze()] +
+                [layer.data[i].uv.freeze() for layer in nonactive_layers]
+            )
+        else:
+            self.uvs = tuple()
 
         # Take the four most influential groups
         groups = sorted(mesh.vertices[vi].groups, key=lambda group: group.weight, reverse=True)
