@@ -408,24 +408,33 @@ def export_materials(settings, materials, shaders, programs, techniques):
             technique = 'LAMBERT'
         elif material.specular_shader == 'BLINN':
             technique = 'BLINN'
-        return {
-                'extensions': {
-                    'KHR_materials_common': {
-                        'technique': technique,
-                        'values': {
-                            'ambient': ([material.ambient]*3) + [1.0],
-                            'diffuse': diffuse_textures[-1] if diffuse_textures else diffuse_color,
-                            'doubleSided': not material.game_settings.use_backface_culling,
-                            'emission': emission_textures[-1] if emission_textures else emission_color,
-                            'specular': specular_textures[-1] if specular_textures else specular_color,
-                            'shininess': material.specular_hardness,
-                            'transparency': material.alpha,
-                            'transparent': material.use_transparency,
-                        }
+        gltfmat = {
+            'extensions': {
+                'KHR_materials_common': {
+                    'technique': technique,
+                    'values': {
+                        'ambient': ([material.ambient]*3) + [1.0],
+                        'doubleSided': not material.game_settings.use_backface_culling,
+                        'transparency': material.alpha,
+                        'transparent': material.use_transparency,
                     }
-                },
-                'name': material.name,
-            }
+                }
+            },
+            'name': material.name,
+        }
+
+        vals = gltfmat['extensions']['KHR_materials_common']['values']
+        if technique == 'CONSTANT':
+            vals['emission'] = diffuse_textures[-1] if diffuse_textures else diffuse_color
+        else:
+            vals['emission'] = emission_textures[-1] if emission_textures else emission_color
+            vals['diffuse'] = diffuse_textures[-1] if diffuse_textures else diffuse_color
+            if technique in ['BLINN', 'PHONG']:
+                vals['specular'] = specular_textures[-1] if specular_textures else specular_color
+                vals['shininess'] = material.specular_hardness
+
+        return gltfmat
+
     exp_materials = {}
     for material in materials:
         if settings['shaders_data_storage'] == 'NONE':
