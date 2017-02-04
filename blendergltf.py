@@ -1069,7 +1069,7 @@ def _can_object_use_action(obj, action):
     return False
 
 
-def export_actions(actions):
+def export_actions(actions, objects):
     def export_action(obj, action):
         params = []
 
@@ -1159,7 +1159,7 @@ def export_actions(actions):
         return gltf_action
 
     gltf_actions = {}
-    for obj in bpy.data.objects:
+    for obj in objects:
         act_prefix = '{}_root'.format(obj.data.name) if obj.type == 'ARMATURE' else obj.name
         gltf_actions.update({
             '{}|{}'.format(act_prefix, action.name): export_action(obj, action)
@@ -1260,7 +1260,7 @@ def export_gltf(scene_delta, settings={}):
     if settings['ext_export_actions']:
         gltf['extensionsUsed'].append('BLENDER_actions')
         gltf['extensions']['BLENDER_actions'] = {
-            'actions': export_actions(scene_delta.get('actions', [])),
+            'actions': export_actions(scene_delta.get('actions', []), scene_delta.get('objects', [])),
         }
 
     if settings['ext_export_physics']:
