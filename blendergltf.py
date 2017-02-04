@@ -617,7 +617,7 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             for j, uv in enumerate(vtx.uvs):
                 tdata[j][i * 2] = uv.x
-                tdata[j][i * 2 + 1] = uv.y
+                tdata[j][i * 2 + 1] = 1 - uv.y
 
             for j, col in enumerate(vtx.colors):
                 cdata[j][i * 3] = col[0]
@@ -1047,11 +1047,11 @@ def export_textures(textures):
     def export_texture(texture):
         gltf_texture = {
             'sampler' : 'sampler_default',
-            'source' : 'image_' + texture.image.name,
+            'source' : 'image_' + texture.image.name
         }
         tformat = None
         channels = texture.image.channels
-        use_srgb = texture.image.colorspace_settings.name == 'sRGB'
+        use_srgb = False #texture.image.colorspace_settings.name == 'sRGB'
 
         if channels == 3:
             if use_srgb:
