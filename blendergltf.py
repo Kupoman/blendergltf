@@ -710,10 +710,10 @@ def export_meshes(settings, meshes, skinned_meshes):
 
     exported_meshes = {}
     for me in meshes:
-        if me.users != 0:
-            gltf_mesh = export_mesh(me)
-            if gltf_mesh != None:
-                exported_meshes.update({'mesh_' + me.name: gltf_mesh})
+        #if me.users != 0:
+        gltf_mesh = export_mesh(me)
+        if gltf_mesh != None:
+            exported_meshes.update({'mesh_' + me.name: gltf_mesh})
     return exported_meshes
 
 
@@ -839,7 +839,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         elif obj.type == 'LAMP':
             ob['extras'] = {'light': 'node_' + obj.data.name}
         elif obj.type == 'CAMERA':
-            ob['camera'] = obj.data.name
+            ob['camera'] = 'camera_' + obj.data.name
         elif obj.type == 'EMPTY' and obj.dupli_group is not None:
             # Expand dupli-groups
             ob['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
