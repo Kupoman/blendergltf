@@ -845,7 +845,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         ob = {
             'name': obj.name,
             'children': ['node_' + child.name for child in obj.children if is_visible(child) and is_selected(child)],
-            'matrix': togl(obj.matrix_world),
+            'matrix': togl(obj.matrix_local),
         }
 
         if obj.type == 'MESH':
