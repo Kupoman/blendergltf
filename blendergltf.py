@@ -27,6 +27,7 @@ default_settings = {
     'asset_profile': 'WEB',
     'ext_export_physics': False,
     'ext_export_actions': False,
+    'images_allow_srgb': True
 }
 
 
@@ -887,7 +888,7 @@ def export_scenes(settings, scenes):
         result = {
             'extras': {
                 'background_color': scene.world.horizon_color[:],
-                'active_camera': scene.camera.name if scene.camera else '',
+                'active_camera': 'camera_'+scene.camera.name if scene.camera else '',
                 'frames_per_second': scene.render.fps,
             },
             'name': scene.name,
@@ -1033,7 +1034,8 @@ def export_textures(textures):
         }
         tformat = None
         channels = texture.image.channels
-        use_srgb = False #texture.image.colorspace_settings.name == 'sRGB'
+        use_srgb = settings['images_allow_srgb'] and
+            texture.image.colorspace_settings.name == 'sRGB'
 
         if channels == 3:
             if use_srgb:
