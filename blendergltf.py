@@ -396,6 +396,8 @@ def export_materials(settings, materials, shaders, programs, techniques):
         technique = 'PHONG'
         if material.use_shadeless:
             technique = 'CONSTANT'
+            emission_textures = diffuse_textures
+            emission_color = diffuse_color
         elif material.specular_intensity == 0.0:
             technique = 'LAMBERT'
         elif material.specular_shader == 'BLINN':
