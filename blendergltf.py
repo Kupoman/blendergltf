@@ -1012,7 +1012,7 @@ def export_images(settings, images):
     return {'image_' + image.name: export_image(image) for image in images if check_image(image)}
 
 
-def export_textures(textures):
+def export_textures(textures, images_allow_srgb):
     def check_texture(texture):
         errors = []
         if texture.image == None:
@@ -1034,8 +1034,7 @@ def export_textures(textures):
         }
         tformat = None
         channels = texture.image.channels
-        use_srgb = settings['images_allow_srgb'] and
-            texture.image.colorspace_settings.name == 'sRGB'
+        use_srgb = images_allow_srgb and texture.image.colorspace_settings.name == 'sRGB'
 
         if channels == 3:
             if use_srgb:
@@ -1250,7 +1249,7 @@ def export_gltf(scene_delta, settings={}):
         'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
         'techniques': techniques,
-        'textures': export_textures(scene_delta.get('textures', [])),
+        'textures': export_textures(scene_delta.get('textures', []), settings['images_allow_srgb']),
 
         # TODO
         'animations': {},
