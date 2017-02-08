@@ -129,9 +129,6 @@ else:
                 to_up=self.axis_up
             ).to_4x4()
 
-            # apply exporter-only texture settings
-            settings['images_allow_srgb'] = False
-
             gltf = blendergltf.export_gltf(scene, settings)
             with open(self.filepath, 'w') as fout:
                 # Figure out indentation
