@@ -65,78 +65,6 @@ else:
         ('EXTERNAL', 'External', 'Save shaders to the output directory')
     )
 
-    def get_pruned_blocks(bpy_data, selection_only, export_hidden):
-
-        def selected_in_subtree(parent_obj):
-            """Return True if object or any of its children
-               is selected in the outline tree, False otherwise.
-
-            """
-            if parent_obj.select:
-                return True
-            if len(parent_obj.children) > 0:
-                return any(selected_in_subtree(child) for child in parent_obj.children)
-            else:
-                return False
-
-        pruned_data = {
-            'actions': bpy_data.actions.values(),
-            'cameras': [],
-            'lamps': [],
-            'images': [],
-            'materials': [],
-            'meshes': [],
-            'objects': [],
-            'scenes': [],
-            'textures': []
-        }
-
-        # get list of objects
-        for obj in bpy_data.objects.values():
-
-            # filter out objects not to be exported
-            selection_passed = not selection_only or selected_in_subtree(obj)
-            hidden_passed = not obj.hide or export_hidden
-            if selection_passed and hidden_passed:
-
-                # add object to list
-                pruned_data['objects'].append(obj)
-
-                # add scene to list
-                for scene in obj.users_scene:
-                    if scene not in pruned_data['scenes']:
-                        pruned_data['scenes'].append(scene)
-
-                # add cameras to list
-                if isinstance(obj.data, bpy.types.Camera):
-                    pruned_data['cameras'].append(obj.data)
-
-                # add lights to list
-                elif isinstance(obj.data, bpy.types.Lamp):
-                    pruned_data['lamps'].append(obj.data)
-
-                # add meshes to list
-                elif isinstance(obj.data, bpy.types.Mesh):
-                    pruned_data['meshes'].append(obj.data)
-
-                    # add materials to list
-                    for mat in obj.data.materials.values():
-                        if mat not in pruned_data['materials']:
-                            pruned_data['materials'].append(mat)
-
-                            # add textures to list
-                            for tex in [slot.texture for slot in mat.texture_slots.values()
-                                if slot != None and slot.use and isinstance(slot.texture, bpy.types.ImageTexture)]:
-                                if tex not in pruned_data['textures']:
-                                    pruned_data['textures'].append(tex)
-
-                                # add images to list
-                                if tex.image not in pruned_data['images']:
-                                    pruned_data['images'].append(tex.image)
-
-
-        return pruned_data
-
 
     class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         """Save a Khronos glTF File"""
@@ -157,6 +85,7 @@ else:
         buffers_combine_data = BoolProperty(name='Combine Buffer Data', default=True)
         nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
         nodes_selected_only = BoolProperty(name='Selection Only', default=False)
+        blocks_prune_unused = BoolProperty(name='Prune Unused Resources', default=True)
         shaders_data_storage = EnumProperty(items=shader_storage_items, name='Shader Storage', default='NONE')
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
@@ -189,8 +118,7 @@ else:
                 to_up=self.axis_up
             ).to_4x4()
 
-            scene = get_pruned_blocks(bpy.data, settings['nodes_selected_only'], settings['nodes_export_hidden'])
-            gltf = blendergltf.export_gltf(scene, settings)
+            gltf = blendergltf.export_gltf(bpy.data, settings)
             with open(self.filepath, 'w') as fout:
                 # Figure out indentation
                 if self.pretty_print:

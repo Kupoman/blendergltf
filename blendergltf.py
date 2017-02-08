@@ -20,6 +20,7 @@ default_settings = {
     'nodes_export_hidden': False,
     'nodes_global_matrix': mathutils.Matrix.Identity(4),
     'nodes_selected_only': False,
+    'blocks_prune_unused': True,
     'shaders_data_storage': 'NONE',
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data' : True,
@@ -355,6 +356,66 @@ def selected_in_subtree(parent_obj):
         return any(selected_in_subtree(child) for child in parent_obj.children)
     else:
         return False
+
+def get_pruned_blocks(bpy_data, settings):
+
+    pruned_data = {
+        'actions': bpy_data.actions.values(),
+        'cameras': [],
+        'lamps': [],
+        'images': [],
+        'materials': [],
+        'meshes': [],
+        'objects': [],
+        'scenes': [],
+        'textures': []
+    }
+
+    # get list of objects
+    for obj in bpy_data.objects.values():
+
+        # filter out objects not to be exported
+        selection_passed = not settings['nodes_selected_only'] or selected_in_subtree(obj)
+        hidden_passed = not obj.hide or settings['nodes_export_hidden']
+        if selection_passed and hidden_passed:
+
+            # add object to list
+            pruned_data['objects'].append(obj)
+
+            # add scene to list
+            for scene in obj.users_scene:
+                if scene not in pruned_data['scenes']:
+                    pruned_data['scenes'].append(scene)
+
+            # add cameras to list
+            if isinstance(obj.data, bpy.types.Camera):
+                pruned_data['cameras'].append(obj.data)
+
+            # add lights to list
+            elif isinstance(obj.data, bpy.types.Lamp):
+                pruned_data['lamps'].append(obj.data)
+
+            # add meshes to list
+            elif isinstance(obj.data, bpy.types.Mesh):
+                pruned_data['meshes'].append(obj.data)
+
+                # add materials to list
+                for mat in obj.data.materials.values():
+                    if mat not in pruned_data['materials']:
+                        pruned_data['materials'].append(mat)
+
+                        # add textures to list
+                        for tex in [slot.texture for slot in mat.texture_slots.values()
+                            if slot != None and slot.use and isinstance(slot.texture, bpy.types.ImageTexture)]:
+                            if tex not in pruned_data['textures']:
+                                pruned_data['textures'].append(tex)
+
+                            # add images to list
+                            if tex.image not in pruned_data['images']:
+                                pruned_data['images'].append(tex.image)
+
+
+    return pruned_data
 
 
 def export_cameras(cameras):
@@ -911,8 +972,9 @@ def export_buffers(settings):
         'accessors': {},
     }
 
+    print('g_buffers:', g_buffers)
     if settings['buffers_combine_data']:
-        buffers = [functools.reduce(lambda x, y: x+y, g_buffers)]
+        buffers = [functools.reduce(lambda x, y: x+y, g_buffers, Buffer('empty'))]
     else:
         buffers = g_buffers
 
@@ -1184,13 +1246,28 @@ def insert_root_nodes(gltf_data, root_matrix):
         scene['nodes'] = [node_name]
 
 
-def export_gltf(scene_delta, settings={}):
+def export_gltf(bpy_data, settings={}):
     global g_buffers
     global g_glExtensionsUsed
 
     # Fill in any missing settings with defaults
     for key, value in default_settings.items():
         settings.setdefault(key, value)
+
+    if settings['blocks_prune_unused']:
+        scene_delta = get_pruned_blocks(bpy_data, settings)
+    else:
+        scene_delta = {
+            'actions': list(bpy_data.actions),
+            'cameras': list(bpy_data.cameras),
+            'lamps': list(bpy_data.lamps),
+            'images': list(bpy_data.images),
+            'materials': list(bpy_data.materials),
+            'meshes': list(bpy_data.meshes),
+            'objects': list(bpy_data.objects),
+            'scenes': list(bpy_data.scenes),
+            'textures': list(bpy_data.textures),
+        }
 
     shaders = {}
     programs = {}
