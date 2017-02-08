@@ -27,7 +27,7 @@ default_settings = {
     'asset_profile': 'WEB',
     'ext_export_physics': False,
     'ext_export_actions': False,
-    'images_allow_srgb': True
+    'images_allow_srgb': False
 }
 
 
@@ -713,7 +713,6 @@ def export_meshes(settings, meshes, skinned_meshes):
 
     exported_meshes = {}
     for me in meshes:
-        #if me.users != 0:
         gltf_mesh = export_mesh(me)
         if gltf_mesh != None:
             exported_meshes.update({'mesh_' + me.name: gltf_mesh})
@@ -1014,7 +1013,7 @@ def export_images(settings, images):
     return {'image_' + image.name: export_image(image) for image in images if check_image(image)}
 
 
-def export_textures(textures, images_allow_srgb):
+def export_textures(textures, settings):
     def check_texture(texture):
         errors = []
         if texture.image == None:
@@ -1032,11 +1031,11 @@ def export_textures(textures, images_allow_srgb):
     def export_texture(texture):
         gltf_texture = {
             'sampler' : 'sampler_default',
-            'source' : 'image_' + texture.image.name
+            'source' : 'image_' + texture.image.name,
         }
         tformat = None
         channels = texture.image.channels
-        use_srgb = images_allow_srgb and texture.image.colorspace_settings.name == 'sRGB'
+        use_srgb = settings['images_allow_srgb'] and texture.image.colorspace_settings.name == 'sRGB'
 
         if channels == 3:
             if use_srgb:
@@ -1251,7 +1250,7 @@ def export_gltf(scene_delta, settings={}):
         'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
         'techniques': techniques,
-        'textures': export_textures(scene_delta.get('textures', []), settings['images_allow_srgb']),
+        'textures': export_textures(scene_delta.get('textures', []), settings),
 
         # TODO
         'animations': {},
