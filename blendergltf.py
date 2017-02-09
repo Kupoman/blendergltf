@@ -376,7 +376,7 @@ def get_pruned_blocks(bpy_data, settings):
 
         # filter out objects not to be exported
         selection_passed = not settings['nodes_selected_only'] or selected_in_subtree(obj)
-        hidden_passed = not obj.hide or settings['nodes_export_hidden']
+        hidden_passed = obj in bpy.context.visible_objects or settings['nodes_export_hidden']
         if selection_passed and hidden_passed:
 
             # add object to list
