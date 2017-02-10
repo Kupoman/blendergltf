@@ -137,8 +137,9 @@ else:
             col.prop(self, 'ext_export_actions')
 
             col = layout.box().column()
-            col.label('Asset:', icon='QUESTION')
+            col.label('Output:', icon='SCRIPTWIN')
             col.prop(self, 'asset_profile')
+            col.prop(self, 'pretty_print')
 
         def execute(self, context):
             scene = {
