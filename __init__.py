@@ -85,10 +85,10 @@ else:
         buffers_combine_data = BoolProperty(name='Combine Buffer Data', default=True)
         nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
         nodes_selected_only = BoolProperty(name='Selection Only', default=False)
-        shaders_data_storage = EnumProperty(items=shader_storage_items, name='Shader Storage', default='NONE')
+        shaders_data_storage = EnumProperty(items=shader_storage_items, name='Storage', default='NONE')
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
-        images_data_storage = EnumProperty(items=image_storage_items, name='Image Storage', default='COPY')
+        images_data_storage = EnumProperty(items=image_storage_items, name='Storage', default='COPY')
         asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
         ext_export_physics = BoolProperty(name='Export Physics Settings', default=False)
         ext_export_actions = BoolProperty(name='Export Actions', default=False)
@@ -98,6 +98,47 @@ else:
             description="Export JSON with indentation and a newline",
             default=True
             )
+
+        def draw(self, context):
+            layout = self.layout
+            col = layout.column()
+
+            col = layout.box().column()
+            col.label('Axis Conversion:', icon='MANIPUL')
+            col.prop(self, 'axis_up')
+            col.prop(self, 'axis_forward')
+
+            col = layout.box().column()
+            col.label('Nodes:', icon='OBJECT_DATA')
+            col.prop(self, 'nodes_export_hidden')
+            col.prop(self, 'nodes_selected_only')
+
+            col = layout.box().column()
+            col.label('Meshes:', icon='MESH_DATA')
+            col.prop(self, 'meshes_apply_modifiers')
+            col.prop(self, 'meshes_interleave_vertex_data')
+
+            col = layout.box().column()
+            col.label('Shaders:', icon='MATERIAL_DATA')
+            col.prop(self, 'shaders_data_storage')
+
+            col = layout.box().column()
+            col.label('Images:', icon='IMAGE_DATA')
+            col.prop(self, 'images_data_storage')
+
+            col = layout.box().column()
+            col.label('Buffers:', icon='SORTALPHA')
+            col.prop(self, 'buffers_embed_data')
+            col.prop(self, 'buffers_combine_data')
+
+            col = layout.box().column()
+            col.label('Extensions:', icon='PLUGIN')
+            col.prop(self, 'ext_export_physics')
+            col.prop(self, 'ext_export_actions')
+
+            col = layout.box().column()
+            col.label('Asset:', icon='QUESTION')
+            col.prop(self, 'asset_profile')
 
         def execute(self, context):
             scene = {
