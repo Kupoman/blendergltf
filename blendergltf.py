@@ -802,7 +802,7 @@ def export_lights(lamps):
             print("Unsupported lamp type on {}: {}".format(light.name, light.type))
             return {'type': 'unsupported'}
 
-    gltf = {lamp.name: export_light(lamp) for lamp in lamps}
+    gltf = {'light_' + lamp.name: export_light(lamp) for lamp in lamps}
 
     return gltf
 
@@ -839,7 +839,10 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
-            ob['extras'] = {'light': 'node_' + obj.data.name}
+            if settings['shaders_data_storage'] == 'NONE':
+                if 'extensions' not in ob:
+                    ob['extensions'] = {}
+                ob['extensions']['KHR_materials_common'] = {'light': 'light_' + obj.data.name}
         elif obj.type == 'CAMERA':
             ob['camera'] = 'camera_' + obj.data.name
         elif obj.type == 'EMPTY' and obj.dupli_group is not None:
@@ -1234,9 +1237,7 @@ def export_gltf(scene_delta, settings={}):
         'cameras': export_cameras(scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
-        'extras': {
-            'lights' : export_lights(scene_delta.get('lamps', [])),
-        },
+        'extras': {},
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
@@ -1258,6 +1259,9 @@ def export_gltf(scene_delta, settings={}):
 
     if settings['shaders_data_storage'] == 'NONE':
         gltf['extensionsUsed'].append('KHR_materials_common')
+        gltf['extensions']['KHR_materials_common'] = {
+            'lights' : export_lights(scene_delta.get('lamps', []))
+        }
 
     if settings['ext_export_actions']:
         gltf['extensionsUsed'].append('BLENDER_actions')
