@@ -13,6 +13,9 @@ import struct
 import zlib
 
 
+__all__ = ['export_gltf']
+
+
 default_settings = {
     'gltf_output_dir': '',
     'buffers_embed_data': True,
@@ -359,8 +362,9 @@ def selected_in_subtree(parent_obj):
 
 def export_cameras(cameras):
     def export_camera(camera):
+        camera_gltf = {}
         if camera.type == 'ORTHO':
-            return {
+            camera_gltf = {
                 'orthographic': {
                     'xmag': camera.ortho_scale,
                     'ymag': camera.ortho_scale,
@@ -370,7 +374,7 @@ def export_cameras(cameras):
                 'type': 'orthographic',
             }
         else:
-            return {
+            camera_gltf = {
                 'perspective': {
                     'aspectRatio': camera.angle_x / camera.angle_y,
                     'yfov': camera.angle_y,
@@ -379,6 +383,8 @@ def export_cameras(cameras):
                 },
                 'type': 'perspective',
             }
+        camera_gltf['name'] = camera.name
+        return camera_gltf
 
     return {'camera_' + camera.name: export_camera(camera) for camera in cameras}
 
@@ -766,8 +772,9 @@ def export_lights(lamps):
 
             return kl, kq
 
+        gltf_light = {}
         if light.type == 'SUN':
-            return {
+            gltf_light = {
                 'directional': {
                     'color': (light.color * light.energy)[:],
                 },
@@ -775,7 +782,7 @@ def export_lights(lamps):
             }
         elif light.type == 'POINT':
             kl, kq = calc_att()
-            return {
+            gltf_light = {
                 'point': {
                     'color': (light.color * light.energy)[:],
 
@@ -788,7 +795,7 @@ def export_lights(lamps):
             }
         elif light.type == 'SPOT':
             kl, kq = calc_att()
-            return {
+            gltf_light = {
                 'spot': {
                     'color': (light.color * light.energy)[:],
 
@@ -803,7 +810,10 @@ def export_lights(lamps):
             }
         else:
             print("Unsupported lamp type on {}: {}".format(light.name, light.type))
-            return {'type': 'unsupported'}
+            gltf_light = {'type': 'unsupported'}
+
+        gltf_light['name'] = light.name
+        return gltf_light
 
     gltf = {'light_' + lamp.name: export_light(lamp) for lamp in lamps}
 
