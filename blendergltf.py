@@ -900,7 +900,7 @@ def export_scenes(settings, scenes):
 
         if settings['nodes_export_hidden']:
             result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and is_selected(ob)]
-            result['extras']['hidden_nodes'] = [ob.name for ob in scene.objects if is_selected(ob) and not ob.is_visible(scene)]
+            result['extras']['hidden_nodes'] = ['node_' + ob.name for ob in scene.objects if is_selected(ob) and not ob.is_visible(scene)]
         else:
             result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and is_selected(ob) and ob.is_visible(scene)]
 
