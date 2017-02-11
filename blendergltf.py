@@ -27,6 +27,7 @@ default_settings = {
     'asset_profile': 'WEB',
     'ext_export_physics': False,
     'ext_export_actions': False,
+    'images_allow_srgb': False
 }
 
 
@@ -66,6 +67,7 @@ class Vertex:
         "co",
         "normal",
         "uvs",
+        "colors",
         "loop_indices",
         "index",
         "weights",
@@ -77,6 +79,7 @@ class Vertex:
         self.co = mesh.vertices[vi].co.freeze()
         self.normal = loop.normal.freeze()
         self.uvs = tuple(layer.data[i].uv.freeze() for layer in mesh.uv_layers)
+        self.colors = tuple(layer.data[i].color.freeze() for layer in mesh.vertex_colors)
         self.loop_indices = [i]
 
         # Take the four most influential groups
@@ -95,13 +98,14 @@ class Vertex:
         self.index = 0
 
     def __hash__(self):
-        return hash((self.co, self.normal, self.uvs))
+        return hash((self.co, self.normal, self.uvs, self.colors))
 
     def __eq__(self, other):
         eq = (
             (self.co == other.co) and
             (self.normal == other.normal) and
-            (self.uvs == other.uvs)
+            (self.uvs == other.uvs) and
+            (self.colors == other.colors)
             )
 
         if eq:
@@ -392,6 +396,8 @@ def export_materials(settings, materials, shaders, programs, techniques):
         technique = 'PHONG'
         if material.use_shadeless:
             technique = 'CONSTANT'
+            emission_textures = diffuse_textures
+            emission_color = diffuse_color
         elif material.specular_intensity == 0.0:
             technique = 'LAMBERT'
         elif material.specular_shader == 'BLINN':
@@ -553,7 +559,8 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         num_loops = len(me.loops)
         num_uv_layers = len(me.uv_layers)
-        vertex_size = (3 + 3 + num_uv_layers * 2) * 4
+        num_col_layers = len(me.vertex_colors)
+        vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * 3) * 4
 
         buf = Buffer(me.name)
         skin_buf = Buffer('{}_skin'.format(me.name))
@@ -569,10 +576,14 @@ def export_meshes(settings, meshes, skinned_meshes):
             vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+            cdata = [buf.add_accessor(va, 24 + 8*num_uv_layers + 12*i,
+                vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3) for i in range(num_col_layers)]
         else:
             vdata = buf.add_accessor(va, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(va, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
             tdata = [buf.add_accessor(va, num_verts*(24 + 8 * i), 8, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
+            cdata = [buf.add_accessor(va, num_verts*(24 + 8*num_uv_layers + 12*i),
+                12, Buffer.FLOAT, num_verts, Buffer.VEC3) for i in range(num_col_layers)]
 
         skin_vertex_size = (4 + 4) * 4
         skin_va = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
@@ -592,6 +603,11 @@ def export_meshes(settings, meshes, skinned_meshes):
             for j, uv in enumerate(vtx.uvs):
                 tdata[j][i * 2] = uv.x
                 tdata[j][i * 2 + 1] = uv.y
+
+            for j, col in enumerate(vtx.colors):
+                cdata[j][i * 3] = col[0]
+                cdata[j][i * 3 + 1] = col[1]
+                cdata[j][i * 3 + 2] = col[2]
 
         if is_skinned:
             for i, vtx in enumerate(vert_list):
@@ -681,6 +697,8 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             for i, v in enumerate(tdata):
                 gltf_prim['attributes']['TEXCOORD_' + str(i)] = v.name
+            for i, v in enumerate(cdata):
+                gltf_prim['attributes']['COLOR_' + str(i)] = v.name
 
             if is_skinned:
                 gltf_prim['attributes']['JOINT'] = jdata.name
@@ -695,10 +713,9 @@ def export_meshes(settings, meshes, skinned_meshes):
 
     exported_meshes = {}
     for me in meshes:
-        if me.users != 0:
-            gltf_mesh = export_mesh(me)
-            if gltf_mesh != None:
-                exported_meshes.update({'mesh_' + me.name: gltf_mesh})
+        gltf_mesh = export_mesh(me)
+        if gltf_mesh != None:
+            exported_meshes.update({'mesh_' + me.name: gltf_mesh})
     return exported_meshes
 
 
@@ -785,7 +802,7 @@ def export_lights(lamps):
             print("Unsupported lamp type on {}: {}".format(light.name, light.type))
             return {'type': 'unsupported'}
 
-    gltf = {lamp.name: export_light(lamp) for lamp in lamps}
+    gltf = {'light_' + lamp.name: export_light(lamp) for lamp in lamps}
 
     return gltf
 
@@ -812,7 +829,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         ob = {
             'name': obj.name,
             'children': ['node_' + child.name for child in obj.children if is_visible(child) and is_selected(child)],
-            'matrix': togl(obj.matrix_world),
+            'matrix': togl(obj.matrix_local),
         }
 
         if obj.type == 'MESH':
@@ -822,9 +839,12 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
                 ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
-            ob['extras'] = {'light': 'node_' + obj.data.name}
+            if settings['shaders_data_storage'] == 'NONE':
+                if 'extensions' not in ob:
+                    ob['extensions'] = {}
+                ob['extensions']['KHR_materials_common'] = {'light': 'light_' + obj.data.name}
         elif obj.type == 'CAMERA':
-            ob['camera'] = obj.data.name
+            ob['camera'] = 'camera_' + obj.data.name
         elif obj.type == 'EMPTY' and obj.dupli_group is not None:
             # Expand dupli-groups
             ob['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
@@ -872,7 +892,7 @@ def export_scenes(settings, scenes):
         result = {
             'extras': {
                 'background_color': scene.world.horizon_color[:],
-                'active_camera': scene.camera.name if scene.camera else '',
+                'active_camera': 'camera_'+scene.camera.name if scene.camera else '',
                 'frames_per_second': scene.render.fps,
             },
             'name': scene.name,
@@ -909,7 +929,7 @@ def export_buffers(settings):
     return gltf
 
 
-def image_to_data_uri(image):
+def image_to_data_uri(image, bytes=False):
     width = image.size[0]
     height = image.size[1]
     buf = bytearray([int(p * 255) for p in image.pixels])
@@ -931,16 +951,21 @@ def image_to_data_uri(image):
         png_pack(b'IDAT', zlib.compress(raw_data, 9)),
         png_pack(b'IEND', b'')])
 
-    return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
+    if bytes:
+        return png_bytes
+    else:
+        return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
 
 
 def export_images(settings, images):
     def check_image(image):
         errors = []
         if image.size[0] == 0:
-            errors.add('x dimension is 0')
+            errors.append('x dimension is 0')
         if image.size[1] == 0:
-            errors.add('y dimension is 0')
+            errors.append('y dimension is 0')
+        if image.type != 'IMAGE':
+            errors.append('not an image')
 
         if errors:
             err_list = '\n\t'.join(errors)
@@ -949,11 +974,28 @@ def export_images(settings, images):
 
         return True
 
+    extMap = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
     def export_image(image):
         uri = ''
 
         storage_setting = settings['images_data_storage']
-        if storage_setting == 'COPY':
+        image_packed = image.packed_file != None
+        if image_packed and storage_setting in ['COPY','REFERENCE']:
+            if image.file_format in extMap:
+                # save the file to the output directory
+                uri = '.'.join([image.name, extMap[image.file_format]])
+                temp = image.filepath
+                image.filepath = os.path.join(settings['gltf_output_dir'], uri)
+                image.save()
+                image.filepath = temp
+            else:
+                # convert to png and save
+                uri = '.'.join([image.name, 'png'])
+                png = image_to_data_uri(image, bytes=True)
+                with open( os.path.join(settings['gltf_output_dir'], uri), 'wb' ) as outfile:
+                    outfile.write(png)
+
+        elif storage_setting == 'COPY':
             try:
                 shutil.copy(bpy.path.abspath(image.filepath), settings['gltf_output_dir'])
             except shutil.SameFileError:
@@ -974,7 +1016,21 @@ def export_images(settings, images):
     return {'image_' + image.name: export_image(image) for image in images if check_image(image)}
 
 
-def export_textures(textures):
+def export_textures(textures, settings):
+    def check_texture(texture):
+        errors = []
+        if texture.image == None:
+            errors.append('has no image reference')
+        elif texture.image.channels not in [3,4]:
+            errors.append('points to {}-channel image (must be 3 or 4)'.format(texture.image.channels))
+
+        if errors:
+            err_list = '\n\t'.join(errors)
+            print('Unable to export texture {} due to the following errors:\n\t{}'.format(texture.name, err_list))
+            return False
+
+        return True
+
     def export_texture(texture):
         gltf_texture = {
             'sampler' : 'sampler_default',
@@ -982,7 +1038,7 @@ def export_textures(textures):
         }
         tformat = None
         channels = texture.image.channels
-        use_srgb = texture.image.colorspace_settings.name == 'sRGB'
+        use_srgb = settings['images_allow_srgb'] and texture.image.colorspace_settings.name == 'sRGB'
 
         if channels == 3:
             if use_srgb:
@@ -995,17 +1051,12 @@ def export_textures(textures):
             else:
                 tformat = GL_RGBA
 
-        if tformat is None:
-            raise RuntimeError(
-                "Could not find a texture format for image (name={}, num channels={})".format(texture.image.name, channels)
-            )
-
         gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
 
         return gltf_texture
 
     return {'texture_' + texture.name: export_texture(texture) for texture in textures
-        if type(texture) == bpy.types.ImageTexture}
+        if type(texture) == bpy.types.ImageTexture and check_texture(texture)}
 
 
 def _can_object_use_action(obj, action):
@@ -1205,9 +1256,7 @@ def export_gltf(scene_delta, settings={}):
         'cameras': export_cameras(scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
-        'extras': {
-            'lights' : export_lights(scene_delta.get('lamps', [])),
-        },
+        'extras': {},
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
@@ -1217,15 +1266,18 @@ def export_gltf(scene_delta, settings={}):
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'sampler_default':{}},
-        'scene': bpy.context.scene.name,
+        'scene': 'scene_' + bpy.context.scene.name,
         'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
         'techniques': techniques,
-        'textures': export_textures(scene_delta.get('textures', [])),
+        'textures': export_textures(scene_delta.get('textures', []), settings),
     }
 
-    if settings['shaders_data_storage'] == None:
+    if settings['shaders_data_storage'] == 'NONE':
         gltf['extensionsUsed'].append('KHR_materials_common')
+        gltf['extensions']['KHR_materials_common'] = {
+            'lights' : export_lights(scene_delta.get('lamps', []))
+        }
 
     # if settings['ext_export_actions']:
         # gltf['extensionsUsed'].append('BLENDER_actions')
