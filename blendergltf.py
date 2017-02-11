@@ -27,6 +27,7 @@ default_settings = {
     'asset_profile': 'WEB',
     'ext_export_physics': False,
     'ext_export_actions': False,
+    'images_allow_srgb': False
 }
 
 
@@ -395,6 +396,8 @@ def export_materials(settings, materials, shaders, programs, techniques):
         technique = 'PHONG'
         if material.use_shadeless:
             technique = 'CONSTANT'
+            emission_textures = diffuse_textures
+            emission_color = diffuse_color
         elif material.specular_intensity == 0.0:
             technique = 'LAMBERT'
         elif material.specular_shader == 'BLINN':
@@ -710,10 +713,9 @@ def export_meshes(settings, meshes, skinned_meshes):
 
     exported_meshes = {}
     for me in meshes:
-        if me.users != 0:
-            gltf_mesh = export_mesh(me)
-            if gltf_mesh != None:
-                exported_meshes.update({'mesh_' + me.name: gltf_mesh})
+        gltf_mesh = export_mesh(me)
+        if gltf_mesh != None:
+            exported_meshes.update({'mesh_' + me.name: gltf_mesh})
     return exported_meshes
 
 
@@ -827,7 +829,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         ob = {
             'name': obj.name,
             'children': ['node_' + child.name for child in obj.children if is_visible(child) and is_selected(child)],
-            'matrix': togl(obj.matrix_world),
+            'matrix': togl(obj.matrix_local),
         }
 
         if obj.type == 'MESH':
@@ -842,7 +844,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
                     ob['extensions'] = {}
                 ob['extensions']['KHR_materials_common'] = {'light': 'light_' + obj.data.name}
         elif obj.type == 'CAMERA':
-            ob['camera'] = obj.data.name
+            ob['camera'] = 'camera_' + obj.data.name
         elif obj.type == 'EMPTY' and obj.dupli_group is not None:
             # Expand dupli-groups
             ob['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
@@ -890,7 +892,7 @@ def export_scenes(settings, scenes):
         result = {
             'extras': {
                 'background_color': scene.world.horizon_color[:],
-                'active_camera': scene.camera.name if scene.camera else '',
+                'active_camera': 'camera_'+scene.camera.name if scene.camera else '',
                 'frames_per_second': scene.render.fps,
             },
             'name': scene.name,
@@ -1014,7 +1016,7 @@ def export_images(settings, images):
     return {'image_' + image.name: export_image(image) for image in images if check_image(image)}
 
 
-def export_textures(textures):
+def export_textures(textures, settings):
     def check_texture(texture):
         errors = []
         if texture.image == None:
@@ -1036,7 +1038,7 @@ def export_textures(textures):
         }
         tformat = None
         channels = texture.image.channels
-        use_srgb = texture.image.colorspace_settings.name == 'sRGB'
+        use_srgb = settings['images_allow_srgb'] and texture.image.colorspace_settings.name == 'sRGB'
 
         if channels == 3:
             if use_srgb:
@@ -1249,7 +1251,7 @@ def export_gltf(scene_delta, settings={}):
         'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
         'techniques': techniques,
-        'textures': export_textures(scene_delta.get('textures', [])),
+        'textures': export_textures(scene_delta.get('textures', []), settings),
 
         # TODO
         'animations': {},

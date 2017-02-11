@@ -89,6 +89,7 @@ else:
         meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
         meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
         images_data_storage = EnumProperty(items=image_storage_items, name='Storage', default='COPY')
+        images_allow_srgb = BoolProperty(name='sRGB Texture Support', default=False)
         asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
         ext_export_physics = BoolProperty(name='Export Physics Settings', default=False)
         ext_export_actions = BoolProperty(name='Export Actions', default=False)
@@ -125,6 +126,7 @@ else:
             col = layout.box().column()
             col.label('Images:', icon='IMAGE_DATA')
             col.prop(self, 'images_data_storage')
+            col.prop(self, 'images_allow_srgb')
 
             col = layout.box().column()
             col.label('Buffers:', icon='SORTALPHA')
