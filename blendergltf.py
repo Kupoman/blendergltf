@@ -836,7 +836,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
             mesh = modded_meshes.get(obj.name, obj.data)
             ob['meshes'] = ['mesh_' + mesh.name]
             if obj.find_armature():
-                ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
+                ob['skeletons'] = ['node_{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
             if settings['shaders_data_storage'] == 'NONE':
@@ -861,7 +861,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     def export_joint(arm_name, bone):
         gltf_joint = {
             'name': bone.name,
-            'jointName': '{}_{}'.format(arm_name, bone.name),
+            'jointName': 'node_{}_{}'.format(arm_name, bone.name),
             'children': ['node_{}_{}'.format(arm_name, child.name) for child in bone.children],
         }
 
@@ -877,7 +877,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         gltf_nodes.update({"node_{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
         gltf_nodes['node_{}_root'.format(arm.name)] = {
             'name': arm.name,
-            'jointName': arm.name,
+            'jointName': 'node_{}_root'.format(arm.name),
             'children': ['node_{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
             'matrix': togl(obj.matrix_world),
         }
@@ -1142,7 +1142,7 @@ def export_actions(actions):
             g_buffers.append(buf)
 
             if targetid != obj.name:
-                targetid = '{}_root_{}'.format(obj.data.name, targetid)
+                targetid = 'node_{}_{}'.format(obj.data.name, targetid)
 
             time_parameter_name = '{}_{}_time_parameter'.format(action.name, targetid)
             gltf_parameters[time_parameter_name] = tdata.name
@@ -1251,8 +1251,7 @@ def export_gltf(scene_delta, settings={}):
             'version': '1.0',
             'profile': profile_map[settings['asset_profile']]
         },
-        # 'animations': export_actions(scene_delta.get('actions', [])),
-        'animations': {},
+        'animations': export_actions(scene_delta.get('actions', [])),
         'cameras': export_cameras(scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
