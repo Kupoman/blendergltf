@@ -734,8 +734,9 @@ def export_skins(skinned_meshes):
         buf_view = buf.add_view(element_size * num_elements, None)
         idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
 
-        for i in range(num_elements):
-            mat = togl(mathutils.Matrix.Identity(4))
+        for i, group in enumerate(obj.vertex_groups):
+            bone = arm.data.bones[group.name]
+            mat = togl(bone.matrix_local.inverted())
             for j in range(16):
                 idata[(i * 16) + j] = mat[j]
 
