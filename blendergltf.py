@@ -1077,10 +1077,10 @@ def _can_object_use_action(obj, action):
     return False
 
 
-def export_actions(actions):
+def export_animations(actions):
     dt = 1.0 / bpy.context.scene.render.fps
 
-    def export_action(obj, action):
+    def export_animation(obj, action):
         params = []
 
         exported_paths = {}
@@ -1187,7 +1187,7 @@ def export_actions(actions):
     for obj in bpy.data.objects:
         act_prefix = '{}_root'.format(obj.data.name) if obj.type == 'ARMATURE' else obj.name
         gltf_actions.update({
-            '{}|{}'.format(act_prefix, action.name): export_action(obj, action)
+            '{}|{}'.format(act_prefix, action.name): export_animation(obj, action)
             for action in actions
             if _can_object_use_action(obj, action)
         })
@@ -1254,7 +1254,7 @@ def export_gltf(scene_delta, settings={}):
             'version': '1.0',
             'profile': profile_map[settings['asset_profile']]
         },
-        'animations': export_actions(scene_delta.get('actions', [])),
+        'animations': export_animations(scene_delta.get('actions', [])),
         'cameras': export_cameras(scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
