@@ -1279,12 +1279,6 @@ def export_gltf(scene_delta, settings={}):
             'lights' : export_lights(scene_delta.get('lamps', []))
         }
 
-    # if settings['ext_export_actions']:
-        # gltf['extensionsUsed'].append('BLENDER_actions')
-        # gltf['extensions']['BLENDER_actions'] = {
-            # 'actions': export_actions(scene_delta.get('actions', [])),
-        # }
-
     if settings['ext_export_physics']:
         gltf['extensionsUsed'].append('BLENDER_physics')
 
