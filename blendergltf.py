@@ -26,7 +26,6 @@ default_settings = {
     'images_data_storage': 'COPY',
     'asset_profile': 'WEB',
     'ext_export_physics': False,
-    'ext_export_actions': False,
     'images_allow_srgb': False
 }
 

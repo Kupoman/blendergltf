@@ -92,7 +92,6 @@ else:
         images_allow_srgb = BoolProperty(name='sRGB Texture Support', default=False)
         asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
         ext_export_physics = BoolProperty(name='Export Physics Settings', default=False)
-        ext_export_actions = BoolProperty(name='Export Actions', default=False)
 
         pretty_print = BoolProperty(
             name="Pretty-print / indent JSON",
@@ -136,7 +135,6 @@ else:
             col = layout.box().column()
             col.label('Extensions:', icon='PLUGIN')
             col.prop(self, 'ext_export_physics')
-            col.prop(self, 'ext_export_actions')
 
             col = layout.box().column()
             col.label('Output:', icon='SCRIPTWIN')
