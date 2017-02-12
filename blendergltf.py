@@ -876,12 +876,8 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
             'name': bone.name,
             'jointName': 'node_{}_{}'.format(arm_name, bone.name),
             'children': ['node_{}_{}'.format(arm_name, child.name) for child in bone.children],
+            'matrix': togl(bone.matrix_local),
         }
-
-        if bone.parent:
-            gltf_joint['matrix'] = togl(bone.parent.matrix_local.inverted() * bone.matrix_local)
-        else:
-            gltf_joint['matrix'] = togl(bone.matrix_local)
 
         return gltf_joint
 
@@ -892,7 +888,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
             'name': arm.name,
             'jointName': 'node_{}_root'.format(arm.name),
             'children': ['node_{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
-            'matrix': togl(obj.matrix_world),
+            'matrix': togl(obj.matrix_local),
         }
 
     return gltf_nodes
