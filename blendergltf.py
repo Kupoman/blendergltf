@@ -720,11 +720,14 @@ def export_meshes(settings, meshes, skinned_meshes):
 
 def export_skins(skinned_meshes):
     def export_skin(obj):
+        arm = obj.find_armature()
+
+        bind_shape_mat = obj.matrix_world * arm.matrix_world.inverted();
+
         gltf_skin = {
-            'bindShapeMatrix': togl(mathutils.Matrix.Identity(4)),
+            'bindShapeMatrix': togl(bind_shape_mat),
             'name': obj.name,
         }
-        arm = obj.find_armature()
         gltf_skin['jointNames'] = ['node_{}_{}'.format(arm.name, group.name) for group in obj.vertex_groups]
 
         element_size = 16 * 4
