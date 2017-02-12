@@ -1156,6 +1156,8 @@ def export_animations(actions):
 
             if targetid != obj.name:
                 targetid = 'node_{}_{}'.format(obj.data.name, targetid)
+            else:
+                targetid = 'node_{}_root'.format(targetid)
 
             time_parameter_name = '{}_{}_time_parameter'.format(action.name, targetid)
             gltf_parameters[time_parameter_name] = tdata.name
