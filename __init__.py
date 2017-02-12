@@ -1,7 +1,7 @@
 bl_info = {
     "name": "glTF format",
     "author": "Daniel Stokes",
-    "version": (0, 1, 0),
+    "version": (0, 9, 0),
     "blender": (2, 76, 0),
     "location": "File > Import-Export",
     "description": "Export glTF",
