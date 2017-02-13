@@ -7,6 +7,7 @@ import json
 import collections
 import base64
 import functools
+import math
 import os
 import shutil
 import struct
@@ -168,8 +169,8 @@ class Buffer:
             self.byte_stride = byte_stride
             self.component_type = component_type
             self.count = count
-            self.min = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-            self.max = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            self.min = [math.inf for i in range(16)]
+            self.max = [0 for i in range(16)]
             self.type = type
 
             if self.type == Buffer.MAT4:
