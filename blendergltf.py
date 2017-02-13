@@ -1117,7 +1117,7 @@ def export_animations(actions):
                     if pbone.parent:
                         mat = pbone.parent.matrix.inverted() * pbone.matrix
                     else:
-                        mat = pbone.matrix
+                        mat = pbone.matrix.copy()
                     channels[pbone.name].append(mat)
 
         gltf_channels = []
