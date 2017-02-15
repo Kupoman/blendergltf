@@ -873,11 +873,15 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     gltf_nodes = {'node_' + obj.name: export_node(obj) for obj in objects if is_visible(obj) and is_selected(obj)}
 
     def export_joint(arm_name, bone):
+        matrix = bone.matrix_local
+        if bone.parent:
+            matrix = bone.parent.matrix_local.inverted() * matrix
+
         gltf_joint = {
             'name': bone.name,
             'jointName': 'node_{}_{}'.format(arm_name, bone.name),
             'children': ['node_{}_{}'.format(arm_name, child.name) for child in bone.children],
-            'matrix': togl(bone.matrix_local),
+            'matrix': togl(matrix),
         }
 
         return gltf_joint
