@@ -887,7 +887,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     return gltf_nodes
 
 
-def export_scenes(settings, scenes):
+def export_scenes(settings, scenes, objects):
 
     def export_scene(scene):
         result = {
@@ -899,9 +899,11 @@ def export_scenes(settings, scenes):
             'name': scene.name,
         }
 
-        result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and ob.is_visible(scene)]
+        result['nodes'] = ['node_' + ob.name for ob in scene.objects
+            if ob in objects and ob.parent is None and ob.is_visible(scene)]
 
-        hidden_nodes = ['node_' + ob.name for ob in scene.objects if not ob.is_visible(scene)]
+        hidden_nodes = ['node_' + ob.name for ob in scene.objects
+            if ob in objects and not ob.is_visible(scene)]
         if hidden_nodes:
             result['extras']['hidden_nodes'] = hidden_nodes
 
@@ -917,7 +919,6 @@ def export_buffers(settings):
         'accessors': {},
     }
 
-    print('g_buffers:', g_buffers)
     if settings['buffers_combine_data']:
         buffers = [functools.reduce(lambda x, y: x+y, g_buffers, Buffer('empty'))]
     else:
@@ -1270,7 +1271,7 @@ def export_gltf(scene_delta, settings={}):
         'programs': programs,
         'samplers': {'sampler_default':{}},
         'scene': 'scene_' + bpy.context.scene.name,
-        'scenes': export_scenes(settings, scenes),
+        'scenes': export_scenes(settings, scenes, object_list),
         'shaders': shaders,
         'techniques': techniques,
         'textures': export_textures(scene_delta.get('textures', []), settings),

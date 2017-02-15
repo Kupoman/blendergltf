@@ -1,4 +1,5 @@
 #!/bin/env python
+import bpy
 
 def visible_only(bpy_data):
     """
@@ -6,7 +7,7 @@ def visible_only(bpy_data):
     """
 
     def visible(o):
-        return any(o.is_visible(s) for s in bpy_data['scenes']
+        return any(o.is_visible(s) for s in bpy_data['scenes'])
 
     bpy_data['objects'] = [o for o in bpy_data['objects'] if visible(o)]
     return bpy_data
@@ -42,7 +43,7 @@ def used_only(bpy_data):
     }
 
     # get list of objects
-    for obj in bpy_data.objects:
+    for obj in bpy_data['objects']:
 
         # add object to list
         pruned_data['objects'].append(obj)
