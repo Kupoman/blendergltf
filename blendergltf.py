@@ -7,10 +7,14 @@ import json
 import collections
 import base64
 import functools
+import math
 import os
 import shutil
 import struct
 import zlib
+
+
+__all__ = ['export_gltf']
 
 
 default_settings = {
@@ -27,7 +31,7 @@ default_settings = {
     'images_data_storage': 'COPY',
     'asset_profile': 'WEB',
     'ext_export_physics': False,
-    'ext_export_actions': False,
+    'images_allow_srgb': False
 }
 
 
@@ -166,8 +170,8 @@ class Buffer:
             self.byte_stride = byte_stride
             self.component_type = component_type
             self.count = count
-            self.min = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-            self.max = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            self.min = [math.inf for i in range(16)]
+            self.max = [0 for i in range(16)]
             self.type = type
 
             if self.type == Buffer.MAT4:
@@ -420,8 +424,9 @@ def get_pruned_blocks(bpy_data, settings):
 
 def export_cameras(cameras):
     def export_camera(camera):
+        camera_gltf = {}
         if camera.type == 'ORTHO':
-            return {
+            camera_gltf = {
                 'orthographic': {
                     'xmag': camera.ortho_scale,
                     'ymag': camera.ortho_scale,
@@ -431,7 +436,7 @@ def export_cameras(cameras):
                 'type': 'orthographic',
             }
         else:
-            return {
+            camera_gltf = {
                 'perspective': {
                     'aspectRatio': camera.angle_x / camera.angle_y,
                     'yfov': camera.angle_y,
@@ -440,6 +445,8 @@ def export_cameras(cameras):
                 },
                 'type': 'perspective',
             }
+        camera_gltf['name'] = camera.name
+        return camera_gltf
 
     return {'camera_' + camera.name: export_camera(camera) for camera in cameras}
 
@@ -456,6 +463,8 @@ def export_materials(settings, materials, shaders, programs, techniques):
         technique = 'PHONG'
         if material.use_shadeless:
             technique = 'CONSTANT'
+            emission_textures = diffuse_textures
+            emission_color = diffuse_color
         elif material.specular_intensity == 0.0:
             technique = 'LAMBERT'
         elif material.specular_shader == 'BLINN':
@@ -771,20 +780,22 @@ def export_meshes(settings, meshes, skinned_meshes):
 
     exported_meshes = {}
     for me in meshes:
-        if me.users != 0:
-            gltf_mesh = export_mesh(me)
-            if gltf_mesh != None:
-                exported_meshes.update({'mesh_' + me.name: gltf_mesh})
+        gltf_mesh = export_mesh(me)
+        if gltf_mesh != None:
+            exported_meshes.update({'mesh_' + me.name: gltf_mesh})
     return exported_meshes
 
 
 def export_skins(skinned_meshes):
     def export_skin(obj):
+        arm = obj.find_armature()
+
+        bind_shape_mat = obj.matrix_world * arm.matrix_world.inverted();
+
         gltf_skin = {
-            'bindShapeMatrix': togl(mathutils.Matrix.Identity(4)),
+            'bindShapeMatrix': togl(bind_shape_mat),
             'name': obj.name,
         }
-        arm = obj.find_armature()
         gltf_skin['jointNames'] = ['node_{}_{}'.format(arm.name, group.name) for group in obj.vertex_groups]
 
         element_size = 16 * 4
@@ -793,8 +804,9 @@ def export_skins(skinned_meshes):
         buf_view = buf.add_view(element_size * num_elements, None)
         idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
 
-        for i in range(num_elements):
-            mat = togl(mathutils.Matrix.Identity(4))
+        for i, group in enumerate(obj.vertex_groups):
+            bone = arm.data.bones[group.name]
+            mat = togl(bone.matrix_local.inverted())
             for j in range(16):
                 idata[(i * 16) + j] = mat[j]
 
@@ -822,8 +834,9 @@ def export_lights(lamps):
 
             return kl, kq
 
+        gltf_light = {}
         if light.type == 'SUN':
-            return {
+            gltf_light = {
                 'directional': {
                     'color': (light.color * light.energy)[:],
                 },
@@ -831,7 +844,7 @@ def export_lights(lamps):
             }
         elif light.type == 'POINT':
             kl, kq = calc_att()
-            return {
+            gltf_light = {
                 'point': {
                     'color': (light.color * light.energy)[:],
 
@@ -844,7 +857,7 @@ def export_lights(lamps):
             }
         elif light.type == 'SPOT':
             kl, kq = calc_att()
-            return {
+            gltf_light = {
                 'spot': {
                     'color': (light.color * light.energy)[:],
 
@@ -859,9 +872,12 @@ def export_lights(lamps):
             }
         else:
             print("Unsupported lamp type on {}: {}".format(light.name, light.type))
-            return {'type': 'unsupported'}
+            gltf_light = {'type': 'unsupported'}
 
-    gltf = {lamp.name: export_light(lamp) for lamp in lamps}
+        gltf_light['name'] = light.name
+        return gltf_light
+
+    gltf = {'light_' + lamp.name: export_light(lamp) for lamp in lamps}
 
     return gltf
 
@@ -888,19 +904,22 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         ob = {
             'name': obj.name,
             'children': ['node_' + child.name for child in obj.children if is_visible(child) and is_selected(child)],
-            'matrix': togl(obj.matrix_world),
+            'matrix': togl(obj.matrix_local),
         }
 
         if obj.type == 'MESH':
             mesh = modded_meshes.get(obj.name, obj.data)
             ob['meshes'] = ['mesh_' + mesh.name]
             if obj.find_armature():
-                ob['skeletons'] = ['{}_root'.format(obj.find_armature().data.name)]
+                ob['skeletons'] = ['node_{}_root'.format(obj.find_armature().data.name)]
                 skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
-            ob['extras'] = {'light': 'node_' + obj.data.name}
+            if settings['shaders_data_storage'] == 'NONE':
+                if 'extensions' not in ob:
+                    ob['extensions'] = {}
+                ob['extensions']['KHR_materials_common'] = {'light': 'light_' + obj.data.name}
         elif obj.type == 'CAMERA':
-            ob['camera'] = obj.data.name
+            ob['camera'] = 'camera_' + obj.data.name
         elif obj.type == 'EMPTY' and obj.dupli_group is not None:
             # Expand dupli-groups
             ob['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
@@ -915,16 +934,16 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     gltf_nodes = {'node_' + obj.name: export_node(obj) for obj in objects if is_visible(obj) and is_selected(obj)}
 
     def export_joint(arm_name, bone):
+        matrix = bone.matrix_local
+        if bone.parent:
+            matrix = bone.parent.matrix_local.inverted() * matrix
+
         gltf_joint = {
             'name': bone.name,
-            'jointName': '{}_{}'.format(arm_name, bone.name),
+            'jointName': 'node_{}_{}'.format(arm_name, bone.name),
             'children': ['node_{}_{}'.format(arm_name, child.name) for child in bone.children],
+            'matrix': togl(matrix),
         }
-
-        if bone.parent:
-            gltf_joint['matrix'] = togl(bone.parent.matrix_local.inverted() * bone.matrix_local)
-        else:
-            gltf_joint['matrix'] = togl(bone.matrix_local)
 
         return gltf_joint
 
@@ -933,9 +952,9 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         gltf_nodes.update({"node_{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
         gltf_nodes['node_{}_root'.format(arm.name)] = {
             'name': arm.name,
-            'jointName': arm.name,
+            'jointName': 'node_{}_root'.format(arm.name),
             'children': ['node_{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
-            'matrix': togl(obj.matrix_world),
+            'matrix': togl(obj.matrix_local),
         }
 
     return gltf_nodes
@@ -948,7 +967,7 @@ def export_scenes(settings, scenes):
         result = {
             'extras': {
                 'background_color': scene.world.horizon_color[:],
-                'active_camera': scene.camera.name if scene.camera else '',
+                'active_camera': 'camera_'+scene.camera.name if scene.camera else '',
                 'frames_per_second': scene.render.fps,
             },
             'name': scene.name,
@@ -956,7 +975,7 @@ def export_scenes(settings, scenes):
 
         if settings['nodes_export_hidden']:
             result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and is_selected(ob)]
-            result['extras']['hidden_nodes'] = [ob.name for ob in scene.objects if is_selected(ob) and not ob.is_visible(scene)]
+            result['extras']['hidden_nodes'] = ['node_' + ob.name for ob in scene.objects if is_selected(ob) and not ob.is_visible(scene)]
         else:
             result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and is_selected(ob) and ob.is_visible(scene)]
 
@@ -1073,7 +1092,7 @@ def export_images(settings, images):
     return {'image_' + image.name: export_image(image) for image in images if check_image(image)}
 
 
-def export_textures(textures):
+def export_textures(textures, settings):
     def check_texture(texture):
         errors = []
         if texture.image == None:
@@ -1095,7 +1114,7 @@ def export_textures(textures):
         }
         tformat = None
         channels = texture.image.channels
-        use_srgb = texture.image.colorspace_settings.name == 'sRGB'
+        use_srgb = settings['images_allow_srgb'] and texture.image.colorspace_settings.name == 'sRGB'
 
         if channels == 3:
             if use_srgb:
@@ -1131,8 +1150,10 @@ def _can_object_use_action(obj, action):
     return False
 
 
-def export_actions(actions, objects):
-    def export_action(obj, action):
+def export_animations(actions, objects):
+    dt = 1.0 / bpy.context.scene.render.fps
+
+    def export_animation(obj, action):
         params = []
 
         exported_paths = {}
@@ -1143,7 +1164,7 @@ def export_actions(actions, objects):
         prev_action = obj.animation_data.action
 
         frame_start, frame_end = [int(x) for x in action.frame_range]
-        num_frames = frame_end - frame_start
+        num_frames = frame_end - frame_start + 1
         obj.animation_data.action = action
 
         channels[obj.name] = []
@@ -1152,7 +1173,7 @@ def export_actions(actions, objects):
             for pbone in obj.pose.bones:
                 channels[pbone.name] = []
 
-        for frame in range(frame_start, frame_end):
+        for frame in range(frame_start, frame_end + 1):
             sce.frame_set(frame)
 
             channels[obj.name].append(obj.matrix_local)
@@ -1162,13 +1183,17 @@ def export_actions(actions, objects):
                     if pbone.parent:
                         mat = pbone.parent.matrix.inverted() * pbone.matrix
                     else:
-                        mat = pbone.matrix
+                        mat = pbone.matrix.copy()
                     channels[pbone.name].append(mat)
 
         gltf_channels = []
+        gltf_parameters = {}
+        gltf_samplers = {}
 
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
+            tbv = buf.add_view(num_frames * 1 * 4, None)
+            tdata = buf.add_accessor(tbv, 0, 1 * 4, Buffer.FLOAT, num_frames, Buffer.SCALAR)
             lbv = buf.add_view(num_frames * 3 * 4, None)
             ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
             rbv = buf.add_view(num_frames * 4 * 4, None)
@@ -1176,9 +1201,12 @@ def export_actions(actions, objects):
             sbv = buf.add_view(num_frames * 3 * 4, None)
             sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
 
+            time = 0
             for i in range(num_frames):
                 mat = chan[i]
                 loc, rot, scale = mat.decompose()
+                tdata[i] = time
+                time += dt
                 # w needs to be last.
                 rot = (rot.x, rot.y, rot.z, rot.w)
                 for j in range(3):
@@ -1190,29 +1218,39 @@ def export_actions(actions, objects):
             g_buffers.append(buf)
 
             if targetid != obj.name:
-                targetid = '{}_root_{}'.format(obj.data.name, targetid)
+                targetid = 'node_{}_{}'.format(obj.data.name, targetid)
+            else:
+                targetid = 'node_{}_root'.format(targetid)
 
-            gltf_channels += [
-                {
-                    'id': targetid,
-                    'path': 'translation',
-                    'data': ldata.name,
-                },
-                {
-                    'id': targetid,
-                    'path': 'rotation',
-                    'data': rdata.name,
-                },
-                {
-                    'id': targetid,
-                    'path': 'scale',
-                    'data': sdata.name,
+            time_parameter_name = '{}_{}_time_parameter'.format(action.name, targetid)
+            gltf_parameters[time_parameter_name] = tdata.name
+
+            for path in ('translation', 'rotation', 'scale'):
+                sampler_name = '{}_{}_{}_sampler'.format(action.name, targetid, path)
+                parameter_name = '{}_{}_{}_parameter'.format(action.name, targetid, path)
+                gltf_channels.append({
+                    'sampler': sampler_name,
+                    'target': {
+                        'id': targetid,
+                        'path': path,
+                    }
+                })
+                gltf_samplers[sampler_name] = {
+                    'input': time_parameter_name,
+                    'interpolation': 'LINEAR',
+                    'output': parameter_name,
                 }
-            ]
+                gltf_parameters[parameter_name] = {
+                    'translation': ldata.name,
+                    'rotation': rdata.name,
+                    'scale': sdata.name,
+                }[path]
 
         gltf_action = {
+            'name': action.name,
             'channels': gltf_channels,
-            'frames': num_frames,
+            'samplers': gltf_samplers,
+            'parameters': gltf_parameters,
         }
 
         obj.animation_data.action = prev_action
@@ -1224,7 +1262,7 @@ def export_actions(actions, objects):
     for obj in objects:
         act_prefix = '{}_root'.format(obj.data.name) if obj.type == 'ARMATURE' else obj.name
         gltf_actions.update({
-            '{}|{}'.format(act_prefix, action.name): export_action(obj, action)
+            '{}|{}'.format(act_prefix, action.name): export_animation(obj, action)
             for action in actions
             if _can_object_use_action(obj, action)
         })
@@ -1306,12 +1344,11 @@ def export_gltf(bpy_data, settings={}):
             'version': '1.0',
             'profile': profile_map[settings['asset_profile']]
         },
+        'animations': export_animations(scene_delta.get('actions', []), object_list),
         'cameras': export_cameras(scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
-        'extras': {
-            'lights' : export_lights(scene_delta.get('lamps', [])),
-        },
+        'extras': {},
         'images': export_images(settings, scene_delta.get('images', [])),
         'materials': export_materials(settings, scene_delta.get('materials', []),
             shaders, programs, techniques),
@@ -1325,19 +1362,13 @@ def export_gltf(bpy_data, settings={}):
         'scenes': export_scenes(settings, scenes),
         'shaders': shaders,
         'techniques': techniques,
-        'textures': export_textures(scene_delta.get('textures', [])),
-
-        # TODO
-        'animations': {},
+        'textures': export_textures(scene_delta.get('textures', []), settings),
     }
 
     if settings['shaders_data_storage'] == 'NONE':
         gltf['extensionsUsed'].append('KHR_materials_common')
-
-    if settings['ext_export_actions']:
-        gltf['extensionsUsed'].append('BLENDER_actions')
-        gltf['extensions']['BLENDER_actions'] = {
-            'actions': export_actions(scene_delta.get('actions', []), scene_delta.get('objects', [])),
+        gltf['extensions']['KHR_materials_common'] = {
+            'lights' : export_lights(scene_delta.get('lamps', []))
         }
 
     if settings['ext_export_physics']:
