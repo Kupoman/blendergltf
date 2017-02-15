@@ -1098,7 +1098,7 @@ def export_animations(actions):
         prev_action = obj.animation_data.action
 
         frame_start, frame_end = [int(x) for x in action.frame_range]
-        num_frames = frame_end - frame_start
+        num_frames = frame_end - frame_start + 1
         obj.animation_data.action = action
 
         channels[obj.name] = []
@@ -1107,7 +1107,7 @@ def export_animations(actions):
             for pbone in obj.pose.bones:
                 channels[pbone.name] = []
 
-        for frame in range(frame_start, frame_end):
+        for frame in range(frame_start, frame_end + 1):
             sce.frame_set(frame)
 
             channels[obj.name].append(obj.matrix_local)
@@ -1137,10 +1137,10 @@ def export_animations(actions):
 
             time = 0
             for i in range(num_frames):
-                time += dt
                 mat = chan[i]
                 loc, rot, scale = mat.decompose()
                 tdata[i] = time
+                time += dt
                 # w needs to be last.
                 rot = (rot.x, rot.y, rot.z, rot.w)
                 for j in range(3):
