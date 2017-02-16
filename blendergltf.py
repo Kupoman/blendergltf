@@ -65,7 +65,6 @@ else:
     from . import gpu_luts
     from . import shader_converter
 
-
 class Vertex:
     __slots__ = (
         "co",
@@ -77,11 +76,17 @@ class Vertex:
         "weights",
         "joint_indexes",
         )
+
     def __init__(self, mesh, loop):
         vi = loop.vertex_index
         i = loop.index
+
+        # populate vert info from mesh data
         self.co = mesh.vertices[vi].co.freeze()
-        self.normal = loop.normal.freeze()
+        if Vertex.__use_smooth_normal(mesh, loop):
+            self.normal = mesh.vertices[vi].normal.freeze()
+        else:
+            self.normal = loop.normal.freeze()
         self.uvs = tuple(layer.data[i].uv.freeze() for layer in mesh.uv_layers)
         self.colors = tuple(layer.data[i].color.freeze() for layer in mesh.vertex_colors)
         self.loop_indices = [i]
@@ -101,6 +106,25 @@ class Vertex:
 
         self.index = 0
 
+    poly_lookup = {}
+    @staticmethod
+    def __use_smooth_normal(mesh, loop):
+        '''
+        Determine whether a vert should use the vertex normal or the face normal
+        :rtype: Boolean
+        '''
+
+        def get_poly_for_loop(mesh, loop):
+            ''' Helper function to look up and cache polygons '''
+            if mesh not in Vertex.poly_lookup:
+                Vertex.poly_lookup[mesh] = {i: p for p in mesh.polygons for i in p.loop_indices}
+            return Vertex.poly_lookup[mesh][loop.index]
+
+        face = get_poly_for_loop(mesh, loop)
+
+        return face.use_smooth
+
+
     def __hash__(self):
         return hash((self.co, self.normal, self.uvs, self.colors))
 
@@ -117,6 +141,36 @@ class Vertex:
             self.loop_indices = indices
             other.loop_indices = indices
         return eq
+
+class SmartVertexList:
+    '''
+    Keep track of loop vs vertex distinction
+
+    This class is responsible for maintaining a list of vertices. Each vertex
+    gets a unique index value, and is guaranteed to be unique.
+    '''
+
+    def __init__(self):
+        self.data = {}
+        self.hashes = set()
+
+    def add(self, mesh, loop):
+        test_vert = Vertex(mesh, loop)
+        h = test_vert.__hash__()
+
+        if h in self.hashes:
+            vert = self.data[h]
+            vert.loop_indices.append(loop.index)
+        else:
+            test_vert.index = len(self.hashes)
+            self.data[h] = test_vert
+            self.hashes.add(h)
+
+    def get_list(self):
+        vertlist = list(self.data.values())
+        vertlist.sort(key=lambda v: v.index)
+        return vertlist
+
 
 class Buffer:
     ARRAY_BUFFER = 34962
@@ -562,8 +616,10 @@ def export_meshes(settings, meshes, skinned_meshes):
         skin_buf = Buffer('{}_skin'.format(me.name))
 
         # Vertex data
-
-        vert_list = { Vertex(me, loop) : 0 for loop in me.loops}.keys()
+        vert_list = SmartVertexList()
+        for loop in me.loops:
+            vert_list.add(me, loop)
+        vert_list = vert_list.get_list()
         num_verts = len(vert_list)
         va = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
 
@@ -588,7 +644,6 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         # Copy vertex data
         for i, vtx in enumerate(vert_list):
-            vtx.index = i
             co = vtx.co
             normal = vtx.normal
 
