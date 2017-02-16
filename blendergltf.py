@@ -163,6 +163,7 @@ class Buffer:
                      component_type,
                      count,
                      type):
+            assert count >= 1, "Accessor '{}' has no count >= 1".format(name)
             self.name = name
             self.buffer = buffer
             self.buffer_view = buffer_view
@@ -661,6 +662,10 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
+
+            # Do not add primitves with no indices
+            if not len(prim):
+                continue
 
             # If we got this far use integers if we have to, if this is not
             # desirable we would have bailed out by now.
