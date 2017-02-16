@@ -15,7 +15,6 @@ import importlib
 
 if "bpy" in locals():
     importlib.reload(blendergltf)
-if 'filters' in globals():
     importlib.reload(filters)
 
 import json
