@@ -24,6 +24,7 @@ default_settings = {
     'nodes_export_hidden': False,
     'nodes_global_matrix': mathutils.Matrix.Identity(4),
     'nodes_selected_only': False,
+    'blocks_prune_unused': True,
     'shaders_data_storage': 'NONE',
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data' : True,
@@ -348,17 +349,6 @@ def togl(matrix):
     return [i for col in matrix.col for i in col]
 
 
-def selected_in_subtree(parent_obj):
-    """Return True if object or any of its children
-       is selected in the outline tree, False otherwise.
-
-    """
-    if parent_obj.select:
-        return True
-    if len(parent_obj.children) > 0:
-        return any(selected_in_subtree(child) for child in parent_obj.children)
-    else:
-        return False
 
 
 def export_cameras(cameras):
@@ -836,13 +826,11 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
 
         return physics
 
-    is_visible  = lambda obj: True if settings['nodes_export_hidden'] else any(obj.is_visible(scene) for scene in scenes)
-    is_selected = lambda obj: selected_in_subtree(obj) if settings['nodes_selected_only'] else True
 
     def export_node(obj):
         ob = {
             'name': obj.name,
-            'children': ['node_' + child.name for child in obj.children if is_visible(child) and is_selected(child)],
+            'children': ['node_' + child.name for child in obj.children],
             'matrix': togl(obj.matrix_local),
         }
 
@@ -870,7 +858,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
 
         return ob
 
-    gltf_nodes = {'node_' + obj.name: export_node(obj) for obj in objects if is_visible(obj) and is_selected(obj)}
+    gltf_nodes = {'node_' + obj.name: export_node(obj) for obj in objects}
 
     def export_joint(arm_name, bone):
         matrix = bone.matrix_local
@@ -899,24 +887,25 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     return gltf_nodes
 
 
-def export_scenes(settings, scenes):
-    is_selected = lambda obj: selected_in_subtree(obj) if settings['nodes_selected_only'] else True
+def export_scenes(settings, scenes, objects):
 
     def export_scene(scene):
         result = {
             'extras': {
-                'background_color': scene.world.horizon_color[:],
-                'active_camera': 'camera_'+scene.camera.name if scene.camera else '',
+                'background_color': scene.world.horizon_color[:] if scene.world else [0.05]*3,
+                'active_camera': 'camera_'+scene.camera.name if scene.camera else None,
                 'frames_per_second': scene.render.fps,
             },
             'name': scene.name,
         }
 
-        if settings['nodes_export_hidden']:
-            result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and is_selected(ob)]
-            result['extras']['hidden_nodes'] = ['node_' + ob.name for ob in scene.objects if is_selected(ob) and not ob.is_visible(scene)]
-        else:
-            result['nodes'] = ['node_' + ob.name for ob in scene.objects if ob.parent is None and is_selected(ob) and ob.is_visible(scene)]
+        result['nodes'] = ['node_' + ob.name for ob in scene.objects
+            if ob in objects and ob.parent is None and ob.is_visible(scene)]
+
+        hidden_nodes = ['node_' + ob.name for ob in scene.objects
+            if ob in objects and not ob.is_visible(scene)]
+        if hidden_nodes:
+            result['extras']['hidden_nodes'] = hidden_nodes
 
         return result
 
@@ -931,7 +920,7 @@ def export_buffers(settings):
     }
 
     if settings['buffers_combine_data']:
-        buffers = [functools.reduce(lambda x, y: x+y, g_buffers)]
+        buffers = [functools.reduce(lambda x, y: x+y, g_buffers, Buffer('empty'))]
     else:
         buffers = g_buffers
 
@@ -1088,7 +1077,7 @@ def _can_object_use_action(obj, action):
     return False
 
 
-def export_animations(actions):
+def export_animations(actions, objects):
     dt = 1.0 / bpy.context.scene.render.fps
 
     def export_animation(obj, action):
@@ -1197,7 +1186,7 @@ def export_animations(actions):
         return gltf_action
 
     gltf_actions = {}
-    for obj in bpy.data.objects:
+    for obj in objects:
         act_prefix = '{}_root'.format(obj.data.name) if obj.type == 'ARMATURE' else obj.name
         gltf_actions.update({
             '{}|{}'.format(act_prefix, action.name): export_animation(obj, action)
@@ -1267,7 +1256,7 @@ def export_gltf(scene_delta, settings={}):
             'version': '1.0',
             'profile': profile_map[settings['asset_profile']]
         },
-        'animations': export_animations(scene_delta.get('actions', [])),
+        'animations': export_animations(scene_delta.get('actions', []), object_list),
         'cameras': export_cameras(scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
@@ -1282,7 +1271,7 @@ def export_gltf(scene_delta, settings={}):
         'programs': programs,
         'samplers': {'sampler_default':{}},
         'scene': 'scene_' + bpy.context.scene.name,
-        'scenes': export_scenes(settings, scenes),
+        'scenes': export_scenes(settings, scenes, object_list),
         'shaders': shaders,
         'techniques': techniques,
         'textures': export_textures(scene_delta.get('textures', []), settings),

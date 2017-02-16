@@ -11,11 +11,11 @@ bl_info = {
     "support": 'TESTING',
     "category": "Import-Export"}
 
+import importlib
 
 if "bpy" in locals():
-    import importlib
     importlib.reload(blendergltf)
-
+    importlib.reload(filters)
 
 import json
 import os
@@ -29,7 +29,7 @@ from bpy_extras.io_utils import (
 )
 
 from .blendergltf import *
-
+from .filters import visible_only, selected_only, used_only
 
 GLTFOrientationHelper = orientation_helper_factory(
     "GLTFOrientationHelper", axis_forward='Y', axis_up='Z'
@@ -75,6 +75,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
     nodes_selected_only = BoolProperty(name='Selection Only', default=False)
     shaders_data_storage = EnumProperty(items=shader_storage_items, name='Storage', default='NONE')
+    blocks_prune_unused = BoolProperty(name='Prune Unused Resources', default=True)
     meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
     meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
     images_data_storage = EnumProperty(items=image_storage_items, name='Storage', default='COPY')
@@ -129,19 +130,10 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col.label('Output:', icon='SCRIPTWIN')
         col.prop(self, 'asset_profile')
         col.prop(self, 'pretty_print')
+        col.prop(self, 'blocks_prune_unused');
+
 
     def execute(self, context):
-        scene = {
-            'actions': list(bpy.data.actions),
-            'cameras': list(bpy.data.cameras),
-            'lamps': list(bpy.data.lamps),
-            'images': list(bpy.data.images),
-            'materials': list(bpy.data.materials),
-            'meshes': list(bpy.data.meshes),
-            'objects': list(bpy.data.objects),
-            'scenes': list(bpy.data.scenes),
-            'textures': list(bpy.data.textures),
-        }
 
         # Copy properties to settings
         settings = self.as_keywords(ignore=(
@@ -159,7 +151,29 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             to_up=self.axis_up
         ).to_4x4()
 
-        gltf = blendergltf.export_gltf(scene, settings)
+        # filter data according to settings
+        data = {
+            'actions': list(bpy.data.actions),
+            'cameras': list(bpy.data.cameras),
+            'lamps': list(bpy.data.lamps),
+            'images': list(bpy.data.images),
+            'materials': list(bpy.data.materials),
+            'meshes': list(bpy.data.meshes),
+            'objects': list(bpy.data.objects),
+            'scenes': list(bpy.data.scenes),
+            'textures': list(bpy.data.textures),
+        }
+
+        if not settings['nodes_export_hidden']:
+            data = visible_only(data)
+
+        if settings['nodes_selected_only']:
+            data = selected_only(data)
+
+        if settings['blocks_prune_unused']:
+            data = used_only(data)
+
+        gltf = blendergltf.export_gltf(data, settings)
         with open(self.filepath, 'w') as fout:
             # Figure out indentation
             if self.pretty_print:
