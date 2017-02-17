@@ -598,7 +598,10 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             for j, uv in enumerate(vtx.uvs):
                 tdata[j][i * 2] = uv.x
-                tdata[j][i * 2 + 1] = uv.y
+                if settings['asset_profile'] == 'WEB':
+                    tdata[j][i * 2 + 1] = 1.0 - uv.y
+                else:
+                    tdata[j][i * 2 + 1] = uv.y
 
             for j, col in enumerate(vtx.colors):
                 cdata[j][i * 3] = col[0]
