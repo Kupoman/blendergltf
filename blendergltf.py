@@ -840,8 +840,10 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         if obj.type == 'MESH':
             mesh = modded_meshes.get(obj.name, obj.data)
             ob['meshes'] = ['mesh_' + mesh.name]
-            if obj.find_armature():
-                ob['skeletons'] = ['node_{}_root'.format(obj.find_armature().data.name)]
+            armature = obj.find_armature()
+            if armature:
+                bone_names = [b.name for b in armature.data.bones if b.parent == None]
+                ob['skeletons'] = ['node_{}_{}'.format(armature.name, bone) for bone in bone_names]
                 skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
             if settings['shaders_data_storage'] == 'NONE':
@@ -880,12 +882,6 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
         arm = obj.data
         gltf_nodes.update({"node_{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
-        gltf_nodes['node_{}_root'.format(arm.name)] = {
-            'name': arm.name,
-            'jointName': 'node_{}_root'.format(arm.name),
-            'children': ['node_{}_{}'.format(arm.name, bone.name) for bone in arm.bones if bone.parent is None],
-            'matrix': togl(obj.matrix_local),
-        }
 
     return gltf_nodes
 
@@ -1150,7 +1146,7 @@ def export_animations(actions, objects):
             if targetid != obj.name:
                 targetid = 'node_{}_{}'.format(obj.data.name, targetid)
             else:
-                targetid = 'node_{}_root'.format(targetid)
+                targetid = 'node_' + targetid
 
             time_parameter_name = '{}_{}_time_parameter'.format(action.name, targetid)
             gltf_parameters[time_parameter_name] = tdata.name
@@ -1190,7 +1186,7 @@ def export_animations(actions, objects):
 
     gltf_actions = {}
     for obj in objects:
-        act_prefix = '{}_root'.format(obj.data.name) if obj.type == 'ARMATURE' else obj.name
+        act_prefix = obj.data.name if obj.type == 'ARMATURE' else obj.name
         gltf_actions.update({
             '{}|{}'.format(act_prefix, action.name): export_animation(obj, action)
             for action in actions
