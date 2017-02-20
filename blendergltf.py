@@ -855,6 +855,10 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         elif obj.type == 'EMPTY' and obj.dupli_group is not None:
             # Expand dupli-groups
             ob['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
+        elif obj.type == 'ARMATURE':
+            if not ob['children']:
+                ob['children'] = []
+            ob['children'].extend(['node_{}_{}'.format(obj.name, b.name) for b in obj.data.bones if b.parent == None])
 
         if obj.rigid_body and settings['ext_export_physics']:
             ob['extensions'] = {
