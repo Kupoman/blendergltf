@@ -31,7 +31,7 @@ def used_only(bpy_data):
     """
 
     pruned_data = {
-        'actions': [],
+        'actions': bpy_data['actions'],
         'cameras': [],
         'lamps': [],
         'images': [],
@@ -52,10 +52,6 @@ def used_only(bpy_data):
         for scene in obj.users_scene:
             if scene not in pruned_data['scenes']:
                 pruned_data['scenes'].append(scene)
-
-        # add actions to list
-        if obj.pose_library:
-            pruned_data['actions'].append(obj.pose_library)
 
         # add cameras to list
         if isinstance(obj.data, bpy.types.Camera):
