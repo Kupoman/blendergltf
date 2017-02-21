@@ -1120,10 +1120,20 @@ def export_animations(actions, objects):
         gltf_parameters = {}
         gltf_samplers = {}
 
+        tbuf = Buffer('{}_time'.format(action.name))
+        tbv = tbuf.add_view(num_frames * 1 * 4, None)
+        tdata = tbuf.add_accessor(tbv, 0, 1 * 4, Buffer.FLOAT, num_frames, Buffer.SCALAR)
+        time = 0
+        for i in range(num_frames):
+            tdata[i] = time
+            time += dt
+        g_buffers.append(tbuf)
+        time_parameter_name = '{}_time_parameter'.format(action.name)
+        gltf_parameters[time_parameter_name] = tdata.name
+
+
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
-            tbv = buf.add_view(num_frames * 1 * 4, None)
-            tdata = buf.add_accessor(tbv, 0, 1 * 4, Buffer.FLOAT, num_frames, Buffer.SCALAR)
             lbv = buf.add_view(num_frames * 3 * 4, None)
             ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
             rbv = buf.add_view(num_frames * 4 * 4, None)
@@ -1131,12 +1141,9 @@ def export_animations(actions, objects):
             sbv = buf.add_view(num_frames * 3 * 4, None)
             sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
 
-            time = 0
             for i in range(num_frames):
                 mat = chan[i]
                 loc, rot, scale = mat.decompose()
-                tdata[i] = time
-                time += dt
                 # w needs to be last.
                 rot = (rot.x, rot.y, rot.z, rot.w)
                 for j in range(3):
@@ -1151,9 +1158,6 @@ def export_animations(actions, objects):
                 targetid = 'node_{}_{}'.format(obj.data.name, targetid)
             else:
                 targetid = 'node_' + targetid
-
-            time_parameter_name = '{}_{}_time_parameter'.format(action.name, targetid)
-            gltf_parameters[time_parameter_name] = tdata.name
 
             for path in ('translation', 'rotation', 'scale'):
                 sampler_name = '{}_{}_{}_sampler'.format(action.name, targetid, path)
