@@ -247,8 +247,8 @@ class Buffer:
 
     def export_buffer(self, settings):
         data = bytearray()
-        for bn, bv in self.buffer_views.items():
-            data.extend(bv['data'])
+        for view in self.buffer_views.values():
+            data.extend(view['data'])
 
         if settings['buffers_embed_data']:
             uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
@@ -585,7 +585,6 @@ def export_meshes(settings, meshes, skinned_meshes):
         me.calc_normals_split()
         me.calc_tessface()
 
-        num_loops = len(me.loops)
         num_uv_layers = len(me.uv_layers)
         num_col_layers = len(me.vertex_colors)
         vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * 3) * 4
@@ -1178,9 +1177,6 @@ def export_animations(actions, objects):
     dt = 1.0 / bpy.context.scene.render.fps
 
     def export_animation(obj, action):
-        params = []
-
-        exported_paths = {}
         channels = {}
 
         sce = bpy.context.scene
