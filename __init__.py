@@ -1,3 +1,23 @@
+import importlib
+import json
+import os
+
+import bpy
+from bpy.props import (
+    BoolProperty,
+    EnumProperty,
+    StringProperty
+)
+from bpy_extras.io_utils import (
+    ExportHelper,
+    orientation_helper_factory,
+    axis_conversion,
+)
+
+from .blendergltf import export_gltf
+from .filters import visible_only, selected_only, used_only
+
+
 bl_info = {
     "name": "glTF format",
     "author": "Daniel Stokes",
@@ -9,50 +29,34 @@ bl_info = {
     "wiki_url": ""
                 "",
     "support": 'TESTING',
-    "category": "Import-Export"}
+    "category": "Import-Export"
+}
 
-import importlib
 
 if "bpy" in locals():
     importlib.reload(blendergltf)
     importlib.reload(filters)
 
-import json
-import os
-
-import bpy
-from bpy.props import *
-from bpy_extras.io_utils import (
-    ExportHelper,
-    orientation_helper_factory,
-    axis_conversion,
-)
-
-from .blendergltf import *
-from .filters import visible_only, selected_only, used_only
 
 GLTFOrientationHelper = orientation_helper_factory(
     "GLTFOrientationHelper", axis_forward='Y', axis_up='Z'
 )
 
 
-profile_items = (
+PROFILE_ITEMS = (
     ('WEB', 'Web', 'Export shaders for WebGL 1.0 use (shader version 100)'),
     ('DESKTOP', 'Desktop', 'Export shaders for OpenGL 3.0 use (shader version 130)')
 )
-
-image_storage_items = (
+IMAGE_STORAGE_ITEMS = (
     ('EMBED', 'Embed', 'Embed image data into the glTF file'),
     ('REFERENCE', 'Reference', 'Use the same filepath that Blender uses for images'),
     ('COPY', 'Copy', 'Copy images to output directory and use a relative reference')
 )
-
-shader_storage_items = (
+SHADER_STORAGE_ITEMS = (
     ('EMBED', 'Embed', 'Embed shader data into the glTF file'),
     ('NONE', 'None', 'Use the KHR_material_common extension instead of a shader'),
     ('EXTERNAL', 'External', 'Save shaders to the output directory')
 )
-
 
 
 class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
@@ -62,9 +66,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
     filename_ext = ".gltf"
     filter_glob = StringProperty(
-            default="*.gltf",
-            options={'HIDDEN'},
-            )
+        default="*.gltf",
+        options={'HIDDEN'},
+    )
 
 
     check_extension = True
@@ -74,13 +78,13 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     buffers_combine_data = BoolProperty(name='Combine Buffer Data', default=True)
     nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
     nodes_selected_only = BoolProperty(name='Selection Only', default=False)
-    shaders_data_storage = EnumProperty(items=shader_storage_items, name='Storage', default='NONE')
+    shaders_data_storage = EnumProperty(items=SHADER_STORAGE_ITEMS, name='Storage', default='NONE')
     blocks_prune_unused = BoolProperty(name='Prune Unused Resources', default=True)
     meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
     meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
-    images_data_storage = EnumProperty(items=image_storage_items, name='Storage', default='COPY')
+    images_data_storage = EnumProperty(items=IMAGE_STORAGE_ITEMS, name='Storage', default='COPY')
     images_allow_srgb = BoolProperty(name='sRGB Texture Support', default=False)
-    asset_profile = EnumProperty(items=profile_items, name='Profile', default='WEB')
+    asset_profile = EnumProperty(items=PROFILE_ITEMS, name='Profile', default='WEB')
     ext_export_physics = BoolProperty(name='Export Physics Settings', default=False)
 
     pretty_print = BoolProperty(
@@ -130,7 +134,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col.label('Output:', icon='SCRIPTWIN')
         col.prop(self, 'asset_profile')
         col.prop(self, 'pretty_print')
-        col.prop(self, 'blocks_prune_unused');
+        col.prop(self, 'blocks_prune_unused')
 
 
     def execute(self, context):
@@ -173,7 +177,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         if settings['blocks_prune_unused']:
             data = used_only(data)
 
-        gltf = blendergltf.export_gltf(data, settings)
+        gltf = export_gltf(data, settings)
         with open(self.filepath, 'w') as fout:
             # Figure out indentation
             if self.pretty_print:
