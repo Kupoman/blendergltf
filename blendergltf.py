@@ -266,11 +266,11 @@ class Buffer:
     def add_view(self, bytelength, target):
         buffer_name = 'bufferView_{}_{}'.format(self.name, len(self.buffer_views))
         self.buffer_views[buffer_name] = {
-                'data': bytearray(bytelength),
-                'target': target,
-                'bytelength': bytelength,
-                'byteoffset': self.bytelength,
-            }
+            'data': bytearray(bytelength),
+            'target': target,
+            'bytelength': bytelength,
+            'byteoffset': self.bytelength,
+        }
         self.bytelength += bytelength
         return buffer_name
 
@@ -300,7 +300,16 @@ class Buffer:
                      count,
                      type):
         accessor_name = 'accessor_{}_{}'.format(self.name, len(self.accessors))
-        self.accessors[accessor_name] = self.Accessor(accessor_name, self, buffer_view, byte_offset, byte_stride, component_type, count, type)
+        self.accessors[accessor_name] = self.Accessor(
+            accessor_name,
+            self,
+            buffer_view,
+            byte_offset,
+            byte_stride,
+            component_type,
+            count,
+            type
+        )
         return self.accessors[accessor_name]
 
     def export_accessors(self):
@@ -380,13 +389,30 @@ def export_cameras(cameras):
 
 def export_materials(settings, materials, shaders, programs, techniques):
     def export_material(material):
-        all_textures = [ts for ts in material.texture_slots if ts and ts.texture.type == 'IMAGE']
-        diffuse_textures = ['texture_' + t.texture.name for t in all_textures if t.use_map_color_diffuse]
-        emission_textures = ['texture_' + t.texture.name for t in all_textures if t.use_map_emit]
-        specular_textures = ['texture_' + t.texture.name for t in all_textures if t.use_map_color_spec]
-        diffuse_color = list((material.diffuse_color * material.diffuse_intensity)[:]) + [material.alpha]
-        emission_color = list((material.diffuse_color * material.emit)[:]) + [material.alpha]
-        specular_color = list((material.specular_color * material.specular_intensity)[:]) + [material.specular_alpha]
+        all_textures = [
+            ts for ts in material.texture_slots
+            if ts and ts.texture.type == 'IMAGE'
+        ]
+        diffuse_textures = [
+            'texture_' + t.texture.name
+            for t in all_textures if t.use_map_color_diffuse
+        ]
+        emission_textures = [
+            'texture_' + t.texture.name
+            for t in all_textures if t.use_map_emit
+        ]
+        specular_textures = [
+            'texture_' + t.texture.name
+            for t in all_textures if t.use_map_color_spec
+        ]
+
+        diffuse_color = list((material.diffuse_color * material.diffuse_intensity)[:])
+        diffuse_color += [material.alpha]
+        emission_color = list((material.diffuse_color * material.emit)[:])
+        emission_color += [material.alpha]
+        specular_color = list((material.specular_color * material.specular_intensity)[:])
+        specular_color += [material.specular_alpha]
+
         technique = 'PHONG'
         if material.use_shadeless:
             technique = 'CONSTANT'
@@ -397,23 +423,23 @@ def export_materials(settings, materials, shaders, programs, techniques):
         elif material.specular_shader == 'BLINN':
             technique = 'BLINN'
         return {
-                'extensions': {
-                    'KHR_materials_common': {
-                        'technique': technique,
-                        'values': {
-                            'ambient': ([material.ambient]*3) + [1.0],
-                            'diffuse': diffuse_textures[-1] if diffuse_textures else diffuse_color,
-                            'doubleSided': not material.game_settings.use_backface_culling,
-                            'emission': emission_textures[-1] if emission_textures else emission_color,
-                            'specular': specular_textures[-1] if specular_textures else specular_color,
-                            'shininess': material.specular_hardness,
-                            'transparency': material.alpha,
-                            'transparent': material.use_transparency,
-                        }
+            'extensions': {
+                'KHR_materials_common': {
+                    'technique': technique,
+                    'values': {
+                        'ambient': ([material.ambient]*3) + [1.0],
+                        'diffuse': diffuse_textures[-1] if diffuse_textures else diffuse_color,
+                        'doubleSided': not material.game_settings.use_backface_culling,
+                        'emission': emission_textures[-1] if emission_textures else emission_color,
+                        'specular': specular_textures[-1] if specular_textures else specular_color,
+                        'shininess': material.specular_hardness,
+                        'transparency': material.alpha,
+                        'transparent': material.use_transparency,
                     }
-                },
-                'name': material.name,
-            }
+                }
+            },
+            'name': material.name,
+        }
     exp_materials = {}
     for material in materials:
         if settings['shaders_data_storage'] == 'NONE':
@@ -435,7 +461,10 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 vs_bytes = shader_data['vertex'].encode()
                 vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
             elif storage_setting == 'EXTERNAL':
-                names = [bpy.path.clean_name(name) + '.glsl' for name in (material.name+'VS', material.name+'FS')]
+                names = [
+                    bpy.path.clean_name(name) + '.glsl'
+                    for name in (material.name+'VS', material.name+'FS')
+                ]
                 data = (shader_data['vertex'], shader_data['fragment'])
                 for name, data in zip(names, data):
                     filename = os.path.join(settings['gltf_output_dir'], name)
@@ -443,7 +472,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
                         fout.write(data)
                 vs_uri, fs_uri = names
             else:
-                print('Encountered unknown option ({}) for shaders_data_storage setting'.format(storage_setting));
+                print('Encountered unknown option ({}) for shaders_data_storage setting'.format(storage_setting))
 
             shaders[fs_name] = {'type': 35632, 'uri': fs_uri}
             shaders[vs_name] = {'type': 35633, 'uri': vs_uri}
@@ -499,10 +528,15 @@ def export_materials(settings, materials, shaders, programs, techniques):
                         world = bpy.context.scene.world
                         value = getattr(world, rnaname)
                     elif uniform['type'] in gpu_luts.MATERIAL_TYPES:
-                        value = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](getattr(material, rnaname))
+                        converter = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']]
+                        value = converter(getattr(material, rnaname))
                         values[valname] = value
                     elif uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
-                        for ts in [ts for ts in material.texture_slots if ts and ts.texture.type == 'IMAGE']:
+                        texture_slots = [
+                            ts for ts in material.texture_slots
+                            if ts and ts.texture.type == 'IMAGE'
+                        ]
+                        for ts in texture_slots:
                             if ts.texture.image.name == uniform['image'].name:
                                 value = 'texture_' + ts.texture.name
                                 values[uniform['varname']] = value
@@ -542,9 +576,9 @@ def export_meshes(settings, meshes, skinned_meshes):
     def export_mesh(me):
         # glTF data
         gltf_mesh = {
-                'name': me.name,
-                'primitives': [],
-            }
+            'name': me.name,
+            'primitives': [],
+        }
 
         is_skinned = me.name in skinned_meshes
 
@@ -561,7 +595,7 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         # Vertex data
 
-        vert_list = { Vertex(me, loop) : 0 for loop in me.loops}.keys()
+        vert_list = {Vertex(me, loop) : 0 for loop in me.loops}.keys()
         num_verts = len(vert_list)
         va = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
 
@@ -569,20 +603,65 @@ def export_meshes(settings, meshes, skinned_meshes):
         if settings['meshes_interleave_vertex_data'] == True:
             vdata = buf.add_accessor(va, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(va, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            tdata = [buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
-            cdata = [buf.add_accessor(va, 24 + 8*num_uv_layers + 12*i,
-                vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3) for i in range(num_col_layers)]
+            tdata = [
+                buf.add_accessor(va, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2)
+                for i in range(num_uv_layers)
+            ]
+            cdata = [
+                buf.add_accessor(
+                    va,
+                    24 + 8 * num_uv_layers + 12 * i,
+                    vertex_size,
+                    Buffer.FLOAT,
+                    num_verts,
+                    Buffer.VEC3
+                )
+                for i in range(num_col_layers)
+            ]
         else:
             vdata = buf.add_accessor(va, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(va, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            tdata = [buf.add_accessor(va, num_verts*(24 + 8 * i), 8, Buffer.FLOAT, num_verts, Buffer.VEC2) for i in range(num_uv_layers)]
-            cdata = [buf.add_accessor(va, num_verts*(24 + 8*num_uv_layers + 12*i),
-                12, Buffer.FLOAT, num_verts, Buffer.VEC3) for i in range(num_col_layers)]
+            tdata = [
+                buf.add_accessor(
+                    va,
+                    num_verts * (24 + 8 * i),
+                    8,
+                    Buffer.FLOAT,
+                    num_verts,
+                    Buffer.VEC2
+                )
+                for i in range(num_uv_layers)
+            ]
+            cdata = [
+                buf.add_accessor(
+                    va,
+                    num_verts * (24 + 8 * num_uv_layers + 12 * i),
+                    12,
+                    Buffer.FLOAT,
+                    num_verts,
+                    Buffer.VEC3
+                )
+                for i in range(num_col_layers)
+            ]
 
         skin_vertex_size = (4 + 4) * 4
         skin_va = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
-        jdata = skin_buf.add_accessor(skin_va, 0, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
-        wdata = skin_buf.add_accessor(skin_va, 16, skin_vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC4)
+        jdata = skin_buf.add_accessor(
+            skin_va,
+            0,
+            skin_vertex_size,
+            Buffer.FLOAT,
+            num_verts,
+            Buffer.VEC4
+        )
+        wdata = skin_buf.add_accessor(
+            skin_va,
+            16,
+            skin_vertex_size,
+            Buffer.FLOAT,
+            num_verts,
+            Buffer.VEC4
+        )
 
         # Copy vertex data
         for i, vtx in enumerate(vert_list):
@@ -720,13 +799,16 @@ def export_skins(skinned_meshes):
     def export_skin(obj):
         arm = obj.find_armature()
 
-        bind_shape_mat = obj.matrix_world * arm.matrix_world.inverted();
+        bind_shape_mat = obj.matrix_world * arm.matrix_world.inverted()
 
         gltf_skin = {
             'bindShapeMatrix': togl(bind_shape_mat),
             'name': obj.name,
         }
-        gltf_skin['jointNames'] = ['node_{}_{}'.format(arm.name, group.name) for group in obj.vertex_groups]
+        gltf_skin['jointNames'] = [
+            'node_{}_{}'.format(arm.name, group.name)
+            for group in obj.vertex_groups
+        ]
 
         element_size = 16 * 4
         num_elements = len(obj.vertex_groups)
@@ -815,7 +897,7 @@ def export_lights(lamps):
 def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     def export_physics(obj):
         rb = obj.rigid_body
-        physics =  {
+        physics = {
             'collision_shape': rb.collision_shape.lower(),
             'mass': rb.mass,
             'dynamic': rb.type == 'ACTIVE' and rb.enabled,
@@ -856,7 +938,10 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
         elif obj.type == 'ARMATURE':
             if not ob['children']:
                 ob['children'] = []
-            ob['children'].extend(['node_{}_{}'.format(obj.name, b.name) for b in obj.data.bones if b.parent == None])
+            ob['children'].extend([
+                'node_{}_{}'.format(obj.name, b.name)
+                for b in obj.data.bones if b.parent == None
+            ])
 
         if obj.rigid_body and settings['ext_export_physics']:
             ob['extensions'] = {
@@ -883,7 +968,10 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
 
     for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
         arm = obj.data
-        gltf_nodes.update({"node_{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone) for bone in arm.bones})
+        gltf_nodes.update({
+            "node_{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone)
+            for bone in arm.bones
+        })
 
     return gltf_nodes
 
@@ -900,11 +988,15 @@ def export_scenes(settings, scenes, objects):
             'name': scene.name,
         }
 
-        result['nodes'] = ['node_' + ob.name for ob in scene.objects
-            if ob in objects and ob.parent is None and ob.is_visible(scene)]
+        result['nodes'] = [
+            'node_' + ob.name for ob in scene.objects
+            if ob in objects and ob.parent is None and ob.is_visible(scene)
+        ]
 
-        hidden_nodes = ['node_' + ob.name for ob in scene.objects
-            if ob in objects and not ob.is_visible(scene)]
+        hidden_nodes = [
+            'node_' + ob.name for ob in scene.objects
+            if ob in objects and not ob.is_visible(scene)
+        ]
         if hidden_nodes:
             result['extras']['hidden_nodes'] = hidden_nodes
 
@@ -984,7 +1076,7 @@ def export_images(settings, images):
 
         storage_setting = settings['images_data_storage']
         image_packed = image.packed_file != None
-        if image_packed and storage_setting in ['COPY','REFERENCE']:
+        if image_packed and storage_setting in ['COPY', 'REFERENCE']:
             if image.file_format in extMap:
                 # save the file to the output directory
                 uri = '.'.join([image.name, extMap[image.file_format]])
@@ -996,7 +1088,7 @@ def export_images(settings, images):
                 # convert to png and save
                 uri = '.'.join([image.name, 'png'])
                 png = image_to_data_uri(image, bytes=True)
-                with open( os.path.join(settings['gltf_output_dir'], uri), 'wb' ) as outfile:
+                with open(os.path.join(settings['gltf_output_dir'], uri), 'wb') as outfile:
                     outfile.write(png)
 
         elif storage_setting == 'COPY':
@@ -1011,7 +1103,7 @@ def export_images(settings, images):
         elif storage_setting == 'EMBED':
             uri = image_to_data_uri(image)
         else:
-            print('Encountered unknown option ({}) for images_data_storage setting'.format(storage_setting));
+            print('Encountered unknown option ({}) for images_data_storage setting'.format(storage_setting))
 
         return {
             'uri': uri,
@@ -1025,7 +1117,7 @@ def export_textures(textures, settings):
         errors = []
         if texture.image == None:
             errors.append('has no image reference')
-        elif texture.image.channels not in [3,4]:
+        elif texture.image.channels not in [3, 4]:
             errors.append('points to {}-channel image (must be 3 or 4)'.format(texture.image.channels))
 
         if errors:
@@ -1042,7 +1134,8 @@ def export_textures(textures, settings):
         }
         tformat = None
         channels = texture.image.channels
-        use_srgb = settings['images_allow_srgb'] and texture.image.colorspace_settings.name == 'sRGB'
+        image_is_srgb = texture.image.colorspace_settings.name == 'sRGB'
+        use_srgb = settings['images_allow_srgb'] and image_is_srgb
 
         if channels == 3:
             if use_srgb:
@@ -1059,8 +1152,11 @@ def export_textures(textures, settings):
 
         return gltf_texture
 
-    return {'texture_' + texture.name: export_texture(texture) for texture in textures
-        if type(texture) == bpy.types.ImageTexture and check_texture(texture)}
+    return {
+        'texture_' + texture.name: export_texture(texture)
+        for texture in textures
+        if type(texture) == bpy.types.ImageTexture and check_texture(texture)
+    }
 
 
 def _can_object_use_action(obj, action):
@@ -1267,8 +1363,13 @@ def export_gltf(scene_delta, settings={}):
         'extensionsUsed': [],
         'extras': {},
         'images': export_images(settings, scene_delta.get('images', [])),
-        'materials': export_materials(settings, scene_delta.get('materials', []),
-            shaders, programs, techniques),
+        'materials': export_materials(
+            settings,
+            scene_delta.get('materials', []),
+            shaders,
+            programs,
+            techniques
+        ),
         'nodes': export_nodes(settings, scenes, object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
         'meshes': export_meshes(settings, mesh_list, skinned_meshes),
