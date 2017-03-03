@@ -1,17 +1,25 @@
-import bpy
-import mathutils
-import gpu
-
-
-import json
-import collections
 import base64
+import collections
 import functools
 import math
 import os
 import shutil
 import struct
 import zlib
+
+import bpy
+import gpu
+import mathutils
+
+
+if '_IMPORTED' not in locals():
+    _IMPORTED = True
+    from . import gpu_luts
+    from . import shader_converter
+else:
+    import imp
+    imp.reload(gpu_luts)
+    imp.reload(shader_converter)
 
 
 __all__ = ['export_gltf']
@@ -54,16 +62,6 @@ profile_map = {
 }
 
 g_glExtensionsUsed = []
-
-if 'imported' in locals():
-    import imp
-    import bpy
-    imp.reload(gpu_luts)
-    imp.reload(shader_converter)
-else:
-    imported = True
-    from . import gpu_luts
-    from . import shader_converter
 
 
 class Vertex:
