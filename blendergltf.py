@@ -35,7 +35,7 @@ DEFAULT_SETTINGS = {
     'blocks_prune_unused': True,
     'shaders_data_storage': 'NONE',
     'meshes_apply_modifiers': True,
-    'meshes_interleave_vertex_data' : True,
+    'meshes_interleave_vertex_data': True,
     'images_data_storage': 'COPY',
     'asset_profile': 'WEB',
     'ext_export_physics': False,
@@ -75,6 +75,7 @@ class Vertex:
         "weights",
         "joint_indexes",
         )
+
     def __init__(self, mesh, loop):
         vert_idx = loop.vertex_index
         loop_idx = loop.index
@@ -85,7 +86,11 @@ class Vertex:
         self.loop_indices = [loop_idx]
 
         # Take the four most influential groups
-        groups = sorted(mesh.vertices[vert_idx].groups, key=lambda group: group.weight, reverse=True)
+        groups = sorted(
+            mesh.vertices[vert_idx].groups,
+            key=lambda group: group.weight,
+            reverse=True
+        )
         if len(groups) > 4:
             groups = groups[:4]
 
@@ -115,6 +120,7 @@ class Vertex:
             self.loop_indices = indices
             other.loop_indices = indices
         return equals
+
 
 class Buffer:
     ARRAY_BUFFER = 34962
@@ -152,6 +158,7 @@ class Buffer:
             "_ctype_size",
             "_buffer_data",
             )
+
         def __init__(self,
                      name,
                      buffer,
@@ -238,6 +245,7 @@ class Buffer:
         "buffer_views",
         "accessors",
         )
+
     def __init__(self, name):
         self.name = 'buffer_{}'.format(name)
         self.buffer_type = 'arraybuffer'
@@ -477,9 +485,9 @@ def export_materials(settings, materials, shaders, programs, techniques):
 
             # Handle programs
             programs['program_' + material.name] = {
-                'attributes' : [a['varname'] for a in shader_data['attributes']],
-                'fragmentShader' : 'shader_{}_FS'.format(material.name),
-                'vertexShader' : 'shader_{}_VS'.format(material.name),
+                'attributes': [a['varname'] for a in shader_data['attributes']],
+                'fragmentShader': 'shader_{}_FS'.format(material.name),
+                'vertexShader': 'shader_{}_VS'.format(material.name),
             }
 
             # Handle parameters/values
@@ -554,7 +562,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 else:
                     parameter['value'] = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](value)
                 if uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
-                    parameter['type'] = 35678 #SAMPLER_2D
+                    parameter['type'] = 35678  # SAMPLER_2D
                 else:
                     parameter['type'] = gpu_luts.DATATYPE_TO_GLTF_TYPE[uniform['datatype']]
                 parameters[valname] = parameter
@@ -563,10 +571,10 @@ def export_materials(settings, materials, shaders, programs, techniques):
             # Handle techniques
             tech_name = 'technique_' + material.name
             techniques[tech_name] = {
-                'parameters' : parameters,
-                'program' : 'program_' + material.name,
-                'attributes' : {a['varname'] : a['varname'] for a in shader_data['attributes']},
-                'uniforms' : {u['varname'] : u['valname'] for u in shader_data['uniforms']},
+                'parameters': parameters,
+                'program': 'program_' + material.name,
+                'attributes': {a['varname']: a['varname'] for a in shader_data['attributes']},
+                'uniforms': {u['varname']: u['valname'] for u in shader_data['uniforms']},
             }
 
             exp_materials['material_' + material.name] = {'technique': tech_name, 'values': values}
@@ -597,16 +605,23 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         # Vertex data
 
-        vert_list = {Vertex(mesh, loop) : 0 for loop in mesh.loops}.keys()
+        vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
         num_verts = len(vert_list)
         view = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
 
-        #Interleave
+        # Interleave
         if settings['meshes_interleave_vertex_data']:
             vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             tdata = [
-                buf.add_accessor(view, 24 + 8 * i, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC2)
+                buf.add_accessor(
+                    view,
+                    24 + 8 * i,
+                    vertex_size,
+                    Buffer.FLOAT,
+                    num_verts,
+                    Buffer.VEC2
+                )
                 for i in range(num_uv_layers)
             ]
             cdata = [
@@ -705,7 +720,7 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         # Index data
         # Map loop indices to vertices
-        vert_dict = {i : vertex for vertex in vert_list for i in vertex.loop_indices}
+        vert_dict = {i: vertex for vertex in vert_list for i in vertex.loop_indices}
 
         max_vert_index = 0
         for poly in mesh.polygons:
@@ -792,7 +807,7 @@ def export_meshes(settings, meshes, skinned_meshes):
     exported_meshes = {}
     for mesh in meshes:
         gltf_mesh = export_mesh(mesh)
-        if gltf_mesh != None:
+        if gltf_mesh is not None:
             exported_meshes.update({'mesh_' + mesh.name: gltf_mesh})
     return exported_meshes
 
@@ -910,7 +925,6 @@ def export_nodes(settings, objects, skinned_meshes, modded_meshes):
             physics['mesh'] = obj.data.name
 
         return physics
-
 
     def export_node(obj):
         node = {
@@ -1073,11 +1087,12 @@ def export_images(settings, images):
         return True
 
     ext_map = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
+
     def export_image(image):
         uri = ''
 
         storage_setting = settings['images_data_storage']
-        image_packed = image.packed_file != None
+        image_packed = image.packed_file is not None
         if image_packed and storage_setting in ['COPY', 'REFERENCE']:
             if image.file_format in ext_map:
                 # save the file to the output directory
@@ -1131,8 +1146,8 @@ def export_textures(textures, settings):
 
     def export_texture(texture):
         gltf_texture = {
-            'sampler' : 'sampler_default',
-            'source' : 'image_' + texture.image.name,
+            'sampler': 'sampler_default',
+            'source': 'image_' + texture.image.name,
         }
         tformat = None
         channels = texture.image.channels
@@ -1223,7 +1238,6 @@ def export_animations(actions, objects):
         g_buffers.append(tbuf)
         time_parameter_name = '{}_time_parameter'.format(action.name)
         gltf_parameters[time_parameter_name] = tdata.name
-
 
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
@@ -1376,7 +1390,7 @@ def export_gltf(scene_delta, settings=None):
         'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
-        'samplers': {'sampler_default':{}},
+        'samplers': {'sampler_default': {}},
         'scene': 'scene_' + bpy.context.scene.name,
         'scenes': export_scenes(scenes, object_list),
         'shaders': shaders,
@@ -1387,7 +1401,7 @@ def export_gltf(scene_delta, settings=None):
     if settings['shaders_data_storage'] == 'NONE':
         gltf['extensionsUsed'].append('KHR_materials_common')
         gltf['extensions']['KHR_materials_common'] = {
-            'lights' : export_lights(scene_delta.get('lamps', []))
+            'lights': export_lights(scene_delta.get('lamps', []))
         }
 
     if settings['ext_export_physics']:

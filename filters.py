@@ -1,6 +1,7 @@
 #!/bin/env python
 import bpy
 
+
 def visible_only(bpy_data):
     """
     Filter out all the invisible objects
@@ -73,7 +74,7 @@ def used_only(bpy_data):
                     # add textures to list
                     textures = [
                         slot.texture for slot in mat.texture_slots.values()
-                        if slot != None
+                        if slot is not None
                         and slot.use
                         and isinstance(slot.texture, bpy.types.ImageTexture)
                     ]
@@ -84,6 +85,5 @@ def used_only(bpy_data):
                         # add images to list
                         if tex.image not in pruned_data['images']:
                             pruned_data['images'].append(tex.image)
-
 
     return pruned_data

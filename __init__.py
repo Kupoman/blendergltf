@@ -70,10 +70,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         options={'HIDDEN'},
     )
 
-
     check_extension = True
 
-    #blendergltf settings
+    # blendergltf settings
     buffers_embed_data = BoolProperty(name='Embed Buffer Data', default=False)
     buffers_combine_data = BoolProperty(name='Combine Buffer Data', default=True)
     nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
@@ -136,9 +135,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col.prop(self, 'pretty_print')
         col.prop(self, 'blocks_prune_unused')
 
-
     def execute(self, _):
-
         # Copy properties to settings
         settings = self.as_keywords(ignore=(
             "filter_glob",

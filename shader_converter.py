@@ -64,7 +64,7 @@ def fs_to_130(data):
     src = re.sub(r'\bgl_(?!FrontFacing)(.*?)\b', r'bl_\1', src)
 
     # Cannot support node_bsdf functions without resolving use of gl_Light
-    src = re.sub(r'void node_((bsdf)|(subsurface))_.*?^}', '', src, 0, re.DOTALL|re.MULTILINE)
+    src = re.sub(r'void node_((bsdf)|(subsurface))_.*?^}', '', src, 0, re.DOTALL | re.MULTILINE)
 
     # Need to gather light data from more general uniforms
     light_count = 0
@@ -120,10 +120,10 @@ def fs_to_web(data):
     src = src.replace('out vec4 frag_color;\n', '')
     src = re.sub(r'\bfrag_color\b', 'gl_FragColor', src)
 
-    #TODO: This should be fixed in Blender
+    # TODO: This should be fixed in Blender
     src = src.replace('blend = (normalize(vec).z + 1)', 'blend = (normalize(vec).z + 1.0)')
 
-    #TODO: This likely breaks shadows
+    # TODO: This likely breaks shadows
     src = src.replace('sampler2DShadow', 'sampler2D')
     src = src.replace('shadow2DProj', 'texture2DProj')
 
