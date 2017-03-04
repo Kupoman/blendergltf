@@ -521,7 +521,12 @@ def export_materials(settings, materials, shaders, programs, techniques):
                             value = getattr(mist_settings, rnaname)
 
                         if valname == 'mist_falloff':
-                            value = 0.0 if value == 'QUADRATIC' else 1.0 if 'LINEAR' else 2.0
+                            if value == 'QUADRATIC':
+                                value = 0.0
+                            elif value == 'LINEAR':
+                                value = 1.0
+                            else:
+                                value = 2.0
                     elif uniform['type'] in gpu_luts.WORLD_TYPES:
                         world = bpy.context.scene.world
                         value = getattr(world, rnaname)
@@ -597,7 +602,7 @@ def export_meshes(settings, meshes, skinned_meshes):
         view = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
 
         #Interleave
-        if settings['meshes_interleave_vertex_data'] == True:
+        if settings['meshes_interleave_vertex_data']:
             vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             tdata = [
@@ -919,7 +924,7 @@ def export_nodes(settings, objects, skinned_meshes, modded_meshes):
             node['meshes'] = ['mesh_' + mesh.name]
             armature = obj.find_armature()
             if armature:
-                bone_names = [b.name for b in armature.data.bones if b.parent == None]
+                bone_names = [b.name for b in armature.data.bones if b.parent is None]
                 node['skeletons'] = ['node_{}_{}'.format(armature.name, bone) for bone in bone_names]
                 skinned_meshes[mesh.name] = obj
         elif obj.type == 'LAMP':
@@ -937,7 +942,7 @@ def export_nodes(settings, objects, skinned_meshes, modded_meshes):
                 node['children'] = []
             node['children'].extend([
                 'node_{}_{}'.format(obj.name, b.name)
-                for b in obj.data.bones if b.parent == None
+                for b in obj.data.bones if b.parent is None
             ])
 
         if obj.rigid_body and settings['ext_export_physics']:
@@ -1112,7 +1117,7 @@ def export_images(settings, images):
 def export_textures(textures, settings):
     def check_texture(texture):
         errors = []
-        if texture.image == None:
+        if texture.image is None:
             errors.append('has no image reference')
         elif texture.image.channels not in [3, 4]:
             errors.append('points to {}-channel image (must be 3 or 4)'.format(texture.image.channels))
@@ -1152,7 +1157,7 @@ def export_textures(textures, settings):
     return {
         'texture_' + texture.name: export_texture(texture)
         for texture in textures
-        if type(texture) == bpy.types.ImageTexture and check_texture(texture)
+        if isinstance(texture, bpy.types.ImageTexture) and check_texture(texture)
     }
 
 
