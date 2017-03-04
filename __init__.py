@@ -34,8 +34,8 @@ bl_info = {
 
 
 if "bpy" in locals():
-    importlib.reload(blendergltf)
-    importlib.reload(filters)
+    importlib.reload(locals()['blendergltf'])
+    importlib.reload(locals()['filters'])
 
 
 GLTFOrientationHelper = orientation_helper_factory(
