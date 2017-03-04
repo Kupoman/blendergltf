@@ -1308,11 +1308,13 @@ def insert_root_nodes(gltf_data, root_matrix):
         scene['nodes'] = [node_name]
 
 
-def export_gltf(scene_delta, settings={}):
+def export_gltf(scene_delta, settings=None):
     global g_buffers
     global g_glExtensionsUsed
 
     # Fill in any missing settings with defaults
+    if not settings:
+        settings = {}
     for key, value in default_settings.items():
         settings.setdefault(key, value)
 
