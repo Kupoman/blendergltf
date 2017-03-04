@@ -146,7 +146,7 @@ class Buffer:
             "count",
             "min",
             "max",
-            "type",
+            "data_type",
             "type_size",
             "_ctype",
             "_ctype_size",
@@ -160,7 +160,7 @@ class Buffer:
                      byte_stride,
                      component_type,
                      count,
-                     type):
+                     data_type):
             self.name = name
             self.buffer = buffer
             self.buffer_view = buffer_view
@@ -170,15 +170,15 @@ class Buffer:
             self.count = count
             self.min = [math.inf for i in range(16)]
             self.max = [0 for i in range(16)]
-            self.type = type
+            self.data_type = data_type
 
-            if self.type == Buffer.MAT4:
+            if self.data_type == Buffer.MAT4:
                 self.type_size = 16
-            elif self.type == Buffer.VEC4:
+            elif self.data_type == Buffer.VEC4:
                 self.type_size = 4
-            elif self.type == Buffer.VEC3:
+            elif self.data_type == Buffer.VEC3:
                 self.type_size = 3
-            elif self.type == Buffer.VEC2:
+            elif self.data_type == Buffer.VEC2:
                 self.type_size = 2
             else:
                 self.type_size = 1
@@ -233,14 +233,14 @@ class Buffer:
 
     __slots__ = (
         "name",
-        "type",
+        "buffer_type",
         "bytelength",
         "buffer_views",
         "accessors",
         )
     def __init__(self, name):
         self.name = 'buffer_{}'.format(name)
-        self.type = 'arraybuffer'
+        self.buffer_type = 'arraybuffer'
         self.bytelength = 0
         self.buffer_views = collections.OrderedDict()
         self.accessors = {}
@@ -259,7 +259,7 @@ class Buffer:
 
         return {
             'byteLength': self.bytelength,
-            'type': self.type,
+            'type': self.buffer_type,
             'uri': uri,
         }
 
@@ -298,7 +298,7 @@ class Buffer:
                      byte_stride,
                      component_type,
                      count,
-                     type):
+                     data_type):
         accessor_name = 'accessor_{}_{}'.format(self.name, len(self.accessors))
         self.accessors[accessor_name] = self.Accessor(
             accessor_name,
@@ -308,7 +308,7 @@ class Buffer:
             byte_stride,
             component_type,
             count,
-            type
+            data_type
         )
         return self.accessors[accessor_name]
 
@@ -328,7 +328,7 @@ class Buffer:
                 'count': value.count,
                 'min': value.min[:value.type_size],
                 'max': value.max[:value.type_size],
-                'type': value.type,
+                'type': value.data_type,
             }
 
         return gltf
@@ -1027,7 +1027,7 @@ def export_buffers(settings):
     return gltf
 
 
-def image_to_data_uri(image, bytes=False):
+def image_to_data_uri(image, as_bytes=False):
     width = image.size[0]
     height = image.size[1]
     buf = bytearray([int(p * 255) for p in image.pixels])
@@ -1049,7 +1049,7 @@ def image_to_data_uri(image, bytes=False):
         png_pack(b'IDAT', zlib.compress(raw_data, 9)),
         png_pack(b'IEND', b'')])
 
-    if bytes:
+    if as_bytes:
         return png_bytes
     else:
         return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
@@ -1089,7 +1089,7 @@ def export_images(settings, images):
             else:
                 # convert to png and save
                 uri = '.'.join([image.name, 'png'])
-                png = image_to_data_uri(image, bytes=True)
+                png = image_to_data_uri(image, as_bytes=True)
                 with open(os.path.join(settings['gltf_output_dir'], uri), 'wb') as outfile:
                     outfile.write(png)
 
