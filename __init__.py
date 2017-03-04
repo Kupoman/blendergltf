@@ -93,7 +93,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         default=True
         )
 
-    def draw(self, context):
+    def draw(self, _):
         layout = self.layout
         col = layout.column()
 
@@ -137,7 +137,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col.prop(self, 'blocks_prune_unused')
 
 
-    def execute(self, context):
+    def execute(self, _):
 
         # Copy properties to settings
         settings = self.as_keywords(ignore=(
@@ -195,7 +195,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         return {'FINISHED'}
 
 
-def menu_func_export(self, context):
+def menu_func_export(self, _):
     self.layout.operator(ExportGLTF.bl_idname, text="glTF (.gltf)")
 
 

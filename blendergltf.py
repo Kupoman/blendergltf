@@ -93,7 +93,7 @@ class Vertex:
         self.joint_indexes = [group.group for group in groups]
 
         if len(self.weights) < 4:
-            for i in range(len(self.weights), 4):
+            for _ in range(len(self.weights), 4):
                 self.weights.append(0.0)
                 self.joint_indexes.append(0)
 
@@ -238,7 +238,7 @@ class Buffer:
         "buffer_views",
         "accessors",
         )
-    def __init__(self, name, uri=None):
+    def __init__(self, name):
         self.name = 'buffer_{}'.format(name)
         self.type = 'arraybuffer'
         self.bytelength = 0
@@ -891,7 +891,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
+def export_nodes(settings, objects, skinned_meshes, modded_meshes):
     def export_physics(obj):
         body = obj.rigid_body
         physics = {
@@ -973,7 +973,7 @@ def export_nodes(settings, scenes, objects, skinned_meshes, modded_meshes):
     return gltf_nodes
 
 
-def export_scenes(settings, scenes, objects):
+def export_scenes(scenes, objects):
 
     def export_scene(scene):
         result = {
@@ -1366,14 +1366,14 @@ def export_gltf(scene_delta, settings=None):
             programs,
             techniques
         ),
-        'nodes': export_nodes(settings, scenes, object_list, skinned_meshes, mod_meshes),
+        'nodes': export_nodes(settings, object_list, skinned_meshes, mod_meshes),
         # Make sure meshes come after nodes to detect which meshes are skinned
         'meshes': export_meshes(settings, mesh_list, skinned_meshes),
         'skins': export_skins(skinned_meshes),
         'programs': programs,
         'samplers': {'sampler_default':{}},
         'scene': 'scene_' + bpy.context.scene.name,
-        'scenes': export_scenes(settings, scenes, object_list),
+        'scenes': export_scenes(scenes, object_list),
         'shaders': shaders,
         'techniques': techniques,
         'textures': export_textures(scene_delta.get('textures', []), settings),
