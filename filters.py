@@ -6,10 +6,10 @@ def visible_only(bpy_data):
     Filter out all the invisible objects
     """
 
-    def visible(o):
-        return any(o.is_visible(s) for s in bpy_data['scenes'])
+    def visible(obj):
+        return any(obj.is_visible(s) for s in bpy_data['scenes'])
 
-    bpy_data['objects'] = [o for o in bpy_data['objects'] if visible(o)]
+    bpy_data['objects'] = [obj for obj in bpy_data['objects'] if visible(obj)]
     return bpy_data
 
 
@@ -71,8 +71,13 @@ def used_only(bpy_data):
                     pruned_data['materials'].append(mat)
 
                     # add textures to list
-                    for tex in [slot.texture for slot in mat.texture_slots.values()
-                        if slot != None and slot.use and isinstance(slot.texture, bpy.types.ImageTexture)]:
+                    textures = [
+                        slot.texture for slot in mat.texture_slots.values()
+                        if slot != None
+                        and slot.use
+                        and isinstance(slot.texture, bpy.types.ImageTexture)
+                    ]
+                    for tex in textures:
                         if tex not in pruned_data['textures']:
                             pruned_data['textures'].append(tex)
 
