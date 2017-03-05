@@ -206,7 +206,7 @@ class Buffer:
                 raise ValueError("Bad component type")
 
             self._ctype_size = struct.calcsize(self._ctype)
-            self._buffer_data = self.buffer._get_buffer_data(self.buffer_view)
+            self._buffer_data = self.buffer.get_buffer_data(self.buffer_view)
 
         # Inlined for performance, leaving this here as reference
         # def _get_ptr(self, idx):
@@ -295,7 +295,7 @@ class Buffer:
 
         return gltf
 
-    def _get_buffer_data(self, buffer_view):
+    def get_buffer_data(self, buffer_view):
         return self.buffer_views[buffer_view]['data']
 
     def add_accessor(self,
