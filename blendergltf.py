@@ -61,8 +61,6 @@ PROFILE_MAP = {
     'DESKTOP': {'api': 'OpenGL', 'version': '3.0'}
 }
 
-g_glExtensionsUsed = []
-
 
 class Vertex:
     __slots__ = (
@@ -253,16 +251,16 @@ class Buffer:
         self.buffer_views = collections.OrderedDict()
         self.accessors = {}
 
-    def export_buffer(self, settings):
+    def export_buffer(self, state):
         data = bytearray()
         for view in self.buffer_views.values():
             data.extend(view['data'])
 
-        if settings['buffers_embed_data']:
+        if state['settings']['buffers_embed_data']:
             uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
         else:
             uri = bpy.path.clean_name(self.name) + '.bin'
-            with open(os.path.join(settings['gltf_output_dir'], uri), 'wb') as fout:
+            with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as fout:
                 fout.write(data)
 
         return {
@@ -357,14 +355,11 @@ class Buffer:
         return combined
 
 
-g_buffers = []
-
-
 def togl(matrix):
     return [i for col in matrix.col for i in col]
 
 
-def export_cameras(cameras):
+def export_cameras(_, cameras):
     def export_camera(camera):
         camera_gltf = {}
         if camera.type == 'ORTHO':
@@ -393,7 +388,7 @@ def export_cameras(cameras):
     return {'camera_' + camera.name: export_camera(camera) for camera in cameras}
 
 
-def export_materials(settings, materials, shaders, programs, techniques):
+def export_materials(state, materials):
     def export_material(material):
         all_textures = [
             slot for slot in material.texture_slots
@@ -448,19 +443,19 @@ def export_materials(settings, materials, shaders, programs, techniques):
         }
     exp_materials = {}
     for material in materials:
-        if settings['shaders_data_storage'] == 'NONE':
+        if state['settings']['shaders_data_storage'] == 'NONE':
             exp_materials['material_' + material.name] = export_material(material)
         else:
             # Handle shaders
             shader_data = gpu.export_shader(bpy.context.scene, material)
-            if settings['asset_profile'] == 'DESKTOP':
+            if state['settings']['asset_profile'] == 'DESKTOP':
                 shader_converter.to_130(shader_data)
             else:
                 shader_converter.to_web(shader_data)
 
             fs_name = 'shader_{}_FS'.format(material.name)
             vs_name = 'shader_{}_VS'.format(material.name)
-            storage_setting = settings['shaders_data_storage']
+            storage_setting = state['settings']['shaders_data_storage']
             if storage_setting == 'EMBED':
                 fs_bytes = shader_data['fragment'].encode()
                 fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
@@ -473,18 +468,18 @@ def export_materials(settings, materials, shaders, programs, techniques):
                 ]
                 data = (shader_data['vertex'], shader_data['fragment'])
                 for name, data in zip(names, data):
-                    filename = os.path.join(settings['gltf_output_dir'], name)
+                    filename = os.path.join(state['settings']['gltf_output_dir'], name)
                     with open(filename, 'w') as fout:
                         fout.write(data)
                 vs_uri, fs_uri = names
             else:
                 print('Encountered unknown option ({}) for shaders_data_storage setting'.format(storage_setting))
 
-            shaders[fs_name] = {'type': 35632, 'uri': fs_uri}
-            shaders[vs_name] = {'type': 35633, 'uri': vs_uri}
+            state['shaders'][fs_name] = {'type': 35632, 'uri': fs_uri}
+            state['shaders'][vs_name] = {'type': 35633, 'uri': vs_uri}
 
             # Handle programs
-            programs['program_' + material.name] = {
+            state['programs']['program_' + material.name] = {
                 'attributes': [a['varname'] for a in shader_data['attributes']],
                 'fragmentShader': 'shader_{}_FS'.format(material.name),
                 'vertexShader': 'shader_{}_VS'.format(material.name),
@@ -570,7 +565,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
 
             # Handle techniques
             tech_name = 'technique_' + material.name
-            techniques[tech_name] = {
+            state['techniques'][tech_name] = {
                 'parameters': parameters,
                 'program': 'program_' + material.name,
                 'attributes': {a['varname']: a['varname'] for a in shader_data['attributes']},
@@ -583,7 +578,7 @@ def export_materials(settings, materials, shaders, programs, techniques):
     return exp_materials
 
 
-def export_meshes(settings, meshes, skinned_meshes):
+def export_meshes(state, meshes):
     def export_mesh(mesh):
         # glTF data
         gltf_mesh = {
@@ -591,7 +586,7 @@ def export_meshes(settings, meshes, skinned_meshes):
             'primitives': [],
         }
 
-        is_skinned = mesh.name in skinned_meshes
+        is_skinned = mesh.name in state['skinned_meshes']
 
         mesh.calc_normals_split()
         mesh.calc_tessface()
@@ -610,7 +605,7 @@ def export_meshes(settings, meshes, skinned_meshes):
         view = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
 
         # Interleave
-        if settings['meshes_interleave_vertex_data']:
+        if state['settings']['meshes_interleave_vertex_data']:
             vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
             tdata = [
@@ -692,7 +687,7 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             for j, uv in enumerate(vtx.uvs):
                 tdata[j][i * 2] = uv.x
-                if settings['asset_profile'] == 'WEB':
+                if state['settings']['asset_profile'] == 'WEB':
                     tdata[j][i * 2 + 1] = 1.0 - uv.y
                 else:
                     tdata[j][i * 2 + 1] = uv.y
@@ -753,8 +748,8 @@ def export_meshes(settings, meshes, skinned_meshes):
 
         if max_vert_index > 65535:
             # Use the integer index extension
-            if OES_ELEMENT_INDEX_UINT not in g_glExtensionsUsed:
-                g_glExtensionsUsed.append(OES_ELEMENT_INDEX_UINT)
+            if OES_ELEMENT_INDEX_UINT not in state['extensions_used']:
+                state['extensions_used'].append(OES_ELEMENT_INDEX_UINT)
 
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
@@ -799,9 +794,9 @@ def export_meshes(settings, meshes, skinned_meshes):
 
             gltf_mesh['primitives'].append(gltf_prim)
 
-        g_buffers.append(buf)
+        state['buffers'].append(buf)
         if is_skinned:
-            g_buffers.append(skin_buf)
+            state['buffers'].append(skin_buf)
         return gltf_mesh
 
     exported_meshes = {}
@@ -812,7 +807,7 @@ def export_meshes(settings, meshes, skinned_meshes):
     return exported_meshes
 
 
-def export_skins(skinned_meshes):
+def export_skins(state):
     def export_skin(obj):
         arm = obj.find_armature()
 
@@ -840,11 +835,11 @@ def export_skins(skinned_meshes):
                 idata[(i * 16) + j] = mat[j]
 
         gltf_skin['inverseBindMatrices'] = idata.name
-        g_buffers.append(buf)
+        state['buffers'].append(buf)
 
         return gltf_skin
 
-    return {'skin_' + mesh_name: export_skin(obj) for mesh_name, obj in skinned_meshes.items()}
+    return {'skin_' + mesh_name: export_skin(obj) for mesh_name, obj in state['skinned_meshes'].items()}
 
 
 def export_lights(lamps):
@@ -911,7 +906,7 @@ def export_lights(lamps):
     return gltf
 
 
-def export_nodes(settings, objects, skinned_meshes, modded_meshes):
+def export_nodes(state, objects):
     def export_physics(obj):
         body = obj.rigid_body
         physics = {
@@ -934,15 +929,15 @@ def export_nodes(settings, objects, skinned_meshes, modded_meshes):
         }
 
         if obj.type == 'MESH':
-            mesh = modded_meshes.get(obj.name, obj.data)
+            mesh = state['mod_meshes'].get(obj.name, obj.data)
             node['meshes'] = ['mesh_' + mesh.name]
             armature = obj.find_armature()
             if armature:
                 bone_names = [b.name for b in armature.data.bones if b.parent is None]
                 node['skeletons'] = ['node_{}_{}'.format(armature.name, bone) for bone in bone_names]
-                skinned_meshes[mesh.name] = obj
+                state['skinned_meshes'][mesh.name] = obj
         elif obj.type == 'LAMP':
-            if settings['shaders_data_storage'] == 'NONE':
+            if state['settings']['shaders_data_storage'] == 'NONE':
                 if 'extensions' not in node:
                     node['extensions'] = {}
                 node['extensions']['KHR_materials_common'] = {'light': 'light_' + obj.data.name}
@@ -959,7 +954,7 @@ def export_nodes(settings, objects, skinned_meshes, modded_meshes):
                 for b in obj.data.bones if b.parent is None
             ])
 
-        if obj.rigid_body and settings['ext_export_physics']:
+        if obj.rigid_body and state['settings']['ext_export_physics']:
             node['extensions'] = {
                 'BLENDER_physics': export_physics(obj)
             }
@@ -992,7 +987,7 @@ def export_nodes(settings, objects, skinned_meshes, modded_meshes):
     return gltf_nodes
 
 
-def export_scenes(scenes, objects):
+def export_scenes(state, scenes):
 
     def export_scene(scene):
         result = {
@@ -1006,12 +1001,12 @@ def export_scenes(scenes, objects):
 
         result['nodes'] = [
             'node_' + ob.name for ob in scene.objects
-            if ob in objects and ob.parent is None and ob.is_visible(scene)
+            if ob in state['objects'] and ob.parent is None and ob.is_visible(scene)
         ]
 
         hidden_nodes = [
             'node_' + ob.name for ob in scene.objects
-            if ob in objects and not ob.is_visible(scene)
+            if ob in state['objects'] and not ob.is_visible(scene)
         ]
         if hidden_nodes:
             result['extras']['hidden_nodes'] = hidden_nodes
@@ -1021,20 +1016,20 @@ def export_scenes(scenes, objects):
     return {'scene_' + scene.name: export_scene(scene) for scene in scenes}
 
 
-def export_buffers(settings):
+def export_buffers(state):
     gltf = {
         'buffers': {},
         'bufferViews': {},
         'accessors': {},
     }
 
-    if settings['buffers_combine_data']:
-        buffers = [functools.reduce(lambda x, y: x+y, g_buffers, Buffer('empty'))]
+    if state['settings']['buffers_combine_data']:
+        buffers = [functools.reduce(lambda x, y: x+y, state['buffers'], Buffer('empty'))]
     else:
-        buffers = g_buffers
+        buffers = state['buffers']
 
     for buf in buffers:
-        gltf['buffers'][buf.name] = buf.export_buffer(settings)
+        gltf['buffers'][buf.name] = buf.export_buffer(state)
         gltf['bufferViews'].update(buf.export_views())
         gltf['accessors'].update(buf.export_accessors())
 
@@ -1069,7 +1064,7 @@ def image_to_data_uri(image, as_bytes=False):
         return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
 
 
-def export_images(settings, images):
+def export_images(state, images):
     def check_image(image):
         errors = []
         if image.size[0] == 0:
@@ -1091,26 +1086,26 @@ def export_images(settings, images):
     def export_image(image):
         uri = ''
 
-        storage_setting = settings['images_data_storage']
+        storage_setting = state['settings']['images_data_storage']
         image_packed = image.packed_file is not None
         if image_packed and storage_setting in ['COPY', 'REFERENCE']:
             if image.file_format in ext_map:
                 # save the file to the output directory
                 uri = '.'.join([image.name, ext_map[image.file_format]])
                 temp = image.filepath
-                image.filepath = os.path.join(settings['gltf_output_dir'], uri)
+                image.filepath = os.path.join(state['settings']['gltf_output_dir'], uri)
                 image.save()
                 image.filepath = temp
             else:
                 # convert to png and save
                 uri = '.'.join([image.name, 'png'])
                 png = image_to_data_uri(image, as_bytes=True)
-                with open(os.path.join(settings['gltf_output_dir'], uri), 'wb') as outfile:
+                with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as outfile:
                     outfile.write(png)
 
         elif storage_setting == 'COPY':
             try:
-                shutil.copy(bpy.path.abspath(image.filepath), settings['gltf_output_dir'])
+                shutil.copy(bpy.path.abspath(image.filepath), state['settings']['gltf_output_dir'])
             except shutil.SameFileError:
                 # If the file already exists, no need to copy
                 pass
@@ -1129,7 +1124,7 @@ def export_images(settings, images):
     return {'image_' + image.name: export_image(image) for image in images if check_image(image)}
 
 
-def export_textures(textures, settings):
+def export_textures(state, textures):
     def check_texture(texture):
         errors = []
         if texture.image is None:
@@ -1152,7 +1147,7 @@ def export_textures(textures, settings):
         tformat = None
         channels = texture.image.channels
         image_is_srgb = texture.image.colorspace_settings.name == 'sRGB'
-        use_srgb = settings['images_allow_srgb'] and image_is_srgb
+        use_srgb = state['settings']['images_allow_srgb'] and image_is_srgb
 
         if channels == 3:
             if use_srgb:
@@ -1191,7 +1186,7 @@ def _can_object_use_action(obj, action):
     return False
 
 
-def export_animations(actions, objects):
+def export_animations(state, actions):
     dt = 1.0 / bpy.context.scene.render.fps
 
     def export_animation(obj, action):
@@ -1235,7 +1230,7 @@ def export_animations(actions, objects):
         for i in range(num_frames):
             tdata[i] = time
             time += dt
-        g_buffers.append(tbuf)
+        state['buffers'].append(tbuf)
         time_parameter_name = '{}_time_parameter'.format(action.name)
         gltf_parameters[time_parameter_name] = tdata.name
 
@@ -1259,7 +1254,7 @@ def export_animations(actions, objects):
                 for j in range(4):
                     rdata[(i * 4) + j] = rot[j]
 
-            g_buffers.append(buf)
+            state['buffers'].append(buf)
 
             if targetid != obj.name:
                 targetid = 'node_{}_{}'.format(obj.data.name, targetid)
@@ -1300,7 +1295,7 @@ def export_animations(actions, objects):
         return gltf_action
 
     gltf_actions = {}
-    for obj in objects:
+    for obj in state['objects']:
         act_prefix = obj.data.name if obj.type == 'ARMATURE' else obj.name
         gltf_actions.update({
             '{}|{}'.format(act_prefix, action.name): export_animation(obj, action)
@@ -1326,43 +1321,41 @@ def insert_root_nodes(gltf_data, root_matrix):
 
 
 def export_gltf(scene_delta, settings=None):
-    global g_buffers
-    global g_glExtensionsUsed
-
     # Fill in any missing settings with defaults
     if not settings:
         settings = {}
     for key, value in DEFAULT_SETTINGS.items():
         settings.setdefault(key, value)
 
-    shaders = {}
-    programs = {}
-    techniques = {}
-    mesh_list = []
-    mod_meshes = {}
-    skinned_meshes = {}
-
-    # Clear globals
-    g_buffers = []
-    g_glExtensionsUsed = []
-
-    object_list = list(scene_delta.get('objects', []))
+    # Initialize export state
+    state = {
+        'settings': settings,
+        'shaders': {},
+        'programs': {},
+        'techniques': {},
+        'mod_meshes': {},
+        'skinned_meshes': {},
+        'buffers': [],
+        'extensions_used': [],
+        'objects': list(scene_delta.get('objects', [])),
+    }
 
     # Apply modifiers
+    mesh_list = []
     if settings['meshes_apply_modifiers']:
         scene = bpy.context.scene
-        mod_obs = [ob for ob in object_list if ob.is_modified(scene, 'PREVIEW')]
+        mod_obs = [ob for ob in state['objects'] if ob.is_modified(scene, 'PREVIEW')]
         for mesh in scene_delta.get('meshes', []):
             mod_users = [ob for ob in mod_obs if ob.data == mesh]
 
             # Only convert meshes with modifiers, otherwise each non-modifier
             # user ends up with a copy of the mesh and we lose instancing
-            mod_meshes.update({ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users})
+            state['mod_meshes'].update({ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users})
 
             # Add unmodified meshes directly to the mesh list
             if len(mod_users) < mesh.users:
                 mesh_list.append(mesh)
-        mesh_list.extend(mod_meshes.values())
+        mesh_list.extend(state['mod_meshes'].values())
     else:
         mesh_list = scene_delta.get('meshes', [])
 
@@ -1372,30 +1365,24 @@ def export_gltf(scene_delta, settings=None):
             'version': '1.0',
             'profile': PROFILE_MAP[settings['asset_profile']]
         },
-        'animations': export_animations(scene_delta.get('actions', []), object_list),
-        'cameras': export_cameras(scene_delta.get('cameras', [])),
+        'animations': export_animations(state, scene_delta.get('actions', [])),
+        'cameras': export_cameras(state, scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
         'extras': {},
-        'images': export_images(settings, scene_delta.get('images', [])),
-        'materials': export_materials(
-            settings,
-            scene_delta.get('materials', []),
-            shaders,
-            programs,
-            techniques
-        ),
-        'nodes': export_nodes(settings, object_list, skinned_meshes, mod_meshes),
+        'images': export_images(state, scene_delta.get('images', [])),
+        'materials': export_materials(state, scene_delta.get('materials', [])),
+        'nodes': export_nodes(state, state['objects']),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(settings, mesh_list, skinned_meshes),
-        'skins': export_skins(skinned_meshes),
-        'programs': programs,
+        'meshes': export_meshes(state, mesh_list),
+        'skins': export_skins(state),
+        'programs': state['programs'],
         'samplers': {'sampler_default': {}},
         'scene': 'scene_' + bpy.context.scene.name,
-        'scenes': export_scenes(scenes, object_list),
-        'shaders': shaders,
-        'techniques': techniques,
-        'textures': export_textures(scene_delta.get('textures', []), settings),
+        'scenes': export_scenes(state, scenes),
+        'shaders': state['shaders'],
+        'techniques': state['techniques'],
+        'textures': export_textures(state, scene_delta.get('textures', [])),
     }
 
     if settings['shaders_data_storage'] == 'NONE':
@@ -1408,22 +1395,20 @@ def export_gltf(scene_delta, settings=None):
         gltf['extensionsUsed'].append('BLENDER_physics')
 
     # Retroactively add skins attribute to nodes
-    for mesh_name, obj in skinned_meshes.items():
+    for mesh_name, obj in state['skinned_meshes'].items():
         gltf['nodes']['node_' + obj.name]['skin'] = 'skin_{}'.format(mesh_name)
 
     # Insert root nodes if axis conversion is needed
     if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
         insert_root_nodes(gltf, togl(settings['nodes_global_matrix']))
 
-    gltf.update(export_buffers(settings))
-    gltf.update({'glExtensionsUsed': g_glExtensionsUsed})
-    g_buffers = []
-    g_glExtensionsUsed = []
+    gltf.update(export_buffers(state))
+    gltf.update({'glExtensionsUsed': state['extensions_used']})
 
     gltf = {key: value for key, value in gltf.items() if value}
 
     # Remove any temporary meshes from applying modifiers
-    for mesh in mod_meshes.values():
+    for mesh in state['mod_meshes'].values():
         bpy.data.meshes.remove(mesh)
 
     return gltf
