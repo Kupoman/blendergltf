@@ -208,11 +208,6 @@ class Buffer:
             self._ctype_size = struct.calcsize(self._ctype)
             self._buffer_data = self.buffer.get_buffer_data(self.buffer_view)
 
-        # Inlined for performance, leaving this here as reference
-        # def _get_ptr(self, idx):
-            # addr = ((idx % self.type_size) * self._ctype_size + idx // self.type_size * self.byte_stride) + self.byte_offset
-            # return addr
-
         def __len__(self):
             return self.count
 
@@ -220,7 +215,12 @@ class Buffer:
             if not isinstance(idx, int):
                 raise TypeError("Expected an integer index")
 
-            ptr = ((idx % self.type_size) * self._ctype_size + idx // self.type_size * self.byte_stride) + self.byte_offset
+            ptr = (
+                (
+                    (idx % self.type_size)
+                    * self._ctype_size + idx // self.type_size * self.byte_stride
+                ) + self.byte_offset
+            )
 
             return struct.unpack_from(self._ctype, self._buffer_data, ptr)[0]
 
@@ -232,7 +232,10 @@ class Buffer:
             self.min[i] = value if value < self.min[i] else self.min[i]
             self.max[i] = value if value > self.max[i] else self.max[i]
 
-            ptr = (i * self._ctype_size + idx // self.type_size * self.byte_stride) + self.byte_offset
+            ptr = (
+                (i * self._ctype_size + idx // self.type_size * self.byte_stride)
+                + self.byte_offset
+            )
 
             struct.pack_into(self._ctype, self._buffer_data, ptr, value)
 
@@ -473,7 +476,10 @@ def export_materials(state, materials):
                         fout.write(data)
                 vs_uri, fs_uri = names
             else:
-                print('Encountered unknown option ({}) for shaders_data_storage setting'.format(storage_setting))
+                print(
+                    'Encountered unknown option ({}) for shaders_data_storage setting'
+                    .format(storage_setting)
+                )
 
             state['shaders'][fs_name] = {'type': 35632, 'uri': fs_uri}
             state['shaders'][vs_name] = {'type': 35633, 'uri': vs_uri}
@@ -839,7 +845,10 @@ def export_skins(state):
 
         return gltf_skin
 
-    return {'skin_' + mesh_name: export_skin(obj) for mesh_name, obj in state['skinned_meshes'].items()}
+    return {
+        'skin_' + mesh_name: export_skin(obj)
+        for mesh_name, obj in state['skinned_meshes'].items()
+    }
 
 
 def export_lights(lamps):
@@ -934,7 +943,9 @@ def export_nodes(state, objects):
             armature = obj.find_armature()
             if armature:
                 bone_names = [b.name for b in armature.data.bones if b.parent is None]
-                node['skeletons'] = ['node_{}_{}'.format(armature.name, bone) for bone in bone_names]
+                node['skeletons'] = [
+                    'node_{}_{}'.format(armature.name, bone) for bone in bone_names
+                ]
                 state['skinned_meshes'][mesh.name] = obj
         elif obj.type == 'LAMP':
             if state['settings']['shaders_data_storage'] == 'NONE':
@@ -1076,7 +1087,10 @@ def export_images(state, images):
 
         if errors:
             err_list = '\n\t'.join(errors)
-            print('Unable to export image {} due to the following errors:\n\t{}'.format(image.name, err_list))
+            print(
+                'Unable to export image {} due to the following errors:\n\t{}'
+                .format(image.name, err_list)
+            )
             return False
 
         return True
@@ -1115,7 +1129,10 @@ def export_images(state, images):
         elif storage_setting == 'EMBED':
             uri = image_to_data_uri(image)
         else:
-            print('Encountered unknown option ({}) for images_data_storage setting'.format(storage_setting))
+            print(
+                'Encountered unknown option ({}) for images_data_storage setting'
+                .format(storage_setting)
+            )
 
         return {
             'uri': uri,
@@ -1130,11 +1147,17 @@ def export_textures(state, textures):
         if texture.image is None:
             errors.append('has no image reference')
         elif texture.image.channels not in [3, 4]:
-            errors.append('points to {}-channel image (must be 3 or 4)'.format(texture.image.channels))
+            errors.append(
+                'points to {}-channel image (must be 3 or 4)'
+                .format(texture.image.channels)
+            )
 
         if errors:
             err_list = '\n\t'.join(errors)
-            print('Unable to export texture {} due to the following errors:\n\t{}'.format(texture.name, err_list))
+            print(
+                'Unable to export texture {} due to the following errors:\n\t{}'
+                .format(texture.name, err_list)
+            )
             return False
 
         return True
@@ -1350,7 +1373,9 @@ def export_gltf(scene_delta, settings=None):
 
             # Only convert meshes with modifiers, otherwise each non-modifier
             # user ends up with a copy of the mesh and we lose instancing
-            state['mod_meshes'].update({ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users})
+            state['mod_meshes'].update(
+                {ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users}
+            )
 
             # Add unmodified meshes directly to the mesh list
             if len(mod_users) < mesh.users:
