@@ -30,9 +30,7 @@ This extension adds an optional `BLENDER_physics` property to glTF nodes' `exten
 | `static` | boolean | `true` | Whether or not an object is meant to be permanently stationary. Static objects do not move, but are used instead as obstacles for non-static rigid bodies.
 | `layers` | integer | `1` | A bit field describing membership in arbitrary physics "layers". Typically objects will only collide with other objects that share at least one layer, but ultimately the interpretation of layers is up to the consumer application. This extension defines 16 layers, each corresponding with a bit in a 16-bit integer. A `1` in a position indicates membership. For example, if an object is a member of layers 0, 1, and 4, this field would contain the value `19` (`2^0 | 2^1 | 2^4 == 0x1 | 0x2 | 0x10 == 0x13 == 19`).
 | `shape` | string | `"box"` | The shape approximation used for this object. Must be one of `box`, `sphere`, `capsule`, `cylinder`, or `mesh`.
-| `dimensions` | array[3] | `[1,1,1]` | The width (x), height (y), and depth (z) of a collision box.
-| `radius` | number | `1` | The radius of a collision sphere, cylinder, or capsule.
-| `height` | number | `1` | The height of a collision cylinder or capsule. Cylinder and capsule colliders are oriented so their long axis is along the node's local Y axis.
+| `dimensions` | array[3] | `[1,1,1]` | The width (x), height (y), and depth (z) of the mesh's bounding box. Use this to determine the dimensions appropriate to the primitive collision shape. Boxes use the dimensions as-is. For spheres, the radius is `max(x,y,z)/2`. For capsules, the radius is `mid(x,y,z)/2` and the height is `max(x,y,z) - 2*radius`. For cylinders, the height is `max(x,y,z)` and the radius is `mid(x,y,z)/2`. This field is unused for mesh colliders.
 | `mesh` | integer | `0` | The index of the mesh used for collision for this object.
 | `convex` | boolean | `true` | Whether a collision mesh should be approximated to a convex hull, or used as-is. Non-convex collision meshes are typically expensive to simulate.
 
@@ -48,8 +46,7 @@ This extension adds an optional `BLENDER_physics` property to glTF nodes' `exten
 			"static": true,
 			"layers": 1,
 			"shape": "cylinder",
-			"height": 1.8,
-			"radius": 0.24
+			"dimensions": [0.24, 1.8, 0.24]
 		}
 	}
 }]
