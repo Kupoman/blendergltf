@@ -34,6 +34,10 @@
             "items": {"type": "number"},
             "minItems": 3,
             "maxItems": 3
+        },
+        "mesh": {
+            "description": "The ID of the mesh to use for CONVEX_HULL and MESH collision shapes",
+            "allOf": [{"$ref": "glTFid.schema.json"}]
         }
     },
     "additionalProperties" : false,
