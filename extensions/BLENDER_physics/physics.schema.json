@@ -12,6 +12,7 @@
                 "BOX",
                 "SPHERE",
                 "CAPSULE",
+                "CYLINDER",
                 "CONE",
                 "CONVEX_HULL",
                 "MESH"
