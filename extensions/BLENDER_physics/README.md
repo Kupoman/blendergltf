@@ -22,13 +22,13 @@ This extension describes a set of common physical attributes that can be assigne
 
 ### Node physics properties
 
-This extension adds an optional `BLENDER_physics` property to a glTF node's `extensions` object. This property is an object with some or all of the following properties:
+This extension adds an optional `BLENDER_physics` property to glTF nodes' `extensions` objects. This property is an object with some or all of the following properties:
 
 | Name   | Type   | Default | Description      |
 |--------|--------|---------|------------------|
 | `mass` | number | `1` | The mass of the object, in kilograms.
-| `static` | boolean | `true` | Whether or not an object is meant to be permanently stationary.
-| `layers` | integer | `1` | A bit field describing membership in arbitrary physics "layers". Typically objects will only collide with other objects that share at least one layer, but ultimately the interpretation of layers is up to the consumer application. This extension defines 16 layers, each corresponding with a bit in a 16-bit integer, which are all `OR`'d together. A `1` in a position indicates membership. For example, if an object is a member of layers 0, 1, and 4, this field would contain the value `19` (`2^0 | 2^1 | 2^4 == 0x1 | 0x2 | 0x10 == 0x13 == 19`).
+| `static` | boolean | `true` | Whether or not an object is meant to be permanently stationary. Static objects do not move, but are used instead as obstacles for non-static rigid bodies.
+| `layers` | integer | `1` | A bit field describing membership in arbitrary physics "layers". Typically objects will only collide with other objects that share at least one layer, but ultimately the interpretation of layers is up to the consumer application. This extension defines 16 layers, each corresponding with a bit in a 16-bit integer. A `1` in a position indicates membership. For example, if an object is a member of layers 0, 1, and 4, this field would contain the value `19` (`2^0 | 2^1 | 2^4 == 0x1 | 0x2 | 0x10 == 0x13 == 19`).
 | `shape` | string | `"box"` | The shape approximation used for this object. Must be one of `box`, `sphere`, `capsule`, `cylinder`, or `mesh`.
 | `dimensions` | array[3] | `[1,1,1]` | The width (x), height (y), and depth (z) of a collision box.
 | `radius` | number | `1` | The radius of a collision sphere, cylinder, or capsule.
@@ -54,6 +54,28 @@ This extension adds an optional `BLENDER_physics` property to a glTF node's `ext
 	}
 }]
 ```
+
+### Scene physics properties
+
+This extension also adds an optional `BLENDER_physics` property to glTF scenes' `extensions` objects. This property is an object with some or all of the following properties:
+
+| Name   | Type   | Default | Description      |
+|--------|--------|---------|------------------|
+| `gravity` | array[3] | `[0,0,-9.807]` | A constant acceleration vector applied to all physics bodies, in meters per second squared.
+
+**Example 2:** Defining the gravitational constant for a scene
+
+```json
+"scenes": [{
+	"nodes": [0],
+	"extensions": {
+		"BLENDER_physics": {
+			"gravity": [0, 0, -3.711]
+		}
+	}
+}]
+```
+
 ### JSON Schema
 
 TODO: Links to the JSON schema for the new extension properties.
