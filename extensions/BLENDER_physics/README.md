@@ -34,7 +34,7 @@ This extension adds an optional `BLENDER_physics` property to glTF nodes' `exten
 | `radius` | number | `1` | The radius of a collision sphere, cylinder, or capsule.
 | `height` | number | `1` | The height of a collision cylinder or capsule. Cylinder and capsule colliders are oriented so their long axis is along the node's local Y axis.
 | `mesh` | integer | `0` | The index of the mesh used for collision for this object.
-| `convex` | boolean | `true` | Whether or not a collision mesh should be approximated to a convex hull, or used as-is.
+| `convex` | boolean | `true` | Whether a collision mesh should be approximated to a convex hull, or used as-is. Non-convex collision meshes are typically expensive to simulate.
 
 **Example 1:** Adding rigid body physics properties to a node
 
@@ -61,7 +61,7 @@ This extension also adds an optional `BLENDER_physics` property to glTF scenes' 
 
 | Name   | Type   | Default | Description      |
 |--------|--------|---------|------------------|
-| `gravity` | array[3] | `[0,0,-9.807]` | A constant acceleration vector applied to all physics bodies, in meters per second squared.
+| `gravity` | array[3] | `[0,-9.807,0]` | A constant acceleration vector applied to all physics bodies, in meters per second squared.
 
 **Example 2:** Defining the gravitational constant for a scene
 
@@ -70,7 +70,7 @@ This extension also adds an optional `BLENDER_physics` property to glTF scenes' 
 	"nodes": [0],
 	"extensions": {
 		"BLENDER_physics": {
-			"gravity": [0, 0, -3.711]
+			"gravity": [0, -3.711, 0]
 		}
 	}
 }]
