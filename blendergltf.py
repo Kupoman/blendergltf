@@ -919,14 +919,14 @@ def export_nodes(state, objects):
     def export_physics(obj):
         body = obj.rigid_body
         physics = {
-            'collision_shape': body.collision_shape.lower(),
+            'collisionShape': body.collision_shape.upper(),
             'mass': body.mass,
-            'dynamic': body.type == 'ACTIVE' and body.enabled,
+            'static': body.type == 'PASSIVE',
             'dimensions': obj.dimensions[:],
         }
 
         if body.collision_shape in ('CONVEX_HULL', 'MESH'):
-            physics['mesh'] = obj.data.name
+            physics['mesh'] = 'mesh_' + obj.data.name
 
         return physics
 

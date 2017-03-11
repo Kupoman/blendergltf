@@ -1,0 +1,45 @@
+{
+    "$schema" : "http://json-schema.org/draft-04/schema",
+    "title" : "physics",
+    "type" : "object",
+    "description" : "Rigid body physics properties for a node",
+    "allOf" : [ { "$ref" : "glTFChildOfRootProperty.schema.json" } ],
+    "properties" : {
+        "collisionShape" : {
+            "description": "The shape a physics simulation should use to represent the node",
+            "type": "string",
+            "enum": [
+                "BOX",
+                "SPHERE",
+                "CAPSULE",
+                "CONE",
+                "CONVEX_HULL",
+                "MESH"
+            ],
+            "default": "BOX"
+        },
+        "mass" : {
+            "description": "The 'weight', irrespective of gravity, of the node",
+            "type": "number",
+            "default": 1.0
+        },
+        "static" : {
+            "description": "The Node should not be moved by physics simulations",
+            "type": "boolean",
+            "default": false
+        },
+        "dimensions" : {
+            "description": "The bounding box dimensions of the node",
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 3,
+            "maxItems": 3
+        },
+        "mesh": {
+            "description": "The ID of the mesh to use for CONVEX_HULL and MESH collision shapes",
+            "allOf": [{"$ref": "glTFid.schema.json"}]
+        }
+    },
+    "additionalProperties" : false,
+    "required" : ["dimensions"]
+}
