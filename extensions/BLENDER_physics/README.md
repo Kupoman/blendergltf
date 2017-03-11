@@ -105,7 +105,7 @@ Replace `<glTF id>` with the value appropriate for the spec version.
 
 ### Consumers
 
-* BlenderPanda ([code](https://github.com/Moguri/BlenderPanda/blob/master/converter.py]))
+* BlenderPanda ([code](https://github.com/Moguri/BlenderPanda/blob/master/converter.py))
 
 ## Resources
 
