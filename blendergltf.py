@@ -921,7 +921,7 @@ def export_nodes(state, objects):
         physics = {
             'collision_shape': body.collision_shape.lower(),
             'mass': body.mass,
-            'dynamic': body.type == 'ACTIVE' and body.enabled,
+            'static': body.type == 'PASSIVE',
             'dimensions': obj.dimensions[:],
         }
 
