@@ -926,7 +926,7 @@ def export_nodes(state, objects):
         }
 
         if body.collision_shape in ('CONVEX_HULL', 'MESH'):
-            physics['mesh'] = obj.data.name
+            physics['mesh'] = 'mesh_' + obj.data.name
 
         return physics
 
