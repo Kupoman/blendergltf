@@ -42,7 +42,7 @@ class Buffer:
 			data.extend(view['data'])
 
 		if state['settings']['buffers_embed_data']:
-			uri = 'data:text/plain;base64,' + base64.b64encode(data).decode('ascii')
+			uri = 'data:application/octet-stream;base64,' + base64.b64encode(data).decode('ascii')
 		else:
 			uri = bpy.path.clean_name(self.name) + '.bin'
 			with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as fout:
