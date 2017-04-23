@@ -8,6 +8,7 @@ import struct
 import zlib
 
 import bpy
+import idprop
 import gpu
 import mathutils
 
@@ -362,6 +363,19 @@ def togl(matrix):
     return [i for col in matrix.col for i in col]
 
 
+_ignored_custom_props = [
+    '_RNA_UI',
+    'cycles',
+    'cycles_visibility',
+]
+
+def _get_custom_properties(data):
+    return {
+        k: v for k, v in data.items()
+        if k not in _ignored_custom_props and not isinstance(v, idprop.types.IDPropertyGroup)
+    }
+
+
 def export_cameras(_, cameras):
     def export_camera(camera):
         camera_gltf = {}
@@ -386,6 +400,9 @@ def export_cameras(_, cameras):
                 'type': 'perspective',
             }
         camera_gltf['name'] = camera.name
+        extras = _get_custom_properties(camera)
+        if extras:
+            camera_gltf['extras'] = extras
         return camera_gltf
 
     return {'camera_' + camera.name: export_camera(camera) for camera in cameras}
@@ -591,6 +608,10 @@ def export_meshes(state, meshes):
             'name': mesh.name,
             'primitives': [],
         }
+
+        extras = _get_custom_properties(mesh)
+        if extras:
+            gltf_mesh['extras'] = extras
 
         is_skinned = mesh.name in state['skinned_meshes']
 
@@ -908,6 +929,9 @@ def export_lights(lamps):
             gltf_light = {'type': 'unsupported'}
 
         gltf_light['name'] = light.name
+        extras = _get_custom_properties(light)
+        if extras:
+            gltf_light['extras'] = extras
         return gltf_light
 
     gltf = {'light_' + lamp.name: export_light(lamp) for lamp in lamps}
@@ -936,6 +960,10 @@ def export_nodes(state, objects):
             'children': ['node_' + child.name for child in obj.children],
             'matrix': togl(obj.matrix_local),
         }
+
+        extras = _get_custom_properties(obj)
+        if extras:
+            node['extras'] = extras
 
         if obj.type == 'MESH':
             mesh = state['mod_meshes'].get(obj.name, obj.data)
@@ -1009,6 +1037,9 @@ def export_scenes(state, scenes):
             },
             'name': scene.name,
         }
+        extras = _get_custom_properties(scene)
+        if extras:
+            result['extras'].update(_get_custom_properties(scene))
 
         result['nodes'] = [
             'node_' + ob.name for ob in scene.objects
@@ -1394,7 +1425,6 @@ def export_gltf(scene_delta, settings=None):
         'cameras': export_cameras(state, scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
-        'extras': {},
         'images': export_images(state, scene_delta.get('images', [])),
         'materials': export_materials(state, scene_delta.get('materials', [])),
         'nodes': export_nodes(state, state['objects']),
