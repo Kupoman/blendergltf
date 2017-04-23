@@ -962,6 +962,9 @@ def export_nodes(state, objects):
         }
 
         extras = _get_custom_properties(obj)
+        extras.update({
+            prop.name: prop.value for prop in obj.game.properties.values()
+        })
         if extras:
             node['extras'] = extras
 
