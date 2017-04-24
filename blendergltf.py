@@ -781,6 +781,10 @@ def export_meshes(state, meshes):
         for mat, prim in prims.items():
             # For each primitive set add an index buffer and accessor.
 
+            if len(prim) == 0:
+                # This material has not verts, do not make a 0 length buffer
+                continue
+
             # If we got this far use integers if we have to, if this is not
             # desirable we would have bailed out by now.
             if max_vert_index > 65535:
