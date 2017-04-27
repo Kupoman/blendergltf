@@ -752,7 +752,11 @@ def export_meshes(state, meshes):
             if len(mesh.materials) == 0:
                 prim = prims['']
             else:
-                mat = mesh.materials[poly.material_index]
+                try:
+                    mat = mesh.materials[poly.material_index]
+                except IndexError:
+                    # Polygon has a bad material index, so skip it
+                    continue
                 prim = prims[mat.name if mat else '']
 
             # Find the (vertex) index associated with each loop in the polygon.

@@ -68,6 +68,9 @@ def used_only(bpy_data):
 
             # add materials to list
             for mat in obj.data.materials.values():
+                if not mat:
+                    continue
+
                 if mat not in pruned_data['materials']:
                     pruned_data['materials'].append(mat)
 
