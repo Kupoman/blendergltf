@@ -369,6 +369,7 @@ _ignored_custom_props = [
     'cycles_visibility',
 ]
 
+
 def _get_custom_properties(data):
     return {
         k: v for k, v in data.items()
