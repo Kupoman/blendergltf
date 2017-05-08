@@ -848,6 +848,7 @@ def export_skins(state):
         arm = obj.find_armature()
 
         bind_shape_mat = obj.matrix_world * arm.matrix_world.inverted()
+        bone_groups = [group for group in obj.vertex_groups if group.name in arm.data.bones]
 
         gltf_skin = {
             'bindShapeMatrix': togl(bind_shape_mat),
@@ -855,16 +856,16 @@ def export_skins(state):
         }
         gltf_skin['jointNames'] = [
             'node_{}_{}'.format(arm.name, group.name)
-            for group in obj.vertex_groups
+            for group in bone_groups
         ]
 
         element_size = 16 * 4
-        num_elements = len(obj.vertex_groups)
+        num_elements = len(bone_groups)
         buf = Buffer('IBM_{}_skin'.format(obj.name))
         buf_view = buf.add_view(element_size * num_elements, None)
         idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
 
-        for i, group in enumerate(obj.vertex_groups):
+        for i, group in enumerate(bone_groups):
             bone = arm.data.bones[group.name]
             mat = togl(bone.matrix_local.inverted())
             for j in range(16):
