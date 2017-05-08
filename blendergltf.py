@@ -362,6 +362,14 @@ class Buffer:
 def togl(matrix):
     return [i for col in matrix.col for i in col]
 
+def decompose(matrix):
+    loc, rot, scale = matrix.decompose()
+    loc = loc.to_tuple()
+    rot = (rot.x, rot.y, rot.z, rot.w)
+    scale = scale.to_tuple()
+
+    return loc, rot, scale
+
 
 _ignored_custom_props = [
     '_RNA_UI',
@@ -968,8 +976,9 @@ def export_nodes(state, objects):
         node = {
             'name': obj.name,
             'children': ['node_' + child.name for child in obj.children],
-            'matrix': togl(obj.matrix_local),
         }
+
+        node['translation'], node['rotation'], node['scale'] = decompose(obj.matrix_local)
 
         extras = _get_custom_properties(obj)
         extras.update({
@@ -1024,8 +1033,9 @@ def export_nodes(state, objects):
             'name': bone.name,
             'jointName': 'node_{}_{}'.format(arm_name, bone.name),
             'children': ['node_{}_{}'.format(arm_name, child.name) for child in bone.children],
-            'matrix': togl(matrix),
         }
+
+        gltf_joint['translation'], gltf_joint['rotation'], gltf_joint['scale'] = decompose(obj.matrix_local)
 
         return gltf_joint
 
@@ -1311,10 +1321,7 @@ def export_animations(state, actions):
             sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
 
             for i in range(num_frames):
-                mat = chan[i]
-                loc, rot, scale = mat.decompose()
-                # w needs to be last.
-                rot = (rot.x, rot.y, rot.z, rot.w)
+                loc, rot, scale = decompose(chan[i])
                 for j in range(3):
                     ldata[(i * 3) + j] = loc[j]
                     sdata[(i * 3) + j] = scale[j]
