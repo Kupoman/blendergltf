@@ -1177,7 +1177,7 @@ def export_images(state, images):
             except shutil.SameFileError:
                 # If the file already exists, no need to copy
                 pass
-            uri = os.path.basename(image.filepath)
+            uri = bpy.path.basename(image.filepath)
         elif storage_setting == 'REFERENCE':
             uri = image.filepath.replace('//', '')
         elif storage_setting == 'EMBED':
