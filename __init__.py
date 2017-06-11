@@ -73,24 +73,71 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     check_extension = True
 
     # blendergltf settings
-    buffers_embed_data = BoolProperty(name='Embed Buffer Data', default=False)
-    buffers_combine_data = BoolProperty(name='Combine Buffer Data', default=True)
-    nodes_export_hidden = BoolProperty(name='Export Hidden Objects', default=False)
-    nodes_selected_only = BoolProperty(name='Selection Only', default=False)
-    shaders_data_storage = EnumProperty(items=SHADER_STORAGE_ITEMS, name='Storage', default='NONE')
-    blocks_prune_unused = BoolProperty(name='Prune Unused Resources', default=True)
-    meshes_apply_modifiers = BoolProperty(name='Apply Modifiers', default=True)
-    meshes_interleave_vertex_data = BoolProperty(name='Interleave Vertex Data', default=True)
-    images_data_storage = EnumProperty(items=IMAGE_STORAGE_ITEMS, name='Storage', default='COPY')
-    images_allow_srgb = BoolProperty(name='sRGB Texture Support', default=False)
-    asset_profile = EnumProperty(items=PROFILE_ITEMS, name='Profile', default='WEB')
-    ext_export_physics = BoolProperty(name='Export Physics Settings', default=False)
-
-    pretty_print = BoolProperty(
-        name="Pretty-print / indent JSON",
-        description="Export JSON with indentation and a newline",
+    nodes_export_hidden = BoolProperty(
+        name='Export Hidden Objects',
+        description='Export nodes that are not set to visible',
+        default=False
+    )
+    nodes_selected_only = BoolProperty(
+        name='Selection Only',
+        description='Only export nodes that are currently selected',
+        default=False
+    )
+    meshes_apply_modifiers = BoolProperty(
+        name='Apply Modifiers',
+        description='Apply all modifiers to the output mesh data',
         default=True
-        )
+    )
+    meshes_interleave_vertex_data = BoolProperty(
+        name='Interleave Vertex Data',
+        description='Store data for each vertex contiguously instead of each vertex property (e.g. position) contiguously',
+        default=True
+    )
+    shaders_data_storage = EnumProperty(
+        items=SHADER_STORAGE_ITEMS,
+        name='Storage',
+        default='NONE'
+    )
+    images_data_storage = EnumProperty(
+        items=IMAGE_STORAGE_ITEMS,
+        name='Storage',
+        default='COPY'
+    )
+    images_allow_srgb = BoolProperty(
+        name='sRGB Texture Support',
+        description='Use sRGB texture formats for sRGB textures',
+        default=False
+    )
+    buffers_embed_data = BoolProperty(
+        name='Embed Buffer Data',
+        description='Embed buffer data into the glTF file', 
+        default=False
+    )
+    buffers_combine_data = BoolProperty(
+        name='Combine Buffer Data',
+        description='Combine all buffers into a single buffer',
+        default=True
+    )
+    ext_export_physics = BoolProperty(
+        name='Export Physics Settings',
+        description='Enable support for the BLENDER_physics extension',
+        default=False
+    )
+    asset_profile = EnumProperty(
+        items=PROFILE_ITEMS,
+        name='Profile',
+        default='WEB'
+    )
+    pretty_print = BoolProperty(
+        name='Pretty-print / indent JSON',
+        description='Export JSON with indentation and a newline',
+        default=True
+    )
+    blocks_prune_unused = BoolProperty(
+        name='Prune Unused Resources',
+        description='Do not export any data-blocks that have no users or references',
+        default=True
+    )
 
     def draw(self, _):
         layout = self.layout
