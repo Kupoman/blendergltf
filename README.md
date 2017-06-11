@@ -20,8 +20,8 @@ at the top of the User Preferences dialog.  Then, click the `Install from file..
 button in the bottom margin of that dialog.  Select your ZIP file to complete
 the install.
 
-3. In the left margin there is a `Supported Level` selector, click on the
-`Testing` level.  If you have other testing addons installed, you may need
+3. In the left margin there is a `Supported Level` selector, make sure the
+`Community` level is selected.  To find the addon quicker, you may need
 to enter `gltf` into the search box at the top of the left margin.
 
 4. You should now see `Import-Export: glTF format` as a block in the body of the

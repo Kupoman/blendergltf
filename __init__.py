@@ -20,15 +20,16 @@ from .filters import visible_only, selected_only, used_only
 
 bl_info = {
     "name": "glTF format",
-    "author": "Daniel Stokes",
-    "version": (0, 9, 0),
+    "author": "Daniel Stokes and GitHub contributors",
+    "version": (1, 0, 0),
     "blender": (2, 76, 0),
     "location": "File > Import-Export",
     "description": "Export glTF",
     "warning": "",
-    "wiki_url": ""
+    "wiki_url": "https://github.com/Kupoman/blendergltf/blob/master/README.md"
                 "",
-    "support": 'TESTING',
+    "tracker_url": "https://github.com/Kupoman/blendergltf/issues",
+    "support": 'COMMUNITY',
     "category": "Import-Export"
 }
 
@@ -110,7 +111,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     )
     buffers_embed_data = BoolProperty(
         name='Embed Buffer Data',
-        description='Embed buffer data into the glTF file', 
+        description='Embed buffer data into the glTF file',
         default=False
     )
     buffers_combine_data = BoolProperty(
