@@ -1,6 +1,8 @@
 import base64
 import collections
 import functools
+import itertools
+import json
 import math
 import os
 import shutil
@@ -63,6 +65,26 @@ PROFILE_MAP = {
 }
 
 
+class Reference:
+    __slots__ = (
+        "blender_type",
+        "blender_name",
+        "source",
+        "prop",
+        "value",
+    )
+
+    def __init__(self, blender_type, blender_name, source, prop):
+        self.blender_type = blender_type
+        self.blender_name = blender_name
+        self.source = source
+        self.prop = prop
+        self.value = None
+
+    def __str__(self):
+        return json.dumps([self.blender_type, self.blender_name, self.value])
+
+
 class Vertex:
     __slots__ = (
         "co",
@@ -119,6 +141,12 @@ class Vertex:
             self.loop_indices = indices
             other.loop_indices = indices
         return equals
+
+
+class SimpleID:
+    def __init__(self, name, data=None):
+        self.name = name
+        self.data = data
 
 
 class Buffer:
@@ -284,20 +312,26 @@ class Buffer:
         self.bytelength += bytelength
         return buffer_name
 
-    def export_views(self):
-        gltf = {}
+    def export_views(self, state):
+        gltf_views = []
 
         for key, value in self.buffer_views.items():
-            gltf[key] = {
-                'buffer': self.name,
+            gltf = {
                 'byteLength': value['bytelength'],
                 'byteOffset': value['byteoffset'],
             }
 
-            if value['target'] is not None:
-                gltf[key]['target'] = value['target']
+            gltf['buffer'] = Reference('buffers', self.name, gltf, 'buffer')
+            state['references'].append(gltf['buffer'])
 
-        return gltf
+            if value['target'] is not None:
+                gltf['target'] = value['target']
+
+            gltf_views.append(gltf)
+
+            state['input']['bufferViews'].append(SimpleID(key))
+
+        return gltf_views
 
     def get_buffer_data(self, buffer_view):
         return self.buffer_views[buffer_view]['data']
@@ -322,16 +356,15 @@ class Buffer:
         )
         return self.accessors[accessor_name]
 
-    def export_accessors(self):
-        gltf = {}
+    def export_accessors(self, state):
+        gltf_accessors = []
 
         for key, value in self.accessors.items():
             # Do not export an empty accessor
             if value.count == 0:
                 continue
 
-            gltf[key] = {
-                'bufferView': value.buffer_view,
+            gltf = {
                 'byteOffset': value.byte_offset,
                 'byteStride': value.byte_stride,
                 'componentType': value.component_type,
@@ -341,7 +374,14 @@ class Buffer:
                 'type': value.data_type,
             }
 
-        return gltf
+            gltf['bufferView'] = Reference('bufferViews', value.buffer_view, gltf, 'bufferView')
+            state['references'].append(gltf['bufferView'])
+
+            gltf_accessors.append(gltf)
+
+            state['input']['accessors'].append(SimpleID(key))
+
+        return gltf_accessors
 
     def __add__(self, other):
         # Handle the simple stuff
@@ -361,6 +401,7 @@ class Buffer:
 
 def togl(matrix):
     return [i for col in matrix.col for i in col]
+
 
 def decompose(matrix):
     loc, rot, scale = matrix.decompose()
@@ -385,36 +426,33 @@ def _get_custom_properties(data):
     }
 
 
-def export_cameras(_, cameras):
-    def export_camera(camera):
-        camera_gltf = {}
-        if camera.type == 'ORTHO':
-            camera_gltf = {
-                'orthographic': {
-                    'xmag': camera.ortho_scale,
-                    'ymag': camera.ortho_scale,
-                    'zfar': camera.clip_end,
-                    'znear': camera.clip_start,
-                },
-                'type': 'orthographic',
-            }
-        else:
-            camera_gltf = {
-                'perspective': {
-                    'aspectRatio': camera.angle_x / camera.angle_y,
-                    'yfov': camera.angle_y,
-                    'zfar': camera.clip_end,
-                    'znear': camera.clip_start,
-                },
-                'type': 'perspective',
-            }
-        camera_gltf['name'] = camera.name
-        extras = _get_custom_properties(camera)
-        if extras:
-            camera_gltf['extras'] = extras
-        return camera_gltf
-
-    return {'camera_' + camera.name: export_camera(camera) for camera in cameras}
+def export_camera(_, camera):
+    camera_gltf = {}
+    if camera.type == 'ORTHO':
+        camera_gltf = {
+            'orthographic': {
+                'xmag': camera.ortho_scale,
+                'ymag': camera.ortho_scale,
+                'zfar': camera.clip_end,
+                'znear': camera.clip_start,
+            },
+            'type': 'orthographic',
+        }
+    else:
+        camera_gltf = {
+            'perspective': {
+                'aspectRatio': camera.angle_x / camera.angle_y,
+                'yfov': camera.angle_y,
+                'zfar': camera.clip_end,
+                'znear': camera.clip_start,
+            },
+            'type': 'perspective',
+        }
+    camera_gltf['name'] = camera.name
+    extras = _get_custom_properties(camera)
+    if extras:
+        camera_gltf['extras'] = extras
+    return camera_gltf
 
 
 def export_materials(state, materials):
@@ -424,15 +462,15 @@ def export_materials(state, materials):
             if slot and slot.texture.type == 'IMAGE'
         ]
         diffuse_textures = [
-            'texture_' + t.texture.name
+            Reference('textures', t.texture.name, None, None)
             for t in all_textures if t.use_map_color_diffuse
         ]
         emission_textures = [
-            'texture_' + t.texture.name
+            Reference('textures', t.texture.name, None, None)
             for t in all_textures if t.use_map_emit
         ]
         specular_textures = [
-            'texture_' + t.texture.name
+            Reference('textures', t.texture.name, None, None)
             for t in all_textures if t.use_map_color_spec
         ]
 
@@ -452,7 +490,8 @@ def export_materials(state, materials):
             technique = 'LAMBERT'
         elif material.specular_shader == 'BLINN':
             technique = 'BLINN'
-        return {
+
+        gltf = {
             'extensions': {
                 'KHR_materials_common': {
                     'technique': technique,
@@ -470,10 +509,20 @@ def export_materials(state, materials):
             },
             'name': material.name,
         }
-    exp_materials = {}
+
+        gltf_values = gltf['extensions']['KHR_materials_common']['values']
+        for prop in ('diffuse', 'emission', 'specular'):
+            if hasattr(gltf_values[prop], 'blender_type'):
+                ref = gltf_values[prop]
+                ref.source = gltf_values
+                ref.prop = prop
+                state['references'].append(ref)
+        return gltf
+
+    exp_materials = []
     for material in materials:
         if state['settings']['shaders_data_storage'] == 'NONE':
-            exp_materials['material_' + material.name] = export_material(material)
+            exp_materials.append(export_material(material))
         else:
             # Handle shaders
             shader_data = gpu.export_shader(bpy.context.scene, material)
@@ -482,8 +531,6 @@ def export_materials(state, materials):
             else:
                 shader_converter.to_web(shader_data)
 
-            fs_name = 'shader_{}_FS'.format(material.name)
-            vs_name = 'shader_{}_VS'.format(material.name)
             storage_setting = state['settings']['shaders_data_storage']
             if storage_setting == 'EMBED':
                 fs_bytes = shader_data['fragment'].encode()
@@ -507,15 +554,15 @@ def export_materials(state, materials):
                     .format(storage_setting)
                 )
 
-            state['shaders'][fs_name] = {'type': 35632, 'uri': fs_uri}
-            state['shaders'][vs_name] = {'type': 35633, 'uri': vs_uri}
+            state['shaders'].append({'type': 35632, 'uri': fs_uri})
+            state['shaders'].append({'type': 35633, 'uri': vs_uri})
 
             # Handle programs
-            state['programs']['program_' + material.name] = {
+            state['programs'].append({
                 'attributes': [a['varname'] for a in shader_data['attributes']],
                 'fragmentShader': 'shader_{}_FS'.format(material.name),
                 'vertexShader': 'shader_{}_VS'.format(material.name),
-            }
+            })
 
             # Handle parameters/values
             values = {}
@@ -586,8 +633,11 @@ def export_materials(state, materials):
                     parameter['semantic'] = semantic
                     if node:
                         parameter['node'] = 'node_' + node
-                else:
+                elif value:
                     parameter['value'] = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](value)
+                else:
+                    parameter['value'] = None
+
                 if uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
                     parameter['type'] = 35678  # SAMPLER_2D
                 else:
@@ -597,262 +647,271 @@ def export_materials(state, materials):
 
             # Handle techniques
             tech_name = 'technique_' + material.name
-            state['techniques'][tech_name] = {
+            state['techniques'].append({
                 'parameters': parameters,
                 'program': 'program_' + material.name,
                 'attributes': {a['varname']: a['varname'] for a in shader_data['attributes']},
                 'uniforms': {u['varname']: u['valname'] for u in shader_data['uniforms']},
-            }
+            })
 
-            exp_materials['material_' + material.name] = {'technique': tech_name, 'values': values}
+            exp_materials.append({'technique': tech_name, 'values': values})
             # exp_materials[material.name] = {}
 
     return exp_materials
 
 
-def export_meshes(state, meshes):
-    def export_mesh(mesh):
-        # glTF data
-        gltf_mesh = {
-            'name': mesh.name,
-            'primitives': [],
+def export_mesh(state, mesh):
+    # glTF data
+    gltf_mesh = {
+        'name': mesh.name,
+        'primitives': [],
+    }
+
+    extras = _get_custom_properties(mesh)
+    if extras:
+        gltf_mesh['extras'] = extras
+
+    is_skinned = mesh.name in state['skinned_meshes']
+
+    mesh.calc_normals_split()
+    mesh.calc_tessface()
+
+    num_uv_layers = len(mesh.uv_layers)
+    num_col_layers = len(mesh.vertex_colors)
+    vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * 3) * 4
+
+    buf = Buffer(mesh.name)
+    skin_buf = Buffer('{}_skin'.format(mesh.name))
+
+    # Vertex data
+
+    vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
+    num_verts = len(vert_list)
+    view = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
+
+    # Interleave
+    if state['settings']['meshes_interleave_vertex_data']:
+        vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        tdata = [
+            buf.add_accessor(
+                view,
+                24 + 8 * i,
+                vertex_size,
+                Buffer.FLOAT,
+                num_verts,
+                Buffer.VEC2
+            )
+            for i in range(num_uv_layers)
+        ]
+        cdata = [
+            buf.add_accessor(
+                view,
+                24 + 8 * num_uv_layers + 12 * i,
+                vertex_size,
+                Buffer.FLOAT,
+                num_verts,
+                Buffer.VEC3
+            )
+            for i in range(num_col_layers)
+        ]
+    else:
+        vdata = buf.add_accessor(view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        ndata = buf.add_accessor(view, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        tdata = [
+            buf.add_accessor(
+                view,
+                num_verts * (24 + 8 * i),
+                8,
+                Buffer.FLOAT,
+                num_verts,
+                Buffer.VEC2
+            )
+            for i in range(num_uv_layers)
+        ]
+        cdata = [
+            buf.add_accessor(
+                view,
+                num_verts * (24 + 8 * num_uv_layers + 12 * i),
+                12,
+                Buffer.FLOAT,
+                num_verts,
+                Buffer.VEC3
+            )
+            for i in range(num_col_layers)
+        ]
+
+    skin_vertex_size = (4 + 4) * 4
+    skin_view = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
+    jdata = skin_buf.add_accessor(
+        skin_view,
+        0,
+        skin_vertex_size,
+        Buffer.FLOAT,
+        num_verts,
+        Buffer.VEC4
+    )
+    wdata = skin_buf.add_accessor(
+        skin_view,
+        16,
+        skin_vertex_size,
+        Buffer.FLOAT,
+        num_verts,
+        Buffer.VEC4
+    )
+
+    # Copy vertex data
+    for i, vtx in enumerate(vert_list):
+        vtx.index = i
+        co = vtx.co
+        normal = vtx.normal
+
+        for j in range(3):
+            vdata[(i * 3) + j] = co[j]
+            ndata[(i * 3) + j] = normal[j]
+
+        for j, uv in enumerate(vtx.uvs):
+            tdata[j][i * 2] = uv.x
+            if state['settings']['asset_profile'] == 'WEB':
+                tdata[j][i * 2 + 1] = 1.0 - uv.y
+            else:
+                tdata[j][i * 2 + 1] = uv.y
+
+        for j, col in enumerate(vtx.colors):
+            cdata[j][i * 3] = col[0]
+            cdata[j][i * 3 + 1] = col[1]
+            cdata[j][i * 3 + 2] = col[2]
+
+    if is_skinned:
+        for i, vtx in enumerate(vert_list):
+            joints = vtx.joint_indexes
+            weights = vtx.weights
+
+            for j in range(4):
+                jdata[(i * 4) + j] = joints[j]
+                wdata[(i * 4) + j] = weights[j]
+
+    # For each material, make an empty primitive set.
+    # This dictionary maps material names to list of indices that form the
+    # part of the mesh that the material should be applied to.
+    prims = {ma.name if ma else '': [] for ma in mesh.materials}
+    if not prims:
+        prims = {'': []}
+
+    # Index data
+    # Map loop indices to vertices
+    vert_dict = {i: vertex for vertex in vert_list for i in vertex.loop_indices}
+
+    max_vert_index = 0
+    for poly in mesh.polygons:
+        # Find the primitive that this polygon ought to belong to (by
+        # material).
+        if len(mesh.materials) == 0:
+            prim = prims['']
+        else:
+            try:
+                mat = mesh.materials[poly.material_index]
+            except IndexError:
+                # Polygon has a bad material index, so skip it
+                continue
+            prim = prims[mat.name if mat else '']
+
+        # Find the (vertex) index associated with each loop in the polygon.
+        indices = [vert_dict[i].index for i in poly.loop_indices]
+
+        # Used to determine whether a mesh must be split.
+        max_vert_index = max(max_vert_index, max(indices))
+
+        if len(indices) == 3:
+            # No triangulation necessary
+            prim += indices
+        elif len(indices) > 3:
+            # Triangulation necessary
+            for i in range(len(indices) - 2):
+                prim += (indices[-1], indices[i], indices[i + 1])
+        else:
+            # Bad polygon
+            raise RuntimeError(
+                "Invalid polygon with {} vertices.".format(len(indices))
+            )
+
+    if max_vert_index > 65535:
+        # Use the integer index extension
+        if OES_ELEMENT_INDEX_UINT not in state['extensions_used']:
+            state['extensions_used'].append(OES_ELEMENT_INDEX_UINT)
+
+    for mat, prim in prims.items():
+        # For each primitive set add an index buffer and accessor.
+
+        if len(prim) == 0:
+            # This material has not verts, do not make a 0 length buffer
+            continue
+
+        # If we got this far use integers if we have to, if this is not
+        # desirable we would have bailed out by now.
+        if max_vert_index > 65535:
+            itype = Buffer.UNSIGNED_INT
+            istride = 4
+        else:
+            itype = Buffer.UNSIGNED_SHORT
+            istride = 2
+
+        index_view = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
+        idata = buf.add_accessor(index_view, 0, istride, itype, len(prim),
+                                 Buffer.SCALAR)
+
+        for i, index in enumerate(prim):
+            idata[i] = index
+
+        gltf_prim = {
+            'mode': 4,
         }
 
-        extras = _get_custom_properties(mesh)
-        if extras:
-            gltf_mesh['extras'] = extras
+        gltf_prim['indices'] = Reference('accessors', idata.name, gltf_prim, 'indices')
+        state['references'].append(gltf_prim['indices'])
 
-        is_skinned = mesh.name in state['skinned_meshes']
+        # Handle attribute references
+        gltf_attrs = {}
+        gltf_attrs['POSITION'] = Reference('accessors', vdata.name, gltf_attrs, 'POSITION')
+        state['references'].append(gltf_attrs['POSITION'])
 
-        mesh.calc_normals_split()
-        mesh.calc_tessface()
+        gltf_attrs['NORMAL'] = Reference('accessors', ndata.name, gltf_attrs, 'NORMAL')
+        state['references'].append(gltf_attrs['NORMAL'])
 
-        num_uv_layers = len(mesh.uv_layers)
-        num_col_layers = len(mesh.vertex_colors)
-        vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * 3) * 4
-
-        buf = Buffer(mesh.name)
-        skin_buf = Buffer('{}_skin'.format(mesh.name))
-
-        # Vertex data
-
-        vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
-        num_verts = len(vert_list)
-        view = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
-
-        # Interleave
-        if state['settings']['meshes_interleave_vertex_data']:
-            vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            tdata = [
-                buf.add_accessor(
-                    view,
-                    24 + 8 * i,
-                    vertex_size,
-                    Buffer.FLOAT,
-                    num_verts,
-                    Buffer.VEC2
-                )
-                for i in range(num_uv_layers)
-            ]
-            cdata = [
-                buf.add_accessor(
-                    view,
-                    24 + 8 * num_uv_layers + 12 * i,
-                    vertex_size,
-                    Buffer.FLOAT,
-                    num_verts,
-                    Buffer.VEC3
-                )
-                for i in range(num_col_layers)
-            ]
-        else:
-            vdata = buf.add_accessor(view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            ndata = buf.add_accessor(view, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            tdata = [
-                buf.add_accessor(
-                    view,
-                    num_verts * (24 + 8 * i),
-                    8,
-                    Buffer.FLOAT,
-                    num_verts,
-                    Buffer.VEC2
-                )
-                for i in range(num_uv_layers)
-            ]
-            cdata = [
-                buf.add_accessor(
-                    view,
-                    num_verts * (24 + 8 * num_uv_layers + 12 * i),
-                    12,
-                    Buffer.FLOAT,
-                    num_verts,
-                    Buffer.VEC3
-                )
-                for i in range(num_col_layers)
-            ]
-
-        skin_vertex_size = (4 + 4) * 4
-        skin_view = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
-        jdata = skin_buf.add_accessor(
-            skin_view,
-            0,
-            skin_vertex_size,
-            Buffer.FLOAT,
-            num_verts,
-            Buffer.VEC4
-        )
-        wdata = skin_buf.add_accessor(
-            skin_view,
-            16,
-            skin_vertex_size,
-            Buffer.FLOAT,
-            num_verts,
-            Buffer.VEC4
-        )
-
-        # Copy vertex data
-        for i, vtx in enumerate(vert_list):
-            vtx.index = i
-            co = vtx.co
-            normal = vtx.normal
-
-            for j in range(3):
-                vdata[(i * 3) + j] = co[j]
-                ndata[(i * 3) + j] = normal[j]
-
-            for j, uv in enumerate(vtx.uvs):
-                tdata[j][i * 2] = uv.x
-                if state['settings']['asset_profile'] == 'WEB':
-                    tdata[j][i * 2 + 1] = 1.0 - uv.y
-                else:
-                    tdata[j][i * 2 + 1] = uv.y
-
-            for j, col in enumerate(vtx.colors):
-                cdata[j][i * 3] = col[0]
-                cdata[j][i * 3 + 1] = col[1]
-                cdata[j][i * 3 + 2] = col[2]
-
+        for i, accessor in enumerate(tdata):
+            attr_name = 'TEXCOORD_' + str(i)
+            gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
+            state['references'].append(gltf_attrs[attr_name])
+        for i, accessor in enumerate(cdata):
+            attr_name = 'COLOR_' + str(i)
+            gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
+            state['references'].append(gltf_attrs[attr_name])
         if is_skinned:
-            for i, vtx in enumerate(vert_list):
-                joints = vtx.joint_indexes
-                weights = vtx.weights
+            gltf_attrs['JOINT'] = Reference('accessors', jdata.name, gltf_attrs, 'JOINT')
+            state['references'].append(gltf_attrs['JOINT'])
+            gltf_attrs['WEIGHT'] = Reference('accessors', wdata.name, gltf_attrs, 'WEIGHT')
+            state['references'].append(gltf_attrs['WEIGHT'])
 
-                for j in range(4):
-                    jdata[(i * 4) + j] = joints[j]
-                    wdata[(i * 4) + j] = weights[j]
+        gltf_prim['attributes'] = gltf_attrs
 
-        # For each material, make an empty primitive set.
-        # This dictionary maps material names to list of indices that form the
-        # part of the mesh that the material should be applied to.
-        prims = {ma.name if ma else '': [] for ma in mesh.materials}
-        if not prims:
-            prims = {'': []}
+        # Add the material reference after checking that it is valid
+        if mat:
+            gltf_prim['material'] = Reference('materials', mat, gltf_prim, 'material')
+            state['references'].append(gltf_prim['material'])
 
-        # Index data
-        # Map loop indices to vertices
-        vert_dict = {i: vertex for vertex in vert_list for i in vertex.loop_indices}
+        gltf_mesh['primitives'].append(gltf_prim)
 
-        max_vert_index = 0
-        for poly in mesh.polygons:
-            # Find the primitive that this polygon ought to belong to (by
-            # material).
-            if len(mesh.materials) == 0:
-                prim = prims['']
-            else:
-                try:
-                    mat = mesh.materials[poly.material_index]
-                except IndexError:
-                    # Polygon has a bad material index, so skip it
-                    continue
-                prim = prims[mat.name if mat else '']
+    state['input']['buffers'].append(buf)
+    if is_skinned:
+        state['input']['buffers'].append(skin_buf)
+        gltf_mesh['skin'] = Reference('skins', mesh.name, gltf_mesh, 'skin')
+        state['references'].append(gltf_mesh['skin'])
 
-            # Find the (vertex) index associated with each loop in the polygon.
-            indices = [vert_dict[i].index for i in poly.loop_indices]
-
-            # Used to determine whether a mesh must be split.
-            max_vert_index = max(max_vert_index, max(indices))
-
-            if len(indices) == 3:
-                # No triangulation necessary
-                prim += indices
-            elif len(indices) > 3:
-                # Triangulation necessary
-                for i in range(len(indices) - 2):
-                    prim += (indices[-1], indices[i], indices[i + 1])
-            else:
-                # Bad polygon
-                raise RuntimeError(
-                    "Invalid polygon with {} vertices.".format(len(indices))
-                )
-
-        if max_vert_index > 65535:
-            # Use the integer index extension
-            if OES_ELEMENT_INDEX_UINT not in state['extensions_used']:
-                state['extensions_used'].append(OES_ELEMENT_INDEX_UINT)
-
-        for mat, prim in prims.items():
-            # For each primitive set add an index buffer and accessor.
-
-            if len(prim) == 0:
-                # This material has not verts, do not make a 0 length buffer
-                continue
-
-            # If we got this far use integers if we have to, if this is not
-            # desirable we would have bailed out by now.
-            if max_vert_index > 65535:
-                itype = Buffer.UNSIGNED_INT
-                istride = 4
-            else:
-                itype = Buffer.UNSIGNED_SHORT
-                istride = 2
-
-            index_view = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(index_view, 0, istride, itype, len(prim),
-                                     Buffer.SCALAR)
-
-            for i, index in enumerate(prim):
-                idata[i] = index
-
-            gltf_prim = {
-                'attributes': {
-                    'POSITION': vdata.name,
-                    'NORMAL': ndata.name,
-                },
-                'indices': idata.name,
-                'mode': 4,
-            }
-
-            # Add the material reference after checking that it is valid
-            if mat:
-                gltf_prim['material'] = 'material_' + mat
-
-            for i, accessor in enumerate(tdata):
-                gltf_prim['attributes']['TEXCOORD_' + str(i)] = accessor.name
-            for i, accessor in enumerate(cdata):
-                gltf_prim['attributes']['COLOR_' + str(i)] = accessor.name
-
-            if is_skinned:
-                gltf_prim['attributes']['JOINT'] = jdata.name
-                gltf_prim['attributes']['WEIGHT'] = wdata.name
-
-            gltf_mesh['primitives'].append(gltf_prim)
-
-        state['buffers'].append(buf)
-        if is_skinned:
-            state['buffers'].append(skin_buf)
-        return gltf_mesh
-
-    exported_meshes = {}
-    for mesh in meshes:
-        gltf_mesh = export_mesh(mesh)
-        if gltf_mesh is not None:
-            exported_meshes.update({'mesh_' + mesh.name: gltf_mesh})
-    return exported_meshes
+    return gltf_mesh
 
 
 def export_skins(state):
-    def export_skin(obj):
+    def export_skin(obj, mesh_name):
         arm = obj.find_armature()
 
         bind_shape_mat = obj.matrix_world * arm.matrix_world.inverted()
@@ -863,9 +922,13 @@ def export_skins(state):
             'name': obj.name,
         }
         gltf_skin['jointNames'] = [
-            'node_{}_{}'.format(arm.name, group.name)
+            Reference('bones', arm.data.bones[group.name].as_pointer(), None, None)
             for group in bone_groups
         ]
+        for i, ref in enumerate(gltf_skin['jointNames']):
+            ref.source = gltf_skin['jointNames']
+            ref.prop = i
+            state['references'].append(ref)
 
         element_size = 16 * 4
         num_elements = len(bone_groups)
@@ -879,224 +942,252 @@ def export_skins(state):
             for j in range(16):
                 idata[(i * 16) + j] = mat[j]
 
-        gltf_skin['inverseBindMatrices'] = idata.name
-        state['buffers'].append(buf)
+        gltf_skin['inverseBindMatrices'] = Reference(
+            'accessors',
+            idata.name,
+            gltf_skin,
+            'inverseBindMatrices'
+        )
+        state['references'].append(gltf_skin['inverseBindMatrices'])
+        state['input']['buffers'].append(buf)
+
+        state['input']['skins'].append(SimpleID(mesh_name))
 
         return gltf_skin
 
-    return {
-        'skin_' + mesh_name: export_skin(obj)
-        for mesh_name, obj in state['skinned_meshes'].items()
+    return [export_skin(obj, mesh_name) for mesh_name, obj in state['skinned_meshes'].items()]
+
+
+def export_light(light):
+    def calc_att():
+        linear_factor = 0
+        quad_factor = 0
+
+        if light.falloff_type == 'INVERSE_LINEAR':
+            linear_factor = 1 / light.distance
+        elif light.falloff_type == 'INVERSE_SQUARE':
+            quad_factor = 1 / light.distance
+        elif light.falloff_type == 'LINEAR_QUADRATIC_WEIGHTED':
+            linear_factor = light.linear_attenuation * (1 / light.distance)
+            quad_factor = light.quadratic_attenuation * (1 / (light.distance * light.distance))
+
+        return linear_factor, quad_factor
+
+    gltf_light = {}
+    if light.type == 'SUN':
+        gltf_light = {
+            'directional': {
+                'color': (light.color * light.energy)[:],
+            },
+            'type': 'directional',
+        }
+    elif light.type == 'POINT':
+        linear_factor, quad_factor = calc_att()
+        gltf_light = {
+            'point': {
+                'color': (light.color * light.energy)[:],
+
+                # TODO: grab values from Blender lamps
+                'constantAttenuation': 1,
+                'linearAttenuation': linear_factor,
+                'quadraticAttenuation': quad_factor,
+            },
+            'type': 'point',
+        }
+    elif light.type == 'SPOT':
+        linear_factor, quad_factor = calc_att()
+        gltf_light = {
+            'spot': {
+                'color': (light.color * light.energy)[:],
+
+                # TODO: grab values from Blender lamps
+                'constantAttenuation': 1.0,
+                'fallOffAngle': 3.14159265,
+                'fallOffExponent': 0.0,
+                'linearAttenuation': linear_factor,
+                'quadraticAttenuation': quad_factor,
+            },
+            'type': 'spot',
+        }
+    else:
+        print("Unsupported lamp type on {}: {}".format(light.name, light.type))
+        gltf_light = {'type': 'unsupported'}
+
+    gltf_light['name'] = light.name
+    extras = _get_custom_properties(light)
+    if extras:
+        gltf_light['extras'] = extras
+    return gltf_light
+
+
+def export_physics(obj):
+    body = obj.rigid_body
+    physics = {
+        'collisionShape': body.collision_shape.upper(),
+        'mass': body.mass,
+        'static': body.type == 'PASSIVE',
+        'dimensions': obj.dimensions[:],
     }
 
+    if body.collision_shape in ('CONVEX_HULL', 'MESH'):
+        physics['mesh'] = 'mesh_' + obj.data.name
 
-def export_lights(lamps):
-    def export_light(light):
-        def calc_att():
-            linear_factor = 0
-            quad_factor = 0
-
-            if light.falloff_type == 'INVERSE_LINEAR':
-                linear_factor = 1 / light.distance
-            elif light.falloff_type == 'INVERSE_SQUARE':
-                quad_factor = 1 / light.distance
-            elif light.falloff_type == 'LINEAR_QUADRATIC_WEIGHTED':
-                linear_factor = light.linear_attenuation * (1 / light.distance)
-                quad_factor = light.quadratic_attenuation * (1 / (light.distance * light.distance))
-
-            return linear_factor, quad_factor
-
-        gltf_light = {}
-        if light.type == 'SUN':
-            gltf_light = {
-                'directional': {
-                    'color': (light.color * light.energy)[:],
-                },
-                'type': 'directional',
-            }
-        elif light.type == 'POINT':
-            linear_factor, quad_factor = calc_att()
-            gltf_light = {
-                'point': {
-                    'color': (light.color * light.energy)[:],
-
-                    # TODO: grab values from Blender lamps
-                    'constantAttenuation': 1,
-                    'linearAttenuation': linear_factor,
-                    'quadraticAttenuation': quad_factor,
-                },
-                'type': 'point',
-            }
-        elif light.type == 'SPOT':
-            linear_factor, quad_factor = calc_att()
-            gltf_light = {
-                'spot': {
-                    'color': (light.color * light.energy)[:],
-
-                    # TODO: grab values from Blender lamps
-                    'constantAttenuation': 1.0,
-                    'fallOffAngle': 3.14159265,
-                    'fallOffExponent': 0.0,
-                    'linearAttenuation': linear_factor,
-                    'quadraticAttenuation': quad_factor,
-                },
-                'type': 'spot',
-            }
-        else:
-            print("Unsupported lamp type on {}: {}".format(light.name, light.type))
-            gltf_light = {'type': 'unsupported'}
-
-        gltf_light['name'] = light.name
-        extras = _get_custom_properties(light)
-        if extras:
-            gltf_light['extras'] = extras
-        return gltf_light
-
-    gltf = {'light_' + lamp.name: export_light(lamp) for lamp in lamps}
-
-    return gltf
+    return physics
 
 
-def export_nodes(state, objects):
-    def export_physics(obj):
-        body = obj.rigid_body
-        physics = {
-            'collisionShape': body.collision_shape.upper(),
-            'mass': body.mass,
-            'static': body.type == 'PASSIVE',
-            'dimensions': obj.dimensions[:],
-        }
+def export_node(state, obj):
+    node = {
+        'name': obj.name,
+        'children': [],
+    }
+    for i, child in enumerate(obj.children):
+        node['children'].append(Reference('objects', child.name, node['children'], i))
+        state['references'].append(node['children'][-1])
 
-        if body.collision_shape in ('CONVEX_HULL', 'MESH'):
-            physics['mesh'] = 'mesh_' + obj.data.name
+    node['translation'], node['rotation'], node['scale'] = decompose(obj.matrix_local)
 
-        return physics
+    extras = _get_custom_properties(obj)
+    extras.update({
+        prop.name: prop.value for prop in obj.game.properties.values()
+    })
+    if extras:
+        node['extras'] = extras
 
-    def export_node(obj):
-        node = {
-            'name': obj.name,
-            'children': ['node_' + child.name for child in obj.children],
-        }
-
-        node['translation'], node['rotation'], node['scale'] = decompose(obj.matrix_local)
-
-        extras = _get_custom_properties(obj)
-        extras.update({
-            prop.name: prop.value for prop in obj.game.properties.values()
-        })
-        if extras:
-            node['extras'] = extras
-
-        if obj.type == 'MESH':
-            mesh = state['mod_meshes'].get(obj.name, obj.data)
-            node['meshes'] = ['mesh_' + mesh.name]
-            armature = obj.find_armature()
-            if armature:
-                bone_names = [b.name for b in armature.data.bones if b.parent is None]
-                node['skeletons'] = [
-                    'node_{}_{}'.format(armature.name, bone) for bone in bone_names
-                ]
-                state['skinned_meshes'][mesh.name] = obj
-        elif obj.type == 'LAMP':
-            if state['settings']['shaders_data_storage'] == 'NONE':
-                if 'extensions' not in node:
-                    node['extensions'] = {}
-                node['extensions']['KHR_materials_common'] = {'light': 'light_' + obj.data.name}
-        elif obj.type == 'CAMERA':
-            node['camera'] = 'camera_' + obj.data.name
-        elif obj.type == 'EMPTY' and obj.dupli_group is not None:
-            # Expand dupli-groups
-            node['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
-        elif obj.type == 'ARMATURE':
-            if not node['children']:
-                node['children'] = []
-            node['children'].extend([
-                'node_{}_{}'.format(obj.name, b.name)
-                for b in obj.data.bones if b.parent is None
+    if obj.type == 'MESH':
+        mesh = state['mod_meshes'].get(obj.name, obj.data)
+        node['meshes'] = []
+        node['meshes'].append(Reference('meshes', mesh.name, node['meshes'], 0))
+        state['references'].append(node['meshes'][0])
+        armature = obj.find_armature()
+        if armature:
+            bone_names = [b.as_pointer() for b in armature.data.bones if b.parent is None]
+            node['skeletons'] = []
+            node['skeletons'].extend([
+                Reference('bones', bone, node['skeletons'], i)
+                for i, bone in enumerate(bone_names)
             ])
+            for ref in node['skeletons']:
+                state['references'].append(ref)
+            state['skinned_meshes'][mesh.name] = obj
+    elif obj.type == 'LAMP':
+        if state['settings']['shaders_data_storage'] == 'NONE':
+            if 'extensions' not in node:
+                node['extensions'] = {}
+            ext = node['extensions']['KHR_materials_common'] = {}
+            ext['light'] = Reference('lamps', obj.data.name, ext, 'light')
+            state['references'].append(ext['light'])
+    elif obj.type == 'CAMERA':
+        node['camera'] = Reference('cameras', obj.data.name, node, 'camera')
+        state['references'].append(node['camera'])
+    elif obj.type == 'EMPTY' and obj.dupli_group is not None:
+        # Expand dupli-groups
+        # TODO: list of references
+        node['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
+    elif obj.type == 'ARMATURE':
+        for i, bone in enumerate(obj.data.bones):
+            state['input']['bones'].append(SimpleID(bone.as_pointer(), bone))
+        if not node['children']:
+            node['children'] = []
+        offset = len(node['children'])
+        root_bones = [
+            Reference('bones', b.as_pointer(), node['children'], i + offset)
+            for i, b in enumerate(obj.data.bones) if b.parent is None
+        ]
+        for bone in root_bones:
+            state['references'].append(bone)
+        node['children'].extend(root_bones)
 
-        if obj.rigid_body and state['settings']['ext_export_physics']:
-            node['extensions'] = {
-                'BLENDER_physics': export_physics(obj)
-            }
-
-        return node
-
-    gltf_nodes = {'node_' + obj.name: export_node(obj) for obj in objects}
-
-    def export_joint(arm_name, bone):
-        matrix = bone.matrix_local
-        if bone.parent:
-            matrix = bone.parent.matrix_local.inverted() * matrix
-
-        gltf_joint = {
-            'name': bone.name,
-            'jointName': 'node_{}_{}'.format(arm_name, bone.name),
-            'children': ['node_{}_{}'.format(arm_name, child.name) for child in bone.children],
+    if obj.rigid_body and state['settings']['ext_export_physics']:
+        node['extensions'] = {
+            'BLENDER_physics': export_physics(obj)
         }
 
-        gltf_joint['translation'], gltf_joint['rotation'], gltf_joint['scale'] = decompose(obj.matrix_local)
-
-        return gltf_joint
-
-    for obj in [obj for obj in objects if obj.type == 'ARMATURE']:
-        arm = obj.data
-        gltf_nodes.update({
-            "node_{}_{}".format(arm.name, bone.name): export_joint(arm.name, bone)
-            for bone in arm.bones
-        })
-
-    return gltf_nodes
+    return node
 
 
-def export_scenes(state, scenes):
+def export_joint(state, bone):
+    matrix = bone.matrix_local
+    if bone.parent:
+        matrix = bone.parent.matrix_local.inverted() * matrix
 
-    def export_scene(scene):
-        result = {
-            'extras': {
-                'background_color': scene.world.horizon_color[:] if scene.world else [0.05]*3,
-                'active_camera': 'camera_'+scene.camera.name if scene.camera else None,
-                'frames_per_second': scene.render.fps,
-            },
-            'name': scene.name,
-        }
-        extras = _get_custom_properties(scene)
-        if extras:
-            result['extras'].update(_get_custom_properties(scene))
+    gltf_joint = {
+        'name': bone.name,
+    }
+    gltf_joint['jointName'] = Reference('bones', bone.as_pointer(), gltf_joint, 'jointName')
+    state['references'].append(gltf_joint['jointName'])
+    gltf_joint['children'] = [
+        Reference('bones', child.as_pointer(), None, None) for child in bone.children
+    ]
+    for i, ref in enumerate(gltf_joint['children']):
+        ref.source = gltf_joint['children']
+        ref.prop = i
+        state['references'].append(ref)
 
-        result['nodes'] = [
-            'node_' + ob.name for ob in scene.objects
-            if ob in state['objects'] and ob.parent is None and ob.is_visible(scene)
-        ]
+    gltf_joint['translation'], gltf_joint['rotation'], gltf_joint['scale'] = decompose(matrix)
 
-        hidden_nodes = [
-            'node_' + ob.name for ob in scene.objects
-            if ob in state['objects'] and not ob.is_visible(scene)
-        ]
-        if hidden_nodes:
-            result['extras']['hidden_nodes'] = hidden_nodes
+    return gltf_joint
 
-        return result
 
-    return {'scene_' + scene.name: export_scene(scene) for scene in scenes}
+def export_scene(state, scene):
+    result = {
+        'extras': {
+            'background_color': scene.world.horizon_color[:] if scene.world else [0.05]*3,
+            'active_camera': 'camera_'+scene.camera.name if scene.camera else None,
+            'frames_per_second': scene.render.fps,
+        },
+        'name': scene.name,
+    }
+
+    if scene.camera:
+        result['extras']['active_camera'] = Reference(
+            'cameras',
+            scene.camera.name,
+            result['extras'],
+            'active_camera'
+        )
+        state['references'].append(result['extras']['active_camera'])
+
+    extras = _get_custom_properties(scene)
+    if extras:
+        result['extras'].update(_get_custom_properties(scene))
+
+    result['nodes'] = [
+        Reference('objects', ob.name, None, None)
+        for ob in scene.objects
+        if ob in state['input']['objects'] and ob.parent is None and ob.is_visible(scene)
+    ]
+    for i, ref in enumerate(result['nodes']):
+        ref.source = result['nodes']
+        ref.prop = i
+    state['references'].extend(result['nodes'])
+
+    hidden_nodes = [
+        Reference('objects', ob.name, None, None)
+        for ob in scene.objects
+        if ob in state['input']['objects'] and not ob.is_visible(scene)
+    ]
+
+    if hidden_nodes:
+        result['extras']['hidden_nodes'] = hidden_nodes
+        for i, ref in enumerate(hidden_nodes):
+            ref.source = result['extras']['hidden_nodes']
+            ref.prop = i
+        state['references'].extend(result['estras']['hidden_nodes'])
+
+    return result
 
 
 def export_buffers(state):
-    gltf = {
-        'buffers': {},
-        'bufferViews': {},
-        'accessors': {},
-    }
-
     if state['settings']['buffers_combine_data']:
-        buffers = [functools.reduce(lambda x, y: x+y, state['buffers'], Buffer('empty'))]
+        buffers = [functools.reduce(lambda x, y: x+y, state['input']['buffers'], Buffer('empty'))]
+        state['input']['buffers'] = buffers
     else:
-        buffers = state['buffers']
+        buffers = state['input']['buffers']
 
-    for buf in buffers:
-        gltf['buffers'][buf.name] = buf.export_buffer(state)
-        gltf['bufferViews'].update(buf.export_views())
-        gltf['accessors'].update(buf.export_accessors())
+    gltf = {}
+    gltf['buffers'] = [buf.export_buffer(state) for buf in buffers]
+    gltf['bufferViews'] = list(itertools.chain(*[buf.export_views(state) for buf in buffers]))
+    gltf['accessors'] = list(itertools.chain(*[buf.export_accessors(state) for buf in buffers]))
 
     return gltf
 
@@ -1129,123 +1220,126 @@ def image_to_data_uri(image, as_bytes=False):
         return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
 
 
-def export_images(state, images):
-    def check_image(image):
-        errors = []
-        if image.size[0] == 0:
-            errors.append('x dimension is 0')
-        if image.size[1] == 0:
-            errors.append('y dimension is 0')
-        if image.type != 'IMAGE':
-            errors.append('not an image')
+def check_image(image):
+    errors = []
+    if image.size[0] == 0:
+        errors.append('x dimension is 0')
+    if image.size[1] == 0:
+        errors.append('y dimension is 0')
+    if image.type != 'IMAGE':
+        errors.append('not an image')
 
-        if errors:
-            err_list = '\n\t'.join(errors)
-            print(
-                'Unable to export image {} due to the following errors:\n\t{}'
-                .format(image.name, err_list)
-            )
-            return False
+    if errors:
+        err_list = '\n\t'.join(errors)
+        print(
+            'Unable to export image {} due to the following errors:\n\t{}'
+            .format(image.name, err_list)
+        )
+        return False
 
-        return True
+    return True
 
-    ext_map = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
 
-    def export_image(image):
-        uri = ''
+ext_map = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
 
-        storage_setting = state['settings']['images_data_storage']
-        image_packed = image.packed_file is not None
-        if image_packed and storage_setting in ['COPY', 'REFERENCE']:
-            if image.file_format in ext_map:
-                # save the file to the output directory
-                uri = '.'.join([image.name, ext_map[image.file_format]])
-                temp = image.filepath
-                image.filepath = os.path.join(state['settings']['gltf_output_dir'], uri)
-                image.save()
-                image.filepath = temp
-            else:
-                # convert to png and save
-                uri = '.'.join([image.name, 'png'])
-                png = image_to_data_uri(image, as_bytes=True)
-                with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as outfile:
-                    outfile.write(png)
 
-        elif storage_setting == 'COPY':
-            try:
-                shutil.copy(bpy.path.abspath(image.filepath), state['settings']['gltf_output_dir'])
-            except shutil.SameFileError:
-                # If the file already exists, no need to copy
-                pass
-            uri = bpy.path.basename(image.filepath)
-        elif storage_setting == 'REFERENCE':
-            uri = image.filepath.replace('//', '')
-        elif storage_setting == 'EMBED':
-            uri = image_to_data_uri(image)
+def export_image(state, image):
+    uri = ''
+
+    storage_setting = state['settings']['images_data_storage']
+    image_packed = image.packed_file is not None
+    if image_packed and storage_setting in ['COPY', 'REFERENCE']:
+        if image.file_format in ext_map:
+            # save the file to the output directory
+            uri = '.'.join([image.name, ext_map[image.file_format]])
+            temp = image.filepath
+            image.filepath = os.path.join(state['settings']['gltf_output_dir'], uri)
+            image.save()
+            image.filepath = temp
         else:
-            print(
-                'Encountered unknown option ({}) for images_data_storage setting'
-                .format(storage_setting)
-            )
+            # convert to png and save
+            uri = '.'.join([image.name, 'png'])
+            png = image_to_data_uri(image, as_bytes=True)
+            with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as outfile:
+                outfile.write(png)
 
-        return {
-            'uri': uri,
-        }
-
-    return {'image_' + image.name: export_image(image) for image in images if check_image(image)}
-
-
-def export_textures(state, textures):
-    def check_texture(texture):
-        errors = []
-        if texture.image is None:
-            errors.append('has no image reference')
-        elif texture.image.channels not in [3, 4]:
-            errors.append(
-                'points to {}-channel image (must be 3 or 4)'
-                .format(texture.image.channels)
-            )
-
-        if errors:
-            err_list = '\n\t'.join(errors)
-            print(
-                'Unable to export texture {} due to the following errors:\n\t{}'
-                .format(texture.name, err_list)
-            )
-            return False
-
-        return True
-
-    def export_texture(texture):
-        gltf_texture = {
-            'sampler': 'sampler_default',
-            'source': 'image_' + texture.image.name,
-        }
-        tformat = None
-        channels = texture.image.channels
-        image_is_srgb = texture.image.colorspace_settings.name == 'sRGB'
-        use_srgb = state['settings']['images_allow_srgb'] and image_is_srgb
-
-        if channels == 3:
-            if use_srgb:
-                tformat = GL_SRGB
-            else:
-                tformat = GL_RGB
-        elif channels == 4:
-            if use_srgb:
-                tformat = GL_SRGB_ALPHA
-            else:
-                tformat = GL_RGBA
-
-        gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
-
-        return gltf_texture
+    elif storage_setting == 'COPY':
+        try:
+            shutil.copy(bpy.path.abspath(image.filepath), state['settings']['gltf_output_dir'])
+        except shutil.SameFileError:
+            # If the file already exists, no need to copy
+            pass
+        uri = bpy.path.basename(image.filepath)
+    elif storage_setting == 'REFERENCE':
+        uri = image.filepath.replace('//', '')
+    elif storage_setting == 'EMBED':
+        uri = image_to_data_uri(image)
+    else:
+        print(
+            'Encountered unknown option ({}) for images_data_storage setting'
+            .format(storage_setting)
+        )
 
     return {
-        'texture_' + texture.name: export_texture(texture)
-        for texture in textures
-        if isinstance(texture, bpy.types.ImageTexture) and check_texture(texture)
+        'uri': uri,
     }
+
+
+def check_texture(texture):
+    if not isinstance(texture, bpy.types.ImageTexture):
+        return False
+
+    errors = []
+    if texture.image is None:
+        errors.append('has no image reference')
+    elif texture.image.channels not in [3, 4]:
+        errors.append(
+            'points to {}-channel image (must be 3 or 4)'
+            .format(texture.image.channels)
+        )
+
+    if errors:
+        err_list = '\n\t'.join(errors)
+        print(
+            'Unable to export texture {} due to the following errors:\n\t{}'
+            .format(texture.name, err_list)
+        )
+        return False
+
+    return True
+
+
+def export_texture(state, texture):
+    gltf_texture = {
+        'sampler': 'sampler_default',
+        'source': 'image_' + texture.image.name,
+    }
+
+    gltf_texture['sampler'] = Reference('samplers', 'default', gltf_texture, 'sampler')
+    state['references'].append(gltf_texture['sampler'])
+
+    gltf_texture['source'] = Reference('images', texture.image.name, gltf_texture, 'source')
+    state['references'].append(gltf_texture['source'])
+
+    tformat = None
+    channels = texture.image.channels
+    image_is_srgb = texture.image.colorspace_settings.name == 'sRGB'
+    use_srgb = state['settings']['images_allow_srgb'] and image_is_srgb
+
+    if channels == 3:
+        if use_srgb:
+            tformat = GL_SRGB
+        else:
+            tformat = GL_RGB
+    elif channels == 4:
+        if use_srgb:
+            tformat = GL_SRGB_ALPHA
+        else:
+            tformat = GL_RGBA
+
+    gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
+
+    return gltf_texture
 
 
 def _can_object_use_action(obj, action):
@@ -1264,8 +1358,6 @@ def _can_object_use_action(obj, action):
 
 
 def export_animations(state, actions):
-    dt = 1.0 / bpy.context.scene.render.fps
-
     def export_animation(obj, action):
         channels = {}
 
@@ -1306,10 +1398,12 @@ def export_animations(state, actions):
         time = 0
         for i in range(num_frames):
             tdata[i] = time
-            time += dt
-        state['buffers'].append(tbuf)
+            time += state['animation_dt']
+        state['input']['buffers'].append(tbuf)
         time_parameter_name = '{}_time_parameter'.format(action.name)
-        gltf_parameters[time_parameter_name] = tdata.name
+        ref = Reference('accessors', tdata.name, gltf_parameters, time_parameter_name)
+        gltf_parameters[time_parameter_name] = ref
+        state['references'].append(ref)
 
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
@@ -1328,16 +1422,18 @@ def export_animations(state, actions):
                 for j in range(4):
                     rdata[(i * 4) + j] = rot[j]
 
-            state['buffers'].append(buf)
+            state['input']['buffers'].append(buf)
 
+            is_bone = False
             if targetid != obj.name:
-                targetid = 'node_{}_{}'.format(obj.data.name, targetid)
-            else:
-                targetid = 'node_' + targetid
+                is_bone = True
+                targetid = bpy.data.armatures[obj.data.name].bones[targetid].as_pointer()
 
             for path in ('translation', 'rotation', 'scale'):
                 sampler_name = '{}_{}_{}_sampler'.format(action.name, targetid, path)
                 parameter_name = '{}_{}_{}_parameter'.format(action.name, targetid, path)
+
+                id_ref = Reference('bones' if is_bone else 'objects', targetid, None, 'id')
                 gltf_channels.append({
                     'sampler': sampler_name,
                     'target': {
@@ -1345,16 +1441,28 @@ def export_animations(state, actions):
                         'path': path,
                     }
                 })
+                id_ref.source = gltf_channels[-1]['target']
+                state['references'].append(id_ref)
+
                 gltf_samplers[sampler_name] = {
                     'input': time_parameter_name,
                     'interpolation': 'LINEAR',
                     'output': parameter_name,
                 }
-                gltf_parameters[parameter_name] = {
+
+                accessor_name = {
                     'translation': ldata.name,
                     'rotation': rdata.name,
                     'scale': sdata.name,
                 }[path]
+                accessor_ref = Reference(
+                    'accessors',
+                    accessor_name,
+                    gltf_parameters,
+                    parameter_name
+                )
+                gltf_parameters[parameter_name] = accessor_ref
+                state['references'].append(accessor_ref)
 
         gltf_action = {
             'name': action.name,
@@ -1368,14 +1476,13 @@ def export_animations(state, actions):
 
         return gltf_action
 
-    gltf_actions = {}
-    for obj in state['objects']:
-        act_prefix = obj.data.name if obj.type == 'ARMATURE' else obj.name
-        gltf_actions.update({
-            '{}|{}'.format(act_prefix, action.name): export_animation(obj, action)
+    gltf_actions = []
+    for obj in state['input']['objects']:
+        gltf_actions.extend([
+            export_animation(obj, action)
             for action in actions
             if _can_object_use_action(obj, action)
-        })
+        ])
 
     return gltf_actions
 
@@ -1394,6 +1501,35 @@ def insert_root_nodes(gltf_data, root_matrix):
         scene['nodes'] = [node_name]
 
 
+def build_string_refmap(input_data):
+    in_out_map = {
+        'objects': 'nodes',
+        'bones': 'nodes',
+        'lamps': 'lights'
+    }
+    refmap = {}
+    node_offset = len(input_data['objects'])
+    for key, value in input_data.items():
+        refmap.update({
+            (key, data.name): '{}_{}'.format(
+                in_out_map.get(key, key),
+                i + (node_offset if key == 'bones' else 0)
+            )
+            for i, data in enumerate(value)
+        })
+    return refmap
+
+
+def build_int_refmap(input_data):
+    refmap = {}
+    node_offset = len(input_data['objects'])
+    for key, value in input_data.items():
+        refmap.update({
+            (key, data.name): i + (node_offset if key == 'bones' else 0)
+            for i, data in enumerate(value)})
+    return refmap
+
+
 def export_gltf(scene_delta, settings=None):
     # Fill in any missing settings with defaults
     if not settings:
@@ -1404,21 +1540,32 @@ def export_gltf(scene_delta, settings=None):
     # Initialize export state
     state = {
         'settings': settings,
-        'shaders': {},
-        'programs': {},
-        'techniques': {},
+        'animation_dt': 1.0 / bpy.context.scene.render.fps,
+        'shaders': [],
+        'programs': [],
+        'techniques': [],
         'mod_meshes': {},
         'skinned_meshes': {},
-        'buffers': [],
         'extensions_used': [],
-        'objects': list(scene_delta.get('objects', [])),
+        'input': {
+            'buffers': [],
+            'accessors': [],
+            'bufferViews': [],
+            'objects': [],
+            'bones': [],
+            'samplers': [SimpleID('default')],
+            'skins': [],
+        },
+        'output': {},
+        'references': [],
     }
+    state['input'].update(scene_delta)
 
     # Apply modifiers
     mesh_list = []
     if settings['meshes_apply_modifiers']:
         scene = bpy.context.scene
-        mod_obs = [ob for ob in state['objects'] if ob.is_modified(scene, 'PREVIEW')]
+        mod_obs = [ob for ob in state['input']['objects'] if ob.is_modified(scene, 'PREVIEW')]
         for mesh in scene_delta.get('meshes', []):
             mod_users = [ob for ob in mod_obs if ob.data == mesh]
 
@@ -1434,53 +1581,87 @@ def export_gltf(scene_delta, settings=None):
         mesh_list.extend(state['mod_meshes'].values())
     else:
         mesh_list = scene_delta.get('meshes', [])
+    state['input']['meshes'] = mesh_list
 
-    scenes = scene_delta.get('scenes', [])
+    exporter = collections.namedtuple('exporter', [
+        'gltf_key',
+        'blender_key',
+        'export_func',
+        'check_func',
+    ])
+    exporters = [
+        exporter('cameras', 'cameras', export_camera, lambda x: True),
+        exporter('images', 'images', export_image, check_image),
+        exporter('nodes', 'objects', export_node, lambda x: True),
+        # Make sure meshes come after nodes to detect which meshes are skinned
+        exporter('meshes', 'meshes', export_mesh, lambda x: True),
+        exporter('scenes', 'scenes', export_scene, lambda x: True),
+        exporter('textures', 'textures', export_texture, check_texture),
+    ]
+
+    state['output'] = {
+        exporter.gltf_key: [
+            exporter.export_func(state, data)
+            for data in state['input'].get(exporter.blender_key, [])
+            if exporter.check_func(data)
+        ] for exporter in exporters
+    }
+    state['output']['samplers'] = [{}]
+    state['output']['animations'] = export_animations(state, scene_delta.get('actions', []))
+    state['output']['materials'] = export_materials(state, scene_delta.get('materials', []))
+    state['output']['skins'] = export_skins(state)
+    state['output']['programs'] = state['programs']
+    state['output']['shaders'] = state['shaders']
+    state['output']['techniques'] = state['techniques']
+    state['output']['nodes'].extend([
+        export_joint(state, sid.data) for sid in state['input']['bones']
+    ])
+
     gltf = {
         'asset': {
             'version': '1.0',
             'profile': PROFILE_MAP[settings['asset_profile']]
         },
-        'animations': export_animations(state, scene_delta.get('actions', [])),
-        'cameras': export_cameras(state, scene_delta.get('cameras', [])),
         'extensions': {},
         'extensionsUsed': [],
-        'images': export_images(state, scene_delta.get('images', [])),
-        'materials': export_materials(state, scene_delta.get('materials', [])),
-        'nodes': export_nodes(state, state['objects']),
-        # Make sure meshes come after nodes to detect which meshes are skinned
-        'meshes': export_meshes(state, mesh_list),
-        'skins': export_skins(state),
-        'programs': state['programs'],
-        'samplers': {'sampler_default': {}},
-        'scene': 'scene_' + bpy.context.scene.name,
-        'scenes': export_scenes(state, scenes),
-        'shaders': state['shaders'],
-        'techniques': state['techniques'],
-        'textures': export_textures(state, scene_delta.get('textures', [])),
     }
+    scene_ref = Reference('scenes', bpy.context.scene.name, gltf, 'scene')
+    scene_ref.value = 0
+    state['references'].append(scene_ref)
 
     if settings['shaders_data_storage'] == 'NONE':
         gltf['extensionsUsed'].append('KHR_materials_common')
         gltf['extensions']['KHR_materials_common'] = {
-            'lights': export_lights(scene_delta.get('lamps', []))
+            'lights': {
+                'lights_{}'.format(i): export_light(lamp)
+                for i, lamp in enumerate(scene_delta.get('lamps', []))
+            }
         }
 
     if settings['ext_export_physics']:
         gltf['extensionsUsed'].append('BLENDER_physics')
 
-    # Retroactively add skins attribute to nodes
-    for mesh_name, obj in state['skinned_meshes'].items():
-        gltf['nodes']['node_' + obj.name]['skin'] = 'skin_{}'.format(mesh_name)
+    state['output'].update(export_buffers(state))
+    state['output'] = {key: value for key, value in state['output'].items() if value != []}
+    gltf.update({'glExtensionsUsed': state['extensions_used']})
+
+    # Convert lists to dictionaries
+    state['output'] = {
+        key: {
+            '{}_{}'.format(key, i): data for i, data in enumerate(value)
+        } for key, value in state['output'].items()
+    }
+    gltf.update(state['output'])
 
     # Insert root nodes if axis conversion is needed
     if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
         insert_root_nodes(gltf, togl(settings['nodes_global_matrix']))
 
-    gltf.update(export_buffers(state))
-    gltf.update({'glExtensionsUsed': state['extensions_used']})
-
-    gltf = {key: value for key, value in gltf.items() if value}
+    # Resolve references
+    refmap = build_string_refmap(state['input'])
+    # refmap = build_string_refmap(scene_delta)
+    for ref in state['references']:
+        ref.source[ref.prop] = refmap[(ref.blender_type, ref.blender_name)]
 
     # Remove any temporary meshes from applying modifiers
     for mesh in state['mod_meshes'].values():
