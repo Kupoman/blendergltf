@@ -19,10 +19,12 @@ if '_IMPORTED' not in locals():
     _IMPORTED = True
     from . import gpu_luts
     from . import shader_converter
+    from .extension_exporters import blender_physics
 else:
     import imp
     imp.reload(gpu_luts)
     imp.reload(shader_converter)
+    imp.reload(blender_physics)
 
 
 __all__ = ['export_gltf']
@@ -1020,21 +1022,6 @@ def export_light(light):
     return gltf_light
 
 
-def export_physics(obj):
-    body = obj.rigid_body
-    physics = {
-        'collisionShape': body.collision_shape.upper(),
-        'mass': body.mass,
-        'static': body.type == 'PASSIVE',
-        'dimensions': obj.dimensions[:],
-    }
-
-    if body.collision_shape in ('CONVEX_HULL', 'MESH'):
-        physics['mesh'] = 'mesh_' + obj.data.name
-
-    return physics
-
-
 def export_node(state, obj):
     node = {
         'name': obj.name,
@@ -1096,11 +1083,6 @@ def export_node(state, obj):
         for bone in root_bones:
             state['references'].append(bone)
         node['children'].extend(root_bones)
-
-    if obj.rigid_body and state['settings']['ext_export_physics']:
-        node['extensions'] = {
-            'BLENDER_physics': export_physics(obj)
-        }
 
     return node
 
@@ -1638,8 +1620,9 @@ def export_gltf(scene_delta, settings=None):
             }
         }
 
+    state['refmap'] = build_int_refmap(state['input'])
     if settings['ext_export_physics']:
-        gltf['extensionsUsed'].append('BLENDER_physics')
+        blender_physics.export(state)
 
     state['output'].update(export_buffers(state))
     state['output'] = {key: value for key, value in state['output'].items() if value != []}
