@@ -5,6 +5,7 @@ import os
 import bpy
 from bpy.props import (
     BoolProperty,
+    CollectionProperty,
     EnumProperty,
     StringProperty
 )
@@ -16,6 +17,7 @@ from bpy_extras.io_utils import (
 
 from .blendergltf import export_gltf
 from .filters import visible_only, selected_only, used_only
+from . import extension_exporters
 
 
 bl_info = {
@@ -37,6 +39,7 @@ bl_info = {
 if "bpy" in locals():
     importlib.reload(locals()['blendergltf'])
     importlib.reload(locals()['filters'])
+    importlib.reload(locals()['extension_exporters'])
 
 
 GLTFOrientationHelper = orientation_helper_factory(
@@ -60,6 +63,15 @@ SHADER_STORAGE_ITEMS = (
 )
 
 
+class ExtPropertyGroup(bpy.types.PropertyGroup):
+    name = StringProperty(name='Extension Name')
+    enable = BoolProperty(
+        name='Enable',
+        description='Enable this extension',
+        default=False
+    )
+
+
 class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     """Save a Khronos glTF File"""
     bl_idname = "export_scene.gltf"
@@ -72,6 +84,15 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     )
 
     check_extension = True
+
+    extension_props = CollectionProperty(
+        name='Extensions',
+        type=ExtPropertyGroup,
+        description='Select extensions to enable'
+    )
+
+    ext_exporters = []
+    ext_prop_to_exporter_map = {}
 
     # blendergltf settings
     nodes_export_hidden = BoolProperty(
@@ -140,6 +161,24 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         default=True
     )
 
+    def invoke(self, context, event):
+        self.ext_exporters = [exporter() for exporter in extension_exporters.__all__]
+        self.ext_prop_to_exporter_map = {ext.ext_meta['name']: ext for ext in self.ext_exporters}
+
+        for exporter in self.ext_exporters:
+            exporter.ext_meta['enable'] = False
+        for prop in self.extension_props:
+            exporter = self.ext_prop_to_exporter_map[prop.name]
+            exporter.ext_meta['enable'] = prop.enable
+
+        self.extension_props.clear()
+        for exporter in self.ext_exporters:
+            prop = self.extension_props.add()
+            prop.name = exporter.ext_meta['name']
+            prop.enable = exporter.ext_meta['enable']
+
+        return super().invoke(context, event)
+
     def draw(self, _):
         layout = self.layout
         col = layout.column()
@@ -175,7 +214,8 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         col = layout.box().column()
         col.label('Extensions:', icon='PLUGIN')
-        col.prop(self, 'ext_export_physics')
+        for i in range(len(self.extension_props)):
+            col.prop(self.extension_props[i], 'enable', text=self.extension_props[i].name)
 
         col = layout.box().column()
         col.label('Output:', icon='SCRIPTWIN')
@@ -221,6 +261,11 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         if settings['blocks_prune_unused']:
             data = used_only(data)
+
+        settings['extension_exporters'] = [
+            self.ext_prop_to_exporter_map[prop.name]
+            for prop in self.extension_props if prop.enable
+        ]
 
         gltf = export_gltf(data, settings)
         with open(self.filepath, 'w') as fout:

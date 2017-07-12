@@ -1621,8 +1621,8 @@ def export_gltf(scene_delta, settings=None):
         }
 
     state['refmap'] = build_int_refmap(state['input'])
-    if settings['ext_export_physics']:
-        blender_physics.export(state)
+    for ext_exporter in settings['extension_exporters']:
+        ext_exporter.export(state)
 
     state['output'].update(export_buffers(state))
     state['output'] = {key: value for key, value in state['output'].items() if value != []}
