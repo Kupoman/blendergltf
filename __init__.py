@@ -241,7 +241,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
                         ]
                         for setting_prop in setting_props:
                             col.prop(settings, setting_prop)
-                    if i < len(self.extension_props) -1:
+                    if i < len(self.extension_props) - 1:
                         col.separator()
                         col.separator()
 

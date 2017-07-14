@@ -24,7 +24,6 @@ class BlenderPhysics:
             if obj.rigid_body
         ]
 
-
         state['extensions_used'].append('BLENDER_physics')
         for obj, node in data_pairs:
             node['extensions'] = node.get('extensions', {})
