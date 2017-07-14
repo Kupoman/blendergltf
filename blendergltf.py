@@ -414,7 +414,7 @@ def decompose(matrix):
     return loc, rot, scale
 
 
-_ignored_custom_props = [
+_IGNORED_CUSTOM_PROPS = [
     '_RNA_UI',
     'cycles',
     'cycles_visibility',
@@ -424,7 +424,7 @@ _ignored_custom_props = [
 def _get_custom_properties(data):
     return {
         k: v for k, v in data.items()
-        if k not in _ignored_custom_props and not isinstance(v, idprop.types.IDPropertyGroup)
+        if k not in _IGNORED_CUSTOM_PROPS and not isinstance(v, idprop.types.IDPropertyGroup)
     }
 
 
@@ -808,7 +808,7 @@ def export_mesh(state, mesh):
     for poly in mesh.polygons:
         # Find the primitive that this polygon ought to belong to (by
         # material).
-        if len(mesh.materials) == 0:
+        if not mesh.materials:
             prim = prims['']
         else:
             try:
@@ -845,7 +845,7 @@ def export_mesh(state, mesh):
     for mat, prim in prims.items():
         # For each primitive set add an index buffer and accessor.
 
-        if len(prim) == 0:
+        if not prim:
             # This material has not verts, do not make a 0 length buffer
             continue
 
@@ -1222,7 +1222,7 @@ def check_image(image):
     return True
 
 
-ext_map = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
+EXT_MAP = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
 
 
 def export_image(state, image):
@@ -1231,9 +1231,9 @@ def export_image(state, image):
     storage_setting = state['settings']['images_data_storage']
     image_packed = image.packed_file is not None
     if image_packed and storage_setting in ['COPY', 'REFERENCE']:
-        if image.file_format in ext_map:
+        if image.file_format in EXT_MAP:
             # save the file to the output directory
-            uri = '.'.join([image.name, ext_map[image.file_format]])
+            uri = '.'.join([image.name, EXT_MAP[image.file_format]])
             temp = image.filepath
             image.filepath = os.path.join(state['settings']['gltf_output_dir'], uri)
             image.save()
