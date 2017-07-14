@@ -43,8 +43,8 @@ DEFAULT_SETTINGS = {
     'meshes_interleave_vertex_data': True,
     'images_data_storage': 'COPY',
     'asset_profile': 'WEB',
-    'ext_export_physics': False,
-    'images_allow_srgb': False
+    'images_allow_srgb': False,
+    'extension_exporters': [],
 }
 
 
