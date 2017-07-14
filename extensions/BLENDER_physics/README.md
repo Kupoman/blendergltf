@@ -92,10 +92,28 @@ Replace `<glTF id>` with the value appropriate for the spec version.
 }
 ```
 
+An optional, scalar gravity value (in m/s/s) can be supplied as part of a `scene`.
+If a value is not supplied, the importer should assume -9.8m/s/s.
+
+```javascript
+{
+    "extensions" {
+        "BLENDER_physics": {
+            "gravity": -9.8
+        }
+    },
+    "name": "Scene",
+    "nodes": [
+        ...
+    ]
+}
+```
+
 
 ### JSON Schema
 
 * [node.BLENDER_physics.schema.json](https://github.com/Kupoman/blendergltf/blob/master/extensions/BLENDER_physics/schema/node.BLENDER_physics.schema.json)
+* [scene.BLENDER_physics.schema.json](https://github.com/Kupoman/blendergltf/blob/master/extensions/BLENDER_physics/schema/scene.BLENDER_physics.schema.json)
 
 ## Known Implementations
 

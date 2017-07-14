@@ -18,13 +18,23 @@ class BlenderPhysics:
         return physics
 
     def export(self, state):
-        data_pairs = [
+        state['extensions_used'].append('BLENDER_physics')
+
+        obj_pairs = [
             (obj, state['output']['nodes'][state['refmap'][('objects', obj.name)]])
             for obj in state['input']['objects']
             if obj.rigid_body
         ]
-
-        state['extensions_used'].append('BLENDER_physics')
-        for obj, node in data_pairs:
+        for obj, node in obj_pairs:
             node['extensions'] = node.get('extensions', {})
             node['extensions']['BLENDER_physics'] = self.export_physics(obj)
+
+        scene_pairs = [
+            (scene, state['output']['scenes'][state['refmap'][('scenes', scene.name)]])
+            for scene in state['input']['scenes']
+        ]
+        for scene, gltf in scene_pairs:
+            gltf['extensions'] = gltf.get('extensions', {})
+            gltf['extensions']['BLENDER_physics'] = {
+                'gravity': scene.gravity.z
+            }
