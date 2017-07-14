@@ -7,6 +7,7 @@ from bpy.props import (
     BoolProperty,
     CollectionProperty,
     EnumProperty,
+    PointerProperty,
     StringProperty
 )
 from bpy_extras.io_utils import (
@@ -85,14 +86,20 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
     check_extension = True
 
+    ext_exporters = [exporter() for exporter in extension_exporters.__all__]
     extension_props = CollectionProperty(
         name='Extensions',
         type=ExtPropertyGroup,
         description='Select extensions to enable'
     )
-
-    ext_exporters = []
     ext_prop_to_exporter_map = {}
+    for ext_exporter in ext_exporters:
+        meta = ext_exporter.ext_meta
+        name = 'settings_' + meta['name']
+        prop_group = type(name, (bpy.types.PropertyGroup,), meta.get('settings', {}))
+        bpy.utils.register_class(prop_group)
+        value = PointerProperty(type=prop_group)
+        locals()[name] = value
 
     # blendergltf settings
     nodes_export_hidden = BoolProperty(
@@ -112,7 +119,10 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     )
     meshes_interleave_vertex_data = BoolProperty(
         name='Interleave Vertex Data',
-        description='Store data for each vertex contiguously instead of each vertex property (e.g. position) contiguously',
+        description=(
+            'Store data for each vertex contiguously'
+            'instead of each vertex property (e.g. position) contiguously'
+        ),
         default=True
     )
     shaders_data_storage = EnumProperty(
@@ -162,7 +172,6 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     )
 
     def invoke(self, context, event):
-        self.ext_exporters = [exporter() for exporter in extension_exporters.__all__]
         self.ext_prop_to_exporter_map = {ext.ext_meta['name']: ext for ext in self.ext_exporters}
 
         for exporter in self.ext_exporters:
@@ -179,7 +188,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         return super().invoke(context, event)
 
-    def draw(self, _):
+    def draw(self, context):
         layout = self.layout
         col = layout.column()
 
@@ -215,7 +224,26 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col = layout.box().column()
         col.label('Extensions:', icon='PLUGIN')
         for i in range(len(self.extension_props)):
-            col.prop(self.extension_props[i], 'enable', text=self.extension_props[i].name)
+            prop = self.extension_props[i]
+
+            col.prop(prop, 'enable', text=prop.name)
+            extension_exporter = self.ext_prop_to_exporter_map[prop.name]
+            if prop.enable:
+                settings = getattr(self, 'settings_' + prop.name, None)
+                if settings:
+                    if hasattr(extension_exporter, 'draw_settings'):
+                        extension_exporter.draw_settings(col, settings, context)
+                    else:
+                        setting_props = [
+                            name for name in dir(settings)
+                            if not name.startswith('_')
+                            and name not in ('bl_rna', 'name', 'rna_type')
+                        ]
+                        for setting_prop in setting_props:
+                            col.prop(settings, setting_prop)
+                    if i < len(self.extension_props) -1:
+                        col.separator()
+                        col.separator()
 
         col = layout.box().column()
         col.label('Output:', icon='SCRIPTWIN')
@@ -261,6 +289,13 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         if settings['blocks_prune_unused']:
             data = used_only(data)
+
+        for ext_exporter in self.ext_exporters:
+            ext_exporter.settings = getattr(
+                self,
+                'settings_' + ext_exporter.ext_meta['name'],
+                None
+            )
 
         settings['extension_exporters'] = [
             self.ext_prop_to_exporter_map[prop.name]
