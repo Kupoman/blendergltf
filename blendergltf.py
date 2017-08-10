@@ -11,18 +11,7 @@ import zlib
 
 import bpy
 import idprop
-import gpu
 import mathutils
-
-
-if '_IMPORTED' not in locals():
-    _IMPORTED = True
-    from . import gpu_luts
-    from . import shader_converter
-else:
-    import imp
-    imp.reload(gpu_luts)
-    imp.reload(shader_converter)
 
 
 __all__ = ['export_gltf']
@@ -453,148 +442,6 @@ def export_camera(_, camera):
     if extras:
         camera_gltf['extras'] = extras
     return camera_gltf
-
-
-def export_materials(state, materials):
-    if state['settings']['shaders_data_storage'] == 'NONE':
-        return [{'name': mat.name} for mat in materials]
-
-    exp_materials = []
-    for material in materials:
-        # Handle shaders
-        shader_data = gpu.export_shader(bpy.context.scene, material)
-        if state['settings']['asset_profile'] == 'DESKTOP':
-            shader_converter.to_130(shader_data)
-        else:
-            shader_converter.to_web(shader_data)
-
-        storage_setting = state['settings']['shaders_data_storage']
-        if storage_setting == 'EMBED':
-            fs_bytes = shader_data['fragment'].encode()
-            fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
-            vs_bytes = shader_data['vertex'].encode()
-            vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
-        elif storage_setting == 'EXTERNAL':
-            names = [
-                bpy.path.clean_name(name) + '.glsl'
-                for name in (material.name+'VS', material.name+'FS')
-            ]
-            data = (shader_data['vertex'], shader_data['fragment'])
-            for name, data in zip(names, data):
-                filename = os.path.join(state['settings']['gltf_output_dir'], name)
-                with open(filename, 'w') as fout:
-                    fout.write(data)
-            vs_uri, fs_uri = names
-        else:
-            print(
-                'Encountered unknown option ({}) for shaders_data_storage setting'
-                .format(storage_setting)
-            )
-
-        state['shaders'].append({'type': 35632, 'uri': fs_uri})
-        state['shaders'].append({'type': 35633, 'uri': vs_uri})
-
-        # Handle programs
-        state['programs'].append({
-            'attributes': [a['varname'] for a in shader_data['attributes']],
-            'fragmentShader': 'shader_{}_FS'.format(material.name),
-            'vertexShader': 'shader_{}_VS'.format(material.name),
-        })
-
-        # Handle parameters/values
-        values = {}
-        parameters = {}
-        for attribute in shader_data['attributes']:
-            name = attribute['varname']
-            semantic = gpu_luts.TYPE_TO_SEMANTIC[attribute['type']]
-            _type = gpu_luts.DATATYPE_TO_GLTF_TYPE[attribute['datatype']]
-            parameters[name] = {'semantic': semantic, 'type': _type}
-
-        for uniform in shader_data['uniforms']:
-            valname = gpu_luts.TYPE_TO_NAME.get(uniform['type'], uniform['varname'])
-            rnaname = valname
-            semantic = None
-            node = None
-            value = None
-
-            if uniform['varname'] == 'bl_ModelViewMatrix':
-                semantic = 'MODELVIEW'
-            elif uniform['varname'] == 'bl_ProjectionMatrix':
-                semantic = 'PROJECTION'
-            elif uniform['varname'] == 'bl_NormalMatrix':
-                semantic = 'MODELVIEWINVERSETRANSPOSE'
-            else:
-                if uniform['type'] in gpu_luts.LAMP_TYPES:
-                    node = uniform['lamp'].name
-                    valname = node + '_' + valname
-                    semantic = gpu_luts.TYPE_TO_SEMANTIC.get(uniform['type'], None)
-                    if not semantic:
-                        lamp_obj = bpy.data.objects[node]
-                        value = getattr(lamp_obj.data, rnaname)
-                elif uniform['type'] in gpu_luts.MIST_TYPES:
-                    valname = 'mist_' + valname
-                    mist_settings = bpy.context.scene.world.mist_settings
-                    if valname == 'mist_color':
-                        value = bpy.context.scene.world.horizon_color
-                    else:
-                        value = getattr(mist_settings, rnaname)
-
-                    if valname == 'mist_falloff':
-                        if value == 'QUADRATIC':
-                            value = 0.0
-                        elif value == 'LINEAR':
-                            value = 1.0
-                        else:
-                            value = 2.0
-                elif uniform['type'] in gpu_luts.WORLD_TYPES:
-                    world = bpy.context.scene.world
-                    value = getattr(world, rnaname)
-                elif uniform['type'] in gpu_luts.MATERIAL_TYPES:
-                    converter = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']]
-                    value = converter(getattr(material, rnaname))
-                    values[valname] = value
-                elif uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
-                    texture_slots = [
-                        slot for slot in material.texture_slots
-                        if slot and slot.texture.type == 'IMAGE'
-                    ]
-                    for slot in texture_slots:
-                        if slot.texture.image.name == uniform['image'].name:
-                            value = 'texture_' + slot.texture.name
-                            values[uniform['varname']] = value
-                else:
-                    print('Unconverted uniform:', uniform)
-
-            parameter = {}
-            if semantic:
-                parameter['semantic'] = semantic
-                if node:
-                    parameter['node'] = 'node_' + node
-            elif value:
-                parameter['value'] = gpu_luts.DATATYPE_TO_CONVERTER[uniform['datatype']](value)
-            else:
-                parameter['value'] = None
-
-            if uniform['type'] == gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE:
-                parameter['type'] = 35678  # SAMPLER_2D
-            else:
-                parameter['type'] = gpu_luts.DATATYPE_TO_GLTF_TYPE[uniform['datatype']]
-            parameters[valname] = parameter
-            uniform['valname'] = valname
-
-        # Handle techniques
-        tech_name = 'technique_' + material.name
-        state['techniques'].append({
-            'parameters': parameters,
-            'program': 'program_' + material.name,
-            'attributes': {a['varname']: a['varname'] for a in shader_data['attributes']},
-            'uniforms': {u['varname']: u['valname'] for u in shader_data['uniforms']},
-        })
-
-        exp_materials.append({'technique': tech_name, 'values': values})
-        # exp_materials[material.name] = {}
-
-    return exp_materials
 
 
 def export_mesh(state, mesh):
@@ -1406,8 +1253,11 @@ def export_gltf(scene_delta, settings=None):
             'bones': [],
             'samplers': [SimpleID('default')],
             'skins': [],
+            'materials': [],
         },
-        'output': {},
+        'output': {
+            'extensions': [],
+        },
         'references': [],
     }
     state['input'].update(scene_delta)
@@ -1457,28 +1307,36 @@ def export_gltf(scene_delta, settings=None):
             if exporter.check_func(data)
         ] for exporter in exporters
     }
-    state['output']['samplers'] = [{}]
-    state['output']['animations'] = export_animations(state, scene_delta.get('actions', []))
-    state['output']['materials'] = export_materials(state, scene_delta.get('materials', []))
-    state['output']['skins'] = export_skins(state)
-    state['output']['programs'] = state['programs']
-    state['output']['shaders'] = state['shaders']
-    state['output']['techniques'] = state['techniques']
-    state['output']['nodes'].extend([
-        export_joint(state, sid.data) for sid in state['input']['bones']
-    ])
 
+    # Export top level data
     gltf = {
         'asset': {
             'version': '1.0',
             'profile': PROFILE_MAP[settings['asset_profile']]
         },
-        'extensions': {},
         'extensionsUsed': [],
     }
     scene_ref = Reference('scenes', bpy.context.scene.name, gltf, 'scene')
     scene_ref.value = 0
     state['references'].append(scene_ref)
+
+    # Export materials
+    if state['settings']['shaders_data_storage'] == 'NONE':
+        state['output']['materials'] = [{'name': mat.name} for mat in state['input']['materials']]
+    else:
+        from .extension_exporters.khr_technique_webgl import KhrTechniqueWebgl
+        mat_exporter = KhrTechniqueWebgl()
+        mat_exporter.export(state)
+
+    # Export samplers
+    state['output']['samplers'] = [{}]
+
+    # Export animations
+    state['output']['animations'] = export_animations(state, scene_delta.get('actions', []))
+    state['output']['skins'] = export_skins(state)
+    state['output']['nodes'].extend([
+        export_joint(state, sid.data) for sid in state['input']['bones']
+    ])
 
     state['refmap'] = build_int_refmap(state['input'])
     for ext_exporter in settings['extension_exporters']:
@@ -1490,14 +1348,15 @@ def export_gltf(scene_delta, settings=None):
     gltf.update({'glExtensionsUsed': state['gl_extensions_used']})
 
     # Convert lists to dictionaries
-    extensions = state['output']['extensions']
+    extensions = state['output'].get('extensions', [])
     state['output'] = {
         key: {
             '{}_{}'.format(key, i): data for i, data in enumerate(value)
         } for key, value in state['output'].items()
         if key != 'extensions'
     }
-    state['output']['extensions'] = extensions
+    if extensions:
+        state['output']['extensions'] = extensions
     gltf.update(state['output'])
 
     # Insert root nodes if axis conversion is needed
