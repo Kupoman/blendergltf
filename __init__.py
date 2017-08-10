@@ -95,11 +95,12 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     ext_prop_to_exporter_map = {}
     for ext_exporter in ext_exporters:
         meta = ext_exporter.ext_meta
-        name = 'settings_' + meta['name']
-        prop_group = type(name, (bpy.types.PropertyGroup,), meta.get('settings', {}))
-        bpy.utils.register_class(prop_group)
-        value = PointerProperty(type=prop_group)
-        locals()[name] = value
+        if hasattr(meta, 'settings'):
+            name = 'settings_' + meta['name']
+            prop_group = type(name, (bpy.types.PropertyGroup,), meta['settings'])
+            bpy.utils.register_class(prop_group)
+            value = PointerProperty(type=prop_group)
+            locals()[name] = value
 
     # blendergltf settings
     nodes_export_hidden = BoolProperty(
@@ -149,11 +150,6 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         name='Combine Buffer Data',
         description='Combine all buffers into a single buffer',
         default=True
-    )
-    ext_export_physics = BoolProperty(
-        name='Export Physics Settings',
-        description='Enable support for the BLENDER_physics extension',
-        default=False
     )
     asset_profile = EnumProperty(
         items=PROFILE_ITEMS,
