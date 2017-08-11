@@ -1,5 +1,6 @@
 import base64
 import collections
+from distutils.version import StrictVersion as Version
 import functools
 import itertools
 import json
@@ -28,6 +29,7 @@ DEFAULT_SETTINGS = {
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data': True,
     'images_data_storage': 'COPY',
+    'asset_version': '1.0',
     'asset_profile': 'WEB',
     'images_allow_srgb': False,
     'extension_exporters': [],
@@ -48,7 +50,7 @@ GL_SRGB_ALPHA = 0x8C42
 OES_ELEMENT_INDEX_UINT = 'OES_element_index_uint'
 
 PROFILE_MAP = {
-    'WEB': {'api': 'WebGL', 'version': '1.0.3'},
+    'WEB': {'api': 'WebGL', 'version': '1.0'},
     'DESKTOP': {'api': 'OpenGL', 'version': '3.0'}
 }
 
@@ -258,7 +260,6 @@ class Buffer:
 
     __slots__ = (
         "name",
-        "buffer_type",
         "bytelength",
         "buffer_views",
         "accessors",
@@ -266,7 +267,6 @@ class Buffer:
 
     def __init__(self, name):
         self.name = 'buffer_{}'.format(name)
-        self.buffer_type = 'arraybuffer'
         self.bytelength = 0
         self.buffer_views = collections.OrderedDict()
         self.accessors = {}
@@ -283,11 +283,15 @@ class Buffer:
             with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as fout:
                 fout.write(data)
 
-        return {
+        gltf = {
             'byteLength': self.bytelength,
-            'type': self.buffer_type,
             'uri': uri,
         }
+
+        if state['version'] < Version('2.0'):
+            gltf['type'] = 'arraybuffer'
+
+        return gltf
 
     def add_view(self, bytelength, target):
         buffer_name = 'bufferView_{}_{}'.format(self.name, len(self.buffer_views))
@@ -763,9 +767,13 @@ def export_node(state, obj):
 
     if obj.type == 'MESH':
         mesh = state['mod_meshes'].get(obj.name, obj.data)
-        node['meshes'] = []
-        node['meshes'].append(Reference('meshes', mesh.name, node['meshes'], 0))
-        state['references'].append(node['meshes'][0])
+        if state['version'] < Version('2.0'):
+            node['meshes'] = []
+            node['meshes'].append(Reference('meshes', mesh.name, node['meshes'], 0))
+            state['references'].append(node['meshes'][0])
+        else:
+            node['mesh'] = Reference('meshes', mesh.name, node, 'mesh')
+            state['references'].append(node['mesh'])
         armature = obj.find_armature()
         if armature:
             bone_names = [b.as_pointer() for b in armature.data.bones if b.parent is None]
@@ -1235,6 +1243,7 @@ def export_gltf(scene_delta, settings=None):
 
     # Initialize export state
     state = {
+        'version': Version(settings['asset_version']),
         'settings': settings,
         'animation_dt': 1.0 / bpy.context.scene.render.fps,
         'shaders': [],
@@ -1310,11 +1319,12 @@ def export_gltf(scene_delta, settings=None):
     # Export top level data
     gltf = {
         'asset': {
-            'version': '1.0',
-            'profile': PROFILE_MAP[settings['asset_profile']]
+            'version': settings['asset_version'],
         },
         'extensionsUsed': [],
     }
+    if state['version'] < Version('2.0'):
+        gltf['asset']['profile'] = PROFILE_MAP[settings['asset_profile']]
     scene_ref = Reference('scenes', bpy.context.scene.name, gltf, 'scene')
     scene_ref.value = 0
     state['references'].append(scene_ref)
@@ -1343,15 +1353,16 @@ def export_gltf(scene_delta, settings=None):
     gltf.update({'glExtensionsUsed': state['gl_extensions_used']})
 
     # Convert lists to dictionaries
-    extensions = state['output'].get('extensions', [])
-    state['output'] = {
-        key: {
-            '{}_{}'.format(key, i): data for i, data in enumerate(value)
-        } for key, value in state['output'].items()
-        if key != 'extensions'
-    }
-    if extensions:
-        state['output']['extensions'] = extensions
+    if state['version'] < Version('2.0'):
+        extensions = state['output'].get('extensions', [])
+        state['output'] = {
+            key: {
+                '{}_{}'.format(key, i): data for i, data in enumerate(value)
+            } for key, value in state['output'].items()
+            if key != 'extensions'
+        }
+        if extensions:
+            state['output']['extensions'] = extensions
     gltf.update(state['output'])
 
     # Insert root nodes if axis conversion is needed
@@ -1359,7 +1370,10 @@ def export_gltf(scene_delta, settings=None):
         insert_root_nodes(gltf, togl(settings['nodes_global_matrix']))
 
     # Resolve references
-    refmap = build_string_refmap(state['input'])
+    if state['version'] < Version('2.0'):
+        refmap = build_string_refmap(state['input'])
+    else:
+        refmap = build_int_refmap(state['input'])
     for ref in state['references']:
         ref.source[ref.prop] = refmap[(ref.blender_type, ref.blender_name)]
 

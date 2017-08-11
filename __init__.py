@@ -1,4 +1,5 @@
 import importlib
+from distutils.version import StrictVersion as Version
 import json
 import os
 
@@ -47,6 +48,10 @@ GLTFOrientationHelper = orientation_helper_factory(
     "GLTFOrientationHelper", axis_forward='Y', axis_up='Z'
 )
 
+VERSION_ITEMS = (
+    ('1.0', '1.0', ''),
+    ('2.0', '2.0', ''),
+)
 
 PROFILE_ITEMS = (
     ('WEB', 'Web', 'Export shaders for WebGL 1.0 use (shader version 100)'),
@@ -152,6 +157,11 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         description='Combine all buffers into a single buffer',
         default=True
     )
+    asset_version = EnumProperty(
+        items=VERSION_ITEMS,
+        name='Version',
+        default='2.0'
+    )
     asset_profile = EnumProperty(
         items=PROFILE_ITEMS,
         name='Profile',
@@ -183,7 +193,8 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             prop.name = exporter.ext_meta['name']
             prop.enable = exporter.ext_meta['enable']
 
-            if exporter.ext_meta['name'] == 'KHR_technique_webgl':
+            is_tech_ext = exporter.ext_meta['name'] == 'KHR_technique_webgl'
+            if Version(self.asset_version) < Version('2.0') and is_tech_ext:
                 prop.enable = True
 
         return super().invoke(context, event)
@@ -210,8 +221,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col = layout.box().column()
         col.label('Materials:', icon='MATERIAL_DATA')
         col.prop(self, 'materials_disable')
-        material_settings = getattr(self, 'settings_KHR_technique_webgl')
-        col.prop(material_settings, 'embed_shaders')
+        if Version(self.asset_version) < Version('2.0'):
+            material_settings = getattr(self, 'settings_KHR_technique_webgl')
+            col.prop(material_settings, 'embed_shaders')
 
         col = layout.box().column()
         col.label('Images:', icon='IMAGE_DATA')
@@ -225,7 +237,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         col = layout.box().column()
         col.label('Extensions:', icon='PLUGIN')
-        extension_filter = {'KHR_technique_webgl',}
+        extension_filter = set()
+        if Version(self.asset_version) < Version('2.0'):
+            extension_filter.add('KHR_technique_webgl')
         for i in range(len(self.extension_props)):
             prop = self.extension_props[i]
             extension_exporter = self.ext_prop_to_exporter_map[prop.name]
@@ -260,7 +274,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         col = layout.box().column()
         col.label('Output:', icon='SCRIPTWIN')
-        col.prop(self, 'asset_profile')
+        col.prop(self, 'asset_version')
+        if Version(self.asset_version) < Version('2.0'):
+            col.prop(self, 'asset_profile')
         col.prop(self, 'pretty_print')
         col.prop(self, 'blocks_prune_unused')
 
@@ -310,10 +326,15 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
                 None
             )
 
+        def is_builtin_mat_ext(prop_name):
+            if Version(self.asset_version) < Version('2.0'):
+                return prop_name == 'KHR_technique_webgl'
+            return False
+
         settings['extension_exporters'] = [
             self.ext_prop_to_exporter_map[prop.name]
             for prop in self.extension_props
-            if prop.enable and not (self.materials_disable and prop.name == 'KHR_technique_webgl')
+            if prop.enable and not (self.materials_disable and is_builtin_mat_ext(prop.name))
         ]
 
         gltf = export_gltf(data, settings)
