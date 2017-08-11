@@ -86,7 +86,10 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
     check_extension = True
 
-    ext_exporters = [exporter() for exporter in extension_exporters.__all__]
+    ext_exporters = sorted(
+        [exporter() for exporter in extension_exporters.__all__],
+        key=lambda ext: ext.ext_meta['name']
+    )
     extension_props = CollectionProperty(
         name='Extensions',
         type=ExtPropertyGroup,
