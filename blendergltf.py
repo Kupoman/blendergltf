@@ -25,7 +25,6 @@ DEFAULT_SETTINGS = {
     'nodes_global_matrix': mathutils.Matrix.Identity(4),
     'nodes_selected_only': False,
     'blocks_prune_unused': True,
-    'shaders_data_storage': 'NONE',
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data': True,
     'images_data_storage': 'COPY',
@@ -1320,13 +1319,8 @@ def export_gltf(scene_delta, settings=None):
     scene_ref.value = 0
     state['references'].append(scene_ref)
 
-    # Export materials
-    if state['settings']['shaders_data_storage'] == 'NONE':
-        state['output']['materials'] = [{'name': mat.name} for mat in state['input']['materials']]
-    else:
-        from .extension_exporters.khr_technique_webgl import KhrTechniqueWebgl
-        mat_exporter = KhrTechniqueWebgl()
-        mat_exporter.export(state)
+    # Export material place holders for extensions to use
+    state['output']['materials'] = [{'name': mat.name} for mat in state['input']['materials']]
 
     # Export samplers
     state['output']['samplers'] = [{}]
@@ -1338,6 +1332,7 @@ def export_gltf(scene_delta, settings=None):
         export_joint(state, sid.data) for sid in state['input']['bones']
     ])
 
+    # Export extensions
     state['refmap'] = build_int_refmap(state['input'])
     for ext_exporter in settings['extension_exporters']:
         ext_exporter.export(state)

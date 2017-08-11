@@ -57,11 +57,6 @@ IMAGE_STORAGE_ITEMS = (
     ('REFERENCE', 'Reference', 'Use the same filepath that Blender uses for images'),
     ('COPY', 'Copy', 'Copy images to output directory and use a relative reference')
 )
-SHADER_STORAGE_ITEMS = (
-    ('EMBED', 'Embed', 'Embed shader data into the glTF file'),
-    ('NONE', 'None', 'Use the KHR_material_common extension instead of a shader'),
-    ('EXTERNAL', 'External', 'Save shaders to the output directory')
-)
 
 
 class ExtPropertyGroup(bpy.types.PropertyGroup):
@@ -95,7 +90,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     ext_prop_to_exporter_map = {}
     for ext_exporter in ext_exporters:
         meta = ext_exporter.ext_meta
-        if hasattr(meta, 'settings'):
+        if 'settings' in meta:
             name = 'settings_' + meta['name']
             prop_group = type(name, (bpy.types.PropertyGroup,), meta['settings'])
             bpy.utils.register_class(prop_group)
@@ -113,6 +108,11 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         description='Only export nodes that are currently selected',
         default=False
     )
+    materials_disable = BoolProperty(
+        name='Disable Material Export',
+        description='Export minimum default materials. Useful when using material extensions',
+        default=False
+    )
     meshes_apply_modifiers = BoolProperty(
         name='Apply Modifiers',
         description='Apply all modifiers to the output mesh data',
@@ -125,11 +125,6 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             'instead of each vertex property (e.g. position) contiguously'
         ),
         default=True
-    )
-    shaders_data_storage = EnumProperty(
-        items=SHADER_STORAGE_ITEMS,
-        name='Storage',
-        default='NONE'
     )
     images_data_storage = EnumProperty(
         items=IMAGE_STORAGE_ITEMS,
@@ -182,6 +177,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             prop.name = exporter.ext_meta['name']
             prop.enable = exporter.ext_meta['enable']
 
+            if exporter.ext_meta['name'] == 'KHR_technique_webgl':
+                prop.enable = True
+
         return super().invoke(context, event)
 
     def draw(self, context):
@@ -204,8 +202,10 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col.prop(self, 'meshes_interleave_vertex_data')
 
         col = layout.box().column()
-        col.label('Shaders:', icon='MATERIAL_DATA')
-        col.prop(self, 'shaders_data_storage')
+        col.label('Materials:', icon='MATERIAL_DATA')
+        col.prop(self, 'materials_disable')
+        material_settings = getattr(self, 'settings_KHR_technique_webgl')
+        col.prop(material_settings, 'embed_shaders')
 
         col = layout.box().column()
         col.label('Images:', icon='IMAGE_DATA')
@@ -219,16 +219,21 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         col = layout.box().column()
         col.label('Extensions:', icon='PLUGIN')
+        extension_filter = {'KHR_technique_webgl',}
         for i in range(len(self.extension_props)):
             prop = self.extension_props[i]
+            extension_exporter = self.ext_prop_to_exporter_map[prop.name]
+
+            if extension_exporter.ext_meta['name'] in extension_filter:
+                continue
 
             col.prop(prop, 'enable', text=prop.name)
-            extension_exporter = self.ext_prop_to_exporter_map[prop.name]
             if prop.enable:
                 settings = getattr(self, 'settings_' + prop.name, None)
                 if settings:
+                    box = col.box()
                     if hasattr(extension_exporter, 'draw_settings'):
-                        extension_exporter.draw_settings(col, settings, context)
+                        extension_exporter.draw_settings(box, settings, context)
                     else:
                         setting_props = [
                             name for name in dir(settings)
@@ -236,7 +241,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
                             and name not in ('bl_rna', 'name', 'rna_type')
                         ]
                         for setting_prop in setting_props:
-                            col.prop(settings, setting_prop)
+                            box.prop(settings, setting_prop)
                     if i < len(self.extension_props) - 1:
                         col.separator()
                         col.separator()
@@ -295,7 +300,8 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         settings['extension_exporters'] = [
             self.ext_prop_to_exporter_map[prop.name]
-            for prop in self.extension_props if prop.enable
+            for prop in self.extension_props
+            if prop.enable and not (self.materials_disable and prop.name == 'KHR_technique_webgl')
         ]
 
         gltf = export_gltf(data, settings)

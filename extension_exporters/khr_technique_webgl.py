@@ -18,7 +18,15 @@ else:
 class KhrTechniqueWebgl:
     ext_meta = {
         'name': 'KHR_technique_webgl',
+        'settings': {
+            'embed_shaders': bpy.props.BoolProperty(
+                name='Embed Shader Data',
+                description='Embed shader data into the glTF file',
+                default=False
+            )
+        }
     }
+    settings = None
 
 
     def export_material(self, state, material):
@@ -28,13 +36,12 @@ class KhrTechniqueWebgl:
         else:
             shader_converter.to_web(shader_data)
 
-        storage_setting = state['settings']['shaders_data_storage']
-        if storage_setting == 'EMBED':
+        if self.settings.embed_shaders is True:
             fs_bytes = shader_data['fragment'].encode()
             fs_uri = 'data:text/plain;base64,' + base64.b64encode(fs_bytes).decode('ascii')
             vs_bytes = shader_data['vertex'].encode()
             vs_uri = 'data:text/plain;base64,' + base64.b64encode(vs_bytes).decode('ascii')
-        elif storage_setting == 'EXTERNAL':
+        else:
             names = [
                 bpy.path.clean_name(name) + '.glsl'
                 for name in (material.name+'VS', material.name+'FS')
@@ -45,11 +52,6 @@ class KhrTechniqueWebgl:
                 with open(filename, 'w') as fout:
                     fout.write(data)
             vs_uri, fs_uri = names
-        else:
-            print(
-                'Encountered unknown option ({}) for shaders_data_storage setting'
-                .format(storage_setting)
-            )
 
         state['shaders'].append({'type': 35632, 'uri': fs_uri})
         state['shaders'].append({'type': 35633, 'uri': vs_uri})
