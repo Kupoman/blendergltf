@@ -4,6 +4,11 @@ from ..blendergltf import Reference
 class KhrMaterialsCommon:
     ext_meta = {
         'name': 'KHR_materials_common',
+        'url': (
+            'https://github.com/KhronosGroup/glTF/tree/master/extensions/'
+            'Khronos/KHR_materials_common'
+        ),
+        'isDraft': True,
     }
 
     def export_light(self, light):

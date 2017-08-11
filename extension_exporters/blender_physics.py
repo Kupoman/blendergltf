@@ -1,6 +1,11 @@
 class BlenderPhysics:
     ext_meta = {
         'name': 'BLENDER_physics',
+        'url': (
+            'https://github.com/Kupoman/blendergltf/tree/master/extensions/'
+            'BLENDER_physics'
+        ),
+        'isDraft': True,
     }
 
     def export_physics(self, obj):

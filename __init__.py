@@ -97,6 +97,12 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             value = PointerProperty(type=prop_group)
             locals()[name] = value
 
+    # Dummy property to get icon with tooltip
+    draft_prop = BoolProperty(
+        name='',
+        description='This extension is currently in a draft phase',
+    )
+
     # blendergltf settings
     nodes_export_hidden = BoolProperty(
         name='Export Hidden Objects',
@@ -227,7 +233,13 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             if extension_exporter.ext_meta['name'] in extension_filter:
                 continue
 
-            col.prop(prop, 'enable', text=prop.name)
+            row = col.row()
+            row.prop(prop, 'enable', text=prop.name)
+            if extension_exporter.ext_meta.get('isDraft', False):
+                row.prop(self, 'draft_prop', icon='ERROR', emboss=False)
+            info_op = row.operator('wm.url_open', icon='INFO', emboss=False)
+            info_op.url = extension_exporter.ext_meta.get('url', '')
+
             if prop.enable:
                 settings = getattr(self, 'settings_' + prop.name, None)
                 if settings:

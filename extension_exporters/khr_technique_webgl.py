@@ -18,6 +18,11 @@ else:
 class KhrTechniqueWebgl:
     ext_meta = {
         'name': 'KHR_technique_webgl',
+        'url': (
+            'https://github.com/KhronosGroup/glTF/tree/master/extensions/'
+            'Khronos/KHR_technique_webgl'
+        ),
+        'isDraft': True,
         'settings': {
             'embed_shaders': bpy.props.BoolProperty(
                 name='Embed Shader Data',
