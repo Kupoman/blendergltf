@@ -1097,7 +1097,7 @@ def export_animations(state, actions):
 
         gltf_channels = []
         gltf_parameters = {}
-        gltf_samplers = {}
+        gltf_samplers = []
 
         tbuf = Buffer('{}_time'.format(action.name))
         tbv = tbuf.add_view(num_frames * 1 * 4, None)
@@ -1112,6 +1112,7 @@ def export_animations(state, actions):
         gltf_parameters[time_parameter_name] = ref
         state['references'].append(ref)
 
+        sampler_keys = []
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
             lbv = buf.add_view(num_frames * 3 * 4, None)
@@ -1138,45 +1139,81 @@ def export_animations(state, actions):
 
             for path in ('translation', 'rotation', 'scale'):
                 sampler_name = '{}_{}_{}_sampler'.format(action.name, targetid, path)
+                sampler_keys.append(sampler_name)
                 parameter_name = '{}_{}_{}_parameter'.format(action.name, targetid, path)
 
-                id_ref = Reference('bones' if is_bone else 'objects', targetid, None, 'id')
-                gltf_channels.append({
+                gltf_channel = {
                     'sampler': sampler_name,
                     'target': {
                         'id': targetid,
                         'path': path,
                     }
-                })
-                id_ref.source = gltf_channels[-1]['target']
-                state['references'].append(id_ref)
-
-                gltf_samplers[sampler_name] = {
-                    'input': time_parameter_name,
-                    'interpolation': 'LINEAR',
-                    'output': parameter_name,
                 }
+                gltf_channels.append(gltf_channel)
+                id_ref = Reference(
+                    'bones' if is_bone else 'objects',
+                    targetid,
+                    gltf_channel['target'],
+                    'id'
+                )
+                state['references'].append(id_ref)
+                state['input']['anim_samplers'].append(SimpleID(sampler_name))
+                sampler_ref = Reference('anim_samplers', sampler_name, gltf_channel, 'sampler')
+                state['references'].append(sampler_ref)
+
+                gltf_sampler = {
+                    'input': None,
+                    'interpolation': 'LINEAR',
+                    'output': None,
+                }
+                gltf_samplers.append(gltf_sampler)
 
                 accessor_name = {
                     'translation': ldata.name,
                     'rotation': rdata.name,
                     'scale': sdata.name,
                 }[path]
-                accessor_ref = Reference(
-                    'accessors',
-                    accessor_name,
-                    gltf_parameters,
-                    parameter_name
-                )
-                gltf_parameters[parameter_name] = accessor_ref
+
+                if state['version'] < Version('2.0'):
+                    gltf_sampler['input'] = time_parameter_name
+                    gltf_sampler['output'] = parameter_name
+                    accessor_ref = Reference(
+                        'accessors',
+                        accessor_name,
+                        gltf_parameters,
+                        parameter_name
+                    )
+                    gltf_parameters[parameter_name] = accessor_ref
+                else:
+                    time_ref = Reference(
+                        'accessors',
+                        tdata.name,
+                        gltf_sampler,
+                        'input'
+                    )
+                    gltf_sampler['input'] = time_ref
+                    state['references'].append(time_ref)
+                    accessor_ref = Reference(
+                        'accessors',
+                        accessor_name,
+                        gltf_sampler,
+                        'output'
+                    )
+                    gltf_sampler['output'] = accessor_ref
+
                 state['references'].append(accessor_ref)
 
         gltf_action = {
             'name': action.name,
             'channels': gltf_channels,
             'samplers': gltf_samplers,
-            'parameters': gltf_parameters,
         }
+
+        if state['version'] < Version('2.0'):
+            gltf_action['samplers'] = {
+                i[0]: i[1] for i in zip(sampler_keys, gltf_action['samplers'])
+            }
+            gltf_action['parameters'] = gltf_parameters
 
         obj.animation_data.action = prev_action
         sce.frame_set(prev_frame)
@@ -1262,6 +1299,7 @@ def export_gltf(scene_delta, settings=None):
             'bufferViews': [],
             'objects': [],
             'bones': [],
+            'anim_samplers': [],
             'samplers': [SimpleID('default')],
             'skins': [],
             'materials': [],
