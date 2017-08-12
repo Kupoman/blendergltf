@@ -1079,6 +1079,11 @@ def _can_object_use_action(obj, action):
 
 def export_animations(state, actions):
     def export_animation(obj, action):
+        if state['version'] < Version('2.0'):
+            target_key = 'id'
+        else:
+            target_key = 'node'
+
         channels = {}
 
         sce = bpy.context.scene
@@ -1158,7 +1163,7 @@ def export_animations(state, actions):
                 gltf_channel = {
                     'sampler': sampler_name,
                     'target': {
-                        'id': targetid,
+                        target_key: targetid,
                         'path': path,
                     }
                 }
@@ -1167,7 +1172,7 @@ def export_animations(state, actions):
                     'bones' if is_bone else 'objects',
                     targetid,
                     gltf_channel['target'],
-                    'id'
+                    target_key
                 )
                 state['references'].append(id_ref)
                 state['input']['anim_samplers'].append(SimpleID(sampler_name))
