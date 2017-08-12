@@ -1320,8 +1320,7 @@ def export_gltf(scene_delta, settings=None):
     gltf = {
         'asset': {
             'version': settings['asset_version'],
-        },
-        'extensionsUsed': [],
+        }
     }
     if state['version'] < Version('2.0'):
         gltf['asset']['profile'] = PROFILE_MAP[settings['asset_profile']]
@@ -1349,7 +1348,8 @@ def export_gltf(scene_delta, settings=None):
 
     state['output'].update(export_buffers(state))
     state['output'] = {key: value for key, value in state['output'].items() if value != []}
-    gltf.update({'extensionsUsed': state['extensions_used']})
+    if state['extensions_used']:
+        gltf.update({'extensionsUsed': state['extensions_used']})
     gltf.update({'glExtensionsUsed': state['gl_extensions_used']})
 
     # Convert lists to dictionaries
