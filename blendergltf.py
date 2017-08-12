@@ -534,7 +534,7 @@ def export_mesh(state, mesh):
         skin_view,
         0,
         skin_vertex_size,
-        Buffer.FLOAT,
+        Buffer.UNSIGNED_BYTE,
         num_verts,
         Buffer.VEC4
     )
