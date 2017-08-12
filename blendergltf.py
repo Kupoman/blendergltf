@@ -750,8 +750,9 @@ def export_skins(state):
 def export_node(state, obj):
     node = {
         'name': obj.name,
-        'children': [],
     }
+    if obj.children:
+        node['children'] = []
     for i, child in enumerate(obj.children):
         node['children'].append(Reference('objects', child.name, node['children'], i))
         state['references'].append(node['children'][-1])
@@ -791,6 +792,7 @@ def export_node(state, obj):
     elif obj.type == 'EMPTY' and obj.dupli_group is not None:
         # Expand dupli-groups
         # TODO: list of references
+        node['children'] = node.get('children', [])
         node['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
     elif obj.type == 'ARMATURE':
         for i, bone in enumerate(obj.data.bones):
@@ -819,10 +821,11 @@ def export_joint(state, bone):
     }
     gltf_joint['jointName'] = Reference('bones', bone.as_pointer(), gltf_joint, 'jointName')
     state['references'].append(gltf_joint['jointName'])
-    gltf_joint['children'] = [
-        Reference('bones', child.as_pointer(), None, None) for child in bone.children
-    ]
-    for i, ref in enumerate(gltf_joint['children']):
+    if bone.children:
+        gltf_joint['children'] = [
+            Reference('bones', child.as_pointer(), None, None) for child in bone.children
+        ]
+    for i, ref in enumerate(gltf_joint.get('children', [])):
         ref.source = gltf_joint['children']
         ref.prop = i
         state['references'].append(ref)
