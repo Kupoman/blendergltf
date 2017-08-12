@@ -706,6 +706,11 @@ def export_mesh(state, mesh):
 
 def export_skins(state):
     def export_skin(obj, mesh_name):
+        if state['version'] < Version('2.0'):
+            joints_key = 'jointNames'
+        else:
+            joints_key = 'joints'
+
         arm = obj.find_armature()
 
         bind_shape_mat = obj.matrix_world * arm.matrix_world.inverted()
@@ -715,12 +720,12 @@ def export_skins(state):
             'bindShapeMatrix': togl(bind_shape_mat),
             'name': obj.name,
         }
-        gltf_skin['jointNames'] = [
+        gltf_skin[joints_key] = [
             Reference('bones', arm.data.bones[group.name].as_pointer(), None, None)
             for group in bone_groups
         ]
-        for i, ref in enumerate(gltf_skin['jointNames']):
-            ref.source = gltf_skin['jointNames']
+        for i, ref in enumerate(gltf_skin[joints_key]):
+            ref.source = gltf_skin[joints_key]
             ref.prop = i
             state['references'].append(ref)
 
@@ -826,8 +831,9 @@ def export_joint(state, bone):
     gltf_joint = {
         'name': bone.name,
     }
-    gltf_joint['jointName'] = Reference('bones', bone.as_pointer(), gltf_joint, 'jointName')
-    state['references'].append(gltf_joint['jointName'])
+    if state['version'] < Version('2.0'):
+        gltf_joint['jointName'] = Reference('bones', bone.as_pointer(), gltf_joint, 'jointName')
+        state['references'].append(gltf_joint['jointName'])
     if bone.children:
         gltf_joint['children'] = [
             Reference('bones', child.as_pointer(), None, None) for child in bone.children
