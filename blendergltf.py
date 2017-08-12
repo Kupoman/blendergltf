@@ -627,6 +627,13 @@ def export_mesh(state, mesh):
         if OES_ELEMENT_INDEX_UINT not in state['gl_extensions_used']:
             state['gl_extensions_used'].append(OES_ELEMENT_INDEX_UINT)
 
+    if state['version'] < Version('2.0'):
+        joint_key = 'JOINT'
+        weight_key = 'WEIGHT'
+    else:
+        joint_key = 'JOINTS_0'
+        weight_key = 'WEIGHTS_0'
+
     for mat, prim in prims.items():
         # For each primitive set add an index buffer and accessor.
 
@@ -674,10 +681,10 @@ def export_mesh(state, mesh):
             gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
             state['references'].append(gltf_attrs[attr_name])
         if is_skinned:
-            gltf_attrs['JOINT'] = Reference('accessors', jdata.name, gltf_attrs, 'JOINT')
-            state['references'].append(gltf_attrs['JOINT'])
-            gltf_attrs['WEIGHT'] = Reference('accessors', wdata.name, gltf_attrs, 'WEIGHT')
-            state['references'].append(gltf_attrs['WEIGHT'])
+            gltf_attrs[joint_key] = Reference('accessors', jdata.name, gltf_attrs, joint_key)
+            state['references'].append(gltf_attrs[joint_key])
+            gltf_attrs[weight_key] = Reference('accessors', wdata.name, gltf_attrs, weight_key)
+            state['references'].append(gltf_attrs[weight_key])
 
         gltf_prim['attributes'] = gltf_attrs
 
