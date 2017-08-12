@@ -1350,7 +1350,8 @@ def export_gltf(scene_delta, settings=None):
     state['output'] = {key: value for key, value in state['output'].items() if value != []}
     if state['extensions_used']:
         gltf.update({'extensionsUsed': state['extensions_used']})
-    gltf.update({'glExtensionsUsed': state['gl_extensions_used']})
+    if state['version'] < Version('2.0'):
+        gltf.update({'glExtensionsUsed': state['gl_extensions_used']})
 
     # Convert lists to dictionaries
     if state['version'] < Version('2.0'):
