@@ -1069,7 +1069,8 @@ def export_texture(state, texture):
         else:
             tformat = GL_RGBA
 
-    gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
+    if state['version'] < Version('2.0'):
+        gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
 
     return gltf_texture
 
