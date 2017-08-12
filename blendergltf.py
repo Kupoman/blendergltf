@@ -698,8 +698,9 @@ def export_mesh(state, mesh):
     state['input']['buffers'].append(buf)
     if is_skinned:
         state['input']['buffers'].append(skin_buf)
-        gltf_mesh['skin'] = Reference('skins', mesh.name, gltf_mesh, 'skin')
-        state['references'].append(gltf_mesh['skin'])
+        if state['version'] < Version('2.0'):
+            gltf_mesh['skin'] = Reference('skins', mesh.name, gltf_mesh, 'skin')
+            state['references'].append(gltf_mesh['skin'])
 
     return gltf_mesh
 
@@ -728,6 +729,13 @@ def export_skins(state):
             ref.source = gltf_skin[joints_key]
             ref.prop = i
             state['references'].append(ref)
+
+        if state['version'] >= Version('2.0'):
+            bone_names = [b.as_pointer() for b in arm.data.bones if b.parent is None]
+            if len(bone_names) > 1:
+                print('Warning: Armature {} has no root node'.format(arm.data.name))
+            gltf_skin['skeleton'] = Reference('bones', bone_names[0], gltf_skin, 'skeleton')
+            state['references'].append(gltf_skin['skeleton'])
 
         element_size = 16 * 4
         num_elements = len(bone_groups)
@@ -789,15 +797,19 @@ def export_node(state, obj):
             state['references'].append(node['mesh'])
         armature = obj.find_armature()
         if armature:
-            bone_names = [b.as_pointer() for b in armature.data.bones if b.parent is None]
-            node['skeletons'] = []
-            node['skeletons'].extend([
-                Reference('bones', bone, node['skeletons'], i)
-                for i, bone in enumerate(bone_names)
-            ])
-            for ref in node['skeletons']:
-                state['references'].append(ref)
             state['skinned_meshes'][mesh.name] = obj
+            if state['version'] < Version('2.0'):
+                bone_names = [b.as_pointer() for b in armature.data.bones if b.parent is None]
+                node['skeletons'] = []
+                node['skeletons'].extend([
+                    Reference('bones', bone, node['skeletons'], i)
+                    for i, bone in enumerate(bone_names)
+                ])
+                for ref in node['skeletons']:
+                    state['references'].append(ref)
+            else:
+                node['skin'] = Reference('skins', mesh.name, node, 'skin')
+                state['references'].append(node['skin'])
     elif obj.type == 'CAMERA':
         node['camera'] = Reference('cameras', obj.data.name, node, 'camera')
         state['references'].append(node['camera'])
