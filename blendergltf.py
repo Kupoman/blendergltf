@@ -453,6 +453,82 @@ def export_camera(_, camera):
     return camera_gltf
 
 
+class TextureHelper:
+    def __init__(self, texture_slot, prop='index'):
+        self.ref = Reference('textures', texture_slot.texture.name, None, prop)
+        self.texcoord = 0
+        if texture_slot.uv_layer:
+            print(texture_slot.uv_layer)
+
+        self.type = None
+        self.factor = 1.0
+        if texture_slot.use_map_color_diffuse:
+            self.type = 'DIFFUSE'
+            self.factor = texture_slot.diffuse_color_factor
+        elif texture_slot.use_map_hardness:
+            self.type = 'ROUGHNESS'
+            self.factor = texture_slot.hardness_factor
+        elif texture_slot.use_map_normal:
+            self.type = 'NORMAL'
+            self.factor = texture_slot.normal_factor
+
+    def finish_ref(self, state, source):
+        self.ref.source = source
+        state['references'].append(self.ref)
+
+
+def export_material(state, material):
+    gltf = {
+        'name': material.name,
+    }
+
+    if state['version'] < Version('2.0'):
+        return gltf
+
+    all_textures = [
+        TextureHelper(slot) for slot in material.texture_slots
+        if slot and slot.texture.type == 'IMAGE' and slot.texture_coords == 'UV'
+    ]
+    normal_textures = [t for t in all_textures if t.type == 'NORMAL']
+    if normal_textures:
+        texture = normal_textures[0]
+        gltf['normalTexture'] = {
+            'index': texture.ref,
+            'texCoord': texture.texcoord,
+        }
+        texture.finish_ref(state, gltf['normalTexture'])
+
+    diffuse_textures = [t for t in all_textures if t.type == 'DIFFUSE']
+    roughness_textures = [t for t in all_textures if t.type == 'ROUGHNESS']
+
+    pbr = {
+        'metallicFactor': 0,
+    }
+    if diffuse_textures:
+        texture = diffuse_textures[0]
+        pbr['baseColorTexture'] = {
+            'index': texture.ref,
+            'texCoord': texture.texcoord,
+        }
+        texture.finish_ref(state, pbr['baseColorTexture'])
+        pbr['baseColorFactor'] = [texture.factor] * 3
+    else:
+        pbr['baseColorFactor'] = list(material.diffuse_color * material.diffuse_intensity)
+
+    if roughness_textures:
+        texture = roughness_textures[0]
+        pbr['metallicRougnessTexture'] = {
+            'index': texture.ref,
+            'texCoord': texture.texcoord,
+        }
+        texture.finish_ref(state, pbr['metallicRougnessTexture'])
+        pbr['baseColorFactor'] = texture.factor
+
+    gltf['pbrMetallicRoughness'] = pbr
+
+    return gltf
+
+
 def export_mesh(state, mesh):
     # glTF data
     gltf_mesh = {
@@ -1388,6 +1464,7 @@ def export_gltf(scene_delta, settings=None):
         exporter('images', 'images', export_image, check_image),
         exporter('nodes', 'objects', export_node, lambda x: True),
         # Make sure meshes come after nodes to detect which meshes are skinned
+        exporter('materials', 'materials', export_material, lambda x: True),
         exporter('meshes', 'meshes', export_mesh, lambda x: True),
         exporter('scenes', 'scenes', export_scene, lambda x: True),
         exporter('textures', 'textures', export_texture, check_texture),
@@ -1412,9 +1489,6 @@ def export_gltf(scene_delta, settings=None):
     scene_ref = Reference('scenes', bpy.context.scene.name, gltf, 'scene')
     scene_ref.value = 0
     state['references'].append(scene_ref)
-
-    # Export material place holders for extensions to use
-    state['output']['materials'] = [{'name': mat.name} for mat in state['input']['materials']]
 
     # Export samplers
     state['output']['samplers'] = [{}]
