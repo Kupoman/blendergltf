@@ -729,7 +729,6 @@ def export_skins(state):
         bone_groups = [group for group in obj.vertex_groups if group.name in arm.data.bones]
 
         gltf_skin = {
-            'bindShapeMatrix': togl(bind_shape_mat),
             'name': obj.name,
         }
         gltf_skin[joints_key] = [
@@ -741,7 +740,10 @@ def export_skins(state):
             ref.prop = i
             state['references'].append(ref)
 
-        if state['version'] >= Version('2.0'):
+        if state['version'] < Version('2.0'):
+            gltf_skin['bindShapeMatrix'] = togl(bind_shape_mat)
+            bind_shape_mat = mathutils.Matrix.Identity(4)
+        else:
             bone_names = [b.as_pointer() for b in arm.data.bones if b.parent is None]
             if len(bone_names) > 1:
                 print('Warning: Armature {} has no root node'.format(arm.data.name))
@@ -756,7 +758,7 @@ def export_skins(state):
 
         for i, group in enumerate(bone_groups):
             bone = arm.data.bones[group.name]
-            mat = togl(bone.matrix_local.inverted())
+            mat = togl(bone.matrix_local.inverted() * bind_shape_mat)
             for j in range(16):
                 idata[(i * 16) + j] = mat[j]
 
