@@ -293,13 +293,14 @@ class Buffer:
 
         return gltf
 
-    def add_view(self, bytelength, target):
+    def add_view(self, bytelength, bytestride, target):
         buffer_name = 'bufferView_{}_{}'.format(self.name, len(self.buffer_views))
         self.buffer_views[buffer_name] = {
             'data': bytearray(bytelength),
             'target': target,
             'bytelength': bytelength,
             'byteoffset': self.bytelength,
+            'bytestride': bytestride,
         }
         self.bytelength += bytelength
         return buffer_name
@@ -312,6 +313,9 @@ class Buffer:
                 'byteLength': value['bytelength'],
                 'byteOffset': value['byteoffset'],
             }
+
+            if state['version'] >= Version('2.0') and value['bytestride'] > 0:
+                gltf['byteStride'] = value['bytestride']
 
             gltf['buffer'] = Reference('buffers', self.name, gltf, 'buffer')
             state['references'].append(gltf['buffer'])
@@ -358,13 +362,15 @@ class Buffer:
 
             gltf = {
                 'byteOffset': value.byte_offset,
-                'byteStride': value.byte_stride,
                 'componentType': value.component_type,
                 'count': value.count,
                 'min': value.min[:value.type_size],
                 'max': value.max[:value.type_size],
                 'type': value.data_type,
             }
+
+            if state['version'] < Version('2.0'):
+                gltf['byteStride'] = value.buffer_view['bytestride']
 
             gltf['bufferView'] = Reference('bufferViews', value.buffer_view, gltf, 'bufferView')
             state['references'].append(gltf['bufferView'])
@@ -474,10 +480,10 @@ def export_mesh(state, mesh):
 
     vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
     num_verts = len(vert_list)
-    view = buf.add_view(vertex_size * num_verts, Buffer.ARRAY_BUFFER)
 
     # Interleave
     if state['settings']['meshes_interleave_vertex_data']:
+        view = buf.add_view(vertex_size * num_verts, vertex_size, Buffer.ARRAY_BUFFER)
         vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
         ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
         tdata = [
@@ -503,6 +509,7 @@ def export_mesh(state, mesh):
             for i in range(num_col_layers)
         ]
     else:
+        view = buf.add_view(vertex_size * num_verts, 12, Buffer.ARRAY_BUFFER)
         vdata = buf.add_accessor(view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
         ndata = buf.add_accessor(view, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
         tdata = [
@@ -529,7 +536,11 @@ def export_mesh(state, mesh):
         ]
 
     skin_vertex_size = (4 + 4) * 4
-    skin_view = skin_buf.add_view(skin_vertex_size * num_verts, Buffer.ARRAY_BUFFER)
+    skin_view = skin_buf.add_view(
+        skin_vertex_size * num_verts,
+        skin_vertex_size,
+        Buffer.ARRAY_BUFFER
+    )
     jdata = skin_buf.add_accessor(
         skin_view,
         0,
@@ -650,7 +661,7 @@ def export_mesh(state, mesh):
             itype = Buffer.UNSIGNED_SHORT
             istride = 2
 
-        index_view = buf.add_view(istride * len(prim), Buffer.ELEMENT_ARRAY_BUFFER)
+        index_view = buf.add_view(istride * len(prim), 0, Buffer.ELEMENT_ARRAY_BUFFER)
         idata = buf.add_accessor(index_view, 0, istride, itype, len(prim),
                                  Buffer.SCALAR)
 
@@ -740,7 +751,7 @@ def export_skins(state):
         element_size = 16 * 4
         num_elements = len(bone_groups)
         buf = Buffer('IBM_{}_skin'.format(obj.name))
-        buf_view = buf.add_view(element_size * num_elements, None)
+        buf_view = buf.add_view(element_size * num_elements, element_size, None)
         idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
 
         for i, group in enumerate(bone_groups):
@@ -1131,7 +1142,7 @@ def export_animations(state, actions):
         gltf_samplers = []
 
         tbuf = Buffer('{}_time'.format(action.name))
-        tbv = tbuf.add_view(num_frames * 1 * 4, None)
+        tbv = tbuf.add_view(num_frames * 1 * 4, 1 * 4, None)
         tdata = tbuf.add_accessor(tbv, 0, 1 * 4, Buffer.FLOAT, num_frames, Buffer.SCALAR)
         time = 0
         for i in range(num_frames):
@@ -1146,11 +1157,11 @@ def export_animations(state, actions):
         sampler_keys = []
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
-            lbv = buf.add_view(num_frames * 3 * 4, None)
+            lbv = buf.add_view(num_frames * 3 * 4, 3 * 4, None)
             ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
-            rbv = buf.add_view(num_frames * 4 * 4, None)
+            rbv = buf.add_view(num_frames * 4 * 4, 4 * 4, None)
             rdata = buf.add_accessor(rbv, 0, 4 * 4, Buffer.FLOAT, num_frames, Buffer.VEC4)
-            sbv = buf.add_view(num_frames * 3 * 4, None)
+            sbv = buf.add_view(num_frames * 3 * 4, 3 * 4, None)
             sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
 
             for i in range(num_frames):
