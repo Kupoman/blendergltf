@@ -453,30 +453,6 @@ def export_camera(_, camera):
     return camera_gltf
 
 
-class TextureHelper:
-    def __init__(self, texture_slot, prop='index'):
-        self.ref = Reference('textures', texture_slot.texture.name, None, prop)
-        self.texcoord = 0
-        if texture_slot.uv_layer:
-            print(texture_slot.uv_layer)
-
-        self.type = None
-        self.factor = 1.0
-        if texture_slot.use_map_color_diffuse:
-            self.type = 'DIFFUSE'
-            self.factor = texture_slot.diffuse_color_factor
-        elif texture_slot.use_map_hardness:
-            self.type = 'ROUGHNESS'
-            self.factor = texture_slot.hardness_factor
-        elif texture_slot.use_map_normal:
-            self.type = 'NORMAL'
-            self.factor = texture_slot.normal_factor
-
-    def finish_ref(self, state, source):
-        self.ref.source = source
-        state['references'].append(self.ref)
-
-
 def export_material(state, material):
     gltf = {
         'name': material.name,
@@ -485,46 +461,39 @@ def export_material(state, material):
     if state['version'] < Version('2.0'):
         return gltf
 
-    all_textures = [
-        TextureHelper(slot) for slot in material.texture_slots
-        if slot and slot.texture.type == 'IMAGE' and slot.texture_coords == 'UV'
-    ]
-    normal_textures = [t for t in all_textures if t.type == 'NORMAL']
-    if normal_textures:
-        texture = normal_textures[0]
-        gltf['normalTexture'] = {
-            'index': texture.ref,
-            'texCoord': texture.texcoord,
+    if hasattr(material, 'pbr_export_settings'):
+        pbr_settings = material.pbr_export_settings
+        pbr = {
+            'baseColorFactor': pbr_settings.base_color_factor[:],
+            'metallicFactor': pbr_settings.metallic_factor,
+            'roughnessFactor': pbr_settings.roughness_factor,
         }
-        texture.finish_ref(state, gltf['normalTexture'])
 
-    diffuse_textures = [t for t in all_textures if t.type == 'DIFFUSE']
-    roughness_textures = [t for t in all_textures if t.type == 'ROUGHNESS']
+        if pbr_settings.base_color_texture:
+            pbr['baseColorTexture'] = {
+                'texCoord': pbr_settings.base_color_text_index,
+            }
+            pbr['baseColorTexture']['index'] = Reference(
+                'textures',
+                pbr_settings.base_color_texture,
+                pbr['baseColorTexture'],
+                'index'
+            )
+            state['references'].append(pbr['baseColorTexture']['index'])
 
-    pbr = {
-        'metallicFactor': 0,
-    }
-    if diffuse_textures:
-        texture = diffuse_textures[0]
-        pbr['baseColorTexture'] = {
-            'index': texture.ref,
-            'texCoord': texture.texcoord,
-        }
-        texture.finish_ref(state, pbr['baseColorTexture'])
-        pbr['baseColorFactor'] = [texture.factor] * 3
-    else:
-        pbr['baseColorFactor'] = list(material.diffuse_color * material.diffuse_intensity)
+        if pbr_settings.metal_roughness_texture:
+            pbr['metallicRoughnessTexture'] = {
+                'texCoord': pbr_settings.metal_rough_text_index,
+            }
+            pbr['metallicRoughnessTexture']['index'] = Reference(
+                'textures',
+                pbr_settings.metal_roughness_texture,
+                pbr['metallicRoughnessTexture'],
+                'index'
+            )
+            state['references'].append(pbr['metallicRoughnessTexture']['index'])
 
-    if roughness_textures:
-        texture = roughness_textures[0]
-        pbr['metallicRougnessTexture'] = {
-            'index': texture.ref,
-            'texCoord': texture.texcoord,
-        }
-        texture.finish_ref(state, pbr['metallicRougnessTexture'])
-        pbr['baseColorFactor'] = texture.factor
-
-    gltf['pbrMetallicRoughness'] = pbr
+        gltf['pbrMetallicRoughness'] = pbr
 
     return gltf
 

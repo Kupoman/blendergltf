@@ -1,0 +1,213 @@
+import math
+
+import bpy
+import mathutils
+
+
+def get_base_color_factor(self):
+    material = self.id_data
+    diffuse = mathutils.Vector(material.diffuse_color)
+    diffuse *= material.diffuse_intensity
+    return [*diffuse, material.alpha]
+
+
+def set_base_color_factor(self, value):
+    material = self.id_data
+    material.diffuse_color = value[:3]
+    material.diffuse_intensity = 1.0
+
+    alpha = value[3]
+    material.alpha = alpha
+    if alpha < 1.0:
+        material.use_transparency = True
+        material.transparency_method = 'Z_TRANSPARENCY'
+    else:
+        material.use_transparency = False
+
+
+def get_roughness_factor(self):
+    material = self.id_data
+    if not material.specular_hardness < self.hardness_float < material.specular_hardness + 1:
+        self.hardness_float = material.specular_hardness
+    roughness = pow(2.0 / (self.hardness_float + 2.0), 0.25)
+    return max(min((roughness - 0.25) / 0.65, 1.0), 0.0)
+
+
+def set_roughness_factor(self, value):
+    material = self.id_data
+
+    roughness_texture = self.metal_roughness_texture
+    if roughness_texture:
+        slot = material.texture_slots[roughness_texture]
+        slot.hardness_factor = value
+
+    value = (value * 0.65) + 0.25
+    if value <= 0:
+        self.hardness_float = material.specular_hardness = 511
+    else:
+        self.hardness_float = min((2.0 / pow(value, 4.0)) - 2.0, 511)
+        material.specular_hardness = math.floor(self.hardness_float)
+
+
+
+def get_texture(self, search_func, index_prop):
+    material = self.id_data
+    slots = [
+        t for t in material.texture_slots
+        if t and t.texture and t.texture_coords == 'UV'
+    ]
+
+    slot = None
+    for slot in slots[::-1]:
+        if search_func(slot):
+            break
+    else:
+        return ''
+
+    if bpy.context.object:
+        uv_layers = bpy.context.object.data.uv_layers
+        setattr(self, index_prop, uv_layers.find(slot.uv_layer) if slot.uv_layer else 0)
+
+    return slot.texture.name
+
+
+def _clear_slot_settings(slot):
+    slot.use_map_diffuse = False
+    slot.use_map_color_diffuse = False
+    slot.use_map_alpha = False
+    slot.use_map_translucency = False
+
+    slot.use_map_ambient = False
+    slot.use_map_emit = False
+    slot.use_map_mirror = False
+    slot.use_map_raymir = False
+
+    slot.use_map_specular = False
+    slot.use_map_color_spec = False
+    slot.use_map_hardness = False
+
+    slot.use_map_normal = False
+    slot.use_map_warp = False
+    slot.use_map_displacement = False
+
+    slot.blend_type = 'MIX'
+
+
+def set_texture(self, value, current_value, update_func):
+    material = self.id_data
+    current_index = material.texture_slots.find(current_value)
+    slot_index = material.texture_slots.find(value)
+
+    # Clear slot
+    if not value:
+        if current_index != -1:
+            material.texture_slots.clear(current_index)
+        return
+
+    # Don't do anything if the correct texture is already set
+    if value == current_value:
+        return
+
+    bl_texture = bpy.data.textures[value]
+    # Texture is not already in a slot on this material
+    if current_index == -1 and slot_index == -1:
+        slot = material.texture_slots.add()
+        slot.texture = bl_texture
+        _clear_slot_settings(slot)
+        update_func(slot)
+        return
+
+    # Adjust existing slot to meet texture criteria
+    slot = material.texture_slots[slot_index]
+    _clear_slot_settings(slot)
+    update_func(slot)
+    if slot_index < current_index:
+        material.active_texture_index = slot_index
+        for _ in range(current_index - slot_index):
+            bpy.ops.texture.slot_move(type='DOWN')
+            material.active_texture_index -= 1
+
+
+def get_base_color_texture(self):
+    return get_texture(self, lambda t: t.use_map_color_diffuse, 'base_color_text_index')
+
+
+def set_base_color_texture(self, value):
+    def update(slot):
+        slot.use_map_color_diffuse = True
+        slot.blend_type = 'MULTIPLY'
+    set_texture(self, value, get_base_color_texture(self), update)
+
+
+def get_metal_roughness_texture(self):
+    return get_texture(self, lambda t: t.use_map_hardness, 'metal_rough_text_index')
+
+
+def set_metal_roughness_texture(self, value):
+    def update(slot):
+        slot.use_map_hardness = True
+    set_texture(self, value, get_metal_roughness_texture(self), update)
+
+
+class PbrSettings(bpy.types.PropertyGroup):
+    hardness_float = bpy.props.FloatProperty()
+    base_color_text_index = 0
+    metal_rough_text_index = 0
+
+    base_color_factor = bpy.props.FloatVectorProperty(
+        name='Base Color Factor',
+        size=4,
+        subtype='COLOR',
+        min=0.0,
+        max=1.0,
+        get=get_base_color_factor,
+        set=set_base_color_factor,
+    )
+    base_color_texture = bpy.props.StringProperty(
+        name='Texture',
+        get=get_base_color_texture,
+        set=set_base_color_texture,
+    )
+
+    metallic_factor = bpy.props.FloatProperty(
+        name='Metallic Factor',
+        min=0.0,
+        max=1.0,
+    )
+    roughness_factor = bpy.props.FloatProperty(
+        name='Roughness Factor',
+        min=0.0,
+        max=1.0,
+        get=get_roughness_factor,
+        set=set_roughness_factor,
+    )
+    metal_roughness_texture = bpy.props.StringProperty(
+        name='Texture',
+        get=get_metal_roughness_texture,
+        set=set_metal_roughness_texture,
+    )
+
+
+class PbrExportPanel(bpy.types.Panel):
+    bl_idname = 'MATERIAL_PT_pbr_export'
+    bl_label = 'PBR Export'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'material'
+
+    @classmethod
+    def poll(cls, context):
+        return context.material is not None
+
+    def draw(self, context):
+        settings = context.material.pbr_export_settings
+        self.layout.label('Base Color:')
+        box = self.layout.box()
+        box.prop(settings, 'base_color_factor', text='Factor')
+        box.prop_search(settings, 'base_color_texture', bpy.data, 'textures')
+
+        self.layout.label('Roughness:')
+        box = self.layout.box()
+        box.prop(settings, 'roughness_factor', text='Factor')
+        box.prop(settings, 'metallic_factor', text='Metallic')
+        box.prop_search(settings, 'metal_roughness_texture', bpy.data, 'textures')

@@ -20,6 +20,7 @@ from bpy_extras.io_utils import (
 from .blendergltf import export_gltf
 from .filters import visible_only, selected_only, used_only
 from . import extension_exporters
+from .pbr_utils import PbrExportPanel, PbrSettings
 
 
 bl_info = {
@@ -42,6 +43,7 @@ if "bpy" in locals():
     importlib.reload(locals()['blendergltf'])
     importlib.reload(locals()['filters'])
     importlib.reload(locals()['extension_exporters'])
+    importlib.reload(locals()['pbr_utils'])
 
 
 GLTFOrientationHelper = orientation_helper_factory(
@@ -364,6 +366,8 @@ def menu_func_export(self, _):
 
 def register():
     bpy.utils.register_module(__name__)
+
+    bpy.types.Material.pbr_export_settings = bpy.props.PointerProperty(type=PbrSettings)
 
     bpy.types.INFO_MT_file_export.append(menu_func_export)
 
