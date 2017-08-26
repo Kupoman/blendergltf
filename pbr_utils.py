@@ -27,26 +27,28 @@ def set_base_color_factor(self, value):
 
 def get_roughness_factor(self):
     material = self.id_data
-    if not material.specular_hardness < self.hardness_float < material.specular_hardness + 1:
+    hardness = material.specular_hardness
+    if 1.0 < self.hardness_float < 511.0 and not hardness < self.hardness_float < hardness + 1:
         self.hardness_float = material.specular_hardness
     roughness = pow(2.0 / (self.hardness_float + 2.0), 0.25)
-    return max(min((roughness - 0.25) / 0.65, 1.0), 0.0)
+    return max(min(roughness, 1.0), 0.0)
 
 
 def set_roughness_factor(self, value):
     material = self.id_data
+    if value <= 0:
+        value = 0.00001
 
     roughness_texture = self.metal_roughness_texture
     if roughness_texture:
         slot = material.texture_slots[roughness_texture]
         slot.hardness_factor = value
 
-    value = (value * 0.65) + 0.25
-    if value <= 0:
-        self.hardness_float = material.specular_hardness = 511
-    else:
-        self.hardness_float = min((2.0 / pow(value, 4.0)) - 2.0, 511)
-        material.specular_hardness = math.floor(self.hardness_float)
+    material.specular_intensity = 0.04 / (math.pi * pow(value, 4.0))
+    material.specular_color = (1.0, 1.0, 1.0)
+
+    self.hardness_float = (2.0 / pow(value, 4.0)) - 2.0
+    material.specular_hardness = min(math.floor(self.hardness_float), 511)
 
 
 
