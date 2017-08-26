@@ -158,6 +158,7 @@ def get_metal_roughness_texture(self):
 def set_metal_roughness_texture(self, value):
     def update(slot):
         slot.use_map_hardness = True
+        slot.hardness_factor = self.roughness_factor
     set_texture(self, value, get_metal_roughness_texture(self), update)
 
 
