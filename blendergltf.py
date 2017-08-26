@@ -495,6 +495,45 @@ def export_material(state, material):
 
         gltf['pbrMetallicRoughness'] = pbr
 
+        gltf['emissiveFactor'] = pbr_settings.emissive_factor[:]
+
+        if pbr_settings.emissive_texture:
+            gltf['emissiveTexture'] = {
+                'texCoord': pbr_settings.emissive_text_index,
+            }
+            gltf['emissiveTexture']['index'] = Reference(
+                'textures',
+                pbr_settings.emissive_texture,
+                gltf['emissiveTexture'],
+                'index'
+            )
+            state['references'].append(gltf['emissiveTexture']['index'])
+
+        if pbr_settings.normal_texture:
+            gltf['normalTexture'] = {
+                'texCoord': pbr_settings.normal_text_index,
+            }
+            gltf['normalTexture']['index'] = Reference(
+                'textures',
+                pbr_settings.normal_texture,
+                gltf['normalTexture'],
+                'index'
+            )
+            state['references'].append(gltf['normalTexture']['index'])
+
+        if pbr_settings.occlusion_texture:
+            gltf['occlusionTexture'] = {
+                'texCoord': pbr_settings.occlusion_text_index,
+            }
+            gltf['occlusionTexture']['index'] = Reference(
+                'textures',
+                pbr_settings.occlusion_texture,
+                gltf['occlusionTexture'],
+                'index'
+            )
+            state['references'].append(gltf['occlusionTexture']['index'])
+
+
     return gltf
 
 

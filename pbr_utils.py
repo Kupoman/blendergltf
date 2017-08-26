@@ -25,6 +25,16 @@ def set_base_color_factor(self, value):
         material.use_transparency = False
 
 
+def get_emissive_factor(self):
+    material = self.id_data
+    return [min(material.emit, 2.0) * 0.5] * 3
+
+
+def set_emissive_factor(self, value):
+    material = self.id_data
+    material.emit = mathutils.Color(value).v * 2.0
+
+
 def get_roughness_factor(self):
     material = self.id_data
     hardness = material.specular_hardness
@@ -151,10 +161,33 @@ def set_metal_roughness_texture(self, value):
     set_texture(self, value, get_metal_roughness_texture(self), update)
 
 
+def get_normal_texture(self):
+    return get_texture(self, lambda t: t.use_map_normal, 'normal_text_index')
+
+
+def set_normal_texture(self, value):
+    def update(slot):
+        slot.use_map_normal = True
+    set_texture(self, value, get_normal_texture(self), update)
+
+
+def get_emissive_texture(self):
+    return get_texture(self, lambda t: t.use_map_emit, 'emissive_text_index')
+
+
+def set_emissive_texture(self, value):
+    def update(slot):
+        slot.use_map_emit = True
+    set_texture(self, value, get_emissive_texture(self), update)
+
+
 class PbrSettings(bpy.types.PropertyGroup):
     hardness_float = bpy.props.FloatProperty()
     base_color_text_index = 0
     metal_rough_text_index = 0
+    normal_text_index = 0
+    occlusion_text_index = 0
+    emissive_text_index = 0
 
     base_color_factor = bpy.props.FloatVectorProperty(
         name='Base Color Factor',
@@ -189,6 +222,30 @@ class PbrSettings(bpy.types.PropertyGroup):
         set=set_metal_roughness_texture,
     )
 
+    normal_texture = bpy.props.StringProperty(
+        name='Normal',
+        get=get_normal_texture,
+        set=set_normal_texture,
+    )
+    occlusion_texture = bpy.props.StringProperty(
+        name='Occlusion',
+    )
+
+    emissive_factor = bpy.props.FloatVectorProperty(
+        name='Emissive Factor',
+        size=3,
+        subtype='COLOR',
+        min=0.0,
+        max=1.0,
+        get=get_emissive_factor,
+        set=set_emissive_factor,
+    )
+    emissive_texture = bpy.props.StringProperty(
+        name='Texture',
+        get=get_emissive_texture,
+        set=set_emissive_texture,
+    )
+
 
 class PbrExportPanel(bpy.types.Panel):
     bl_idname = 'MATERIAL_PT_pbr_export'
@@ -210,6 +267,14 @@ class PbrExportPanel(bpy.types.Panel):
 
         self.layout.label('Roughness:')
         box = self.layout.box()
-        box.prop(settings, 'roughness_factor', text='Factor')
         box.prop(settings, 'metallic_factor', text='Metallic')
+        box.prop(settings, 'roughness_factor', text='Factor')
         box.prop_search(settings, 'metal_roughness_texture', bpy.data, 'textures')
+
+        self.layout.label('Emissive:')
+        box = self.layout.box()
+        box.prop(settings, 'emissive_factor', text='Factor')
+        box.prop_search(settings, 'emissive_texture', bpy.data, 'textures')
+
+        self.layout.prop_search(settings, 'normal_texture', bpy.data, 'textures')
+        self.layout.prop_search(settings, 'occlusion_texture', bpy.data, 'textures')
