@@ -370,7 +370,7 @@ class Buffer:
             }
 
             if state['version'] < Version('2.0'):
-                gltf['byteStride'] = value.buffer_view['bytestride']
+                gltf['byteStride'] = value.byte_stride
 
             gltf['bufferView'] = Reference('bufferViews', value.buffer_view, gltf, 'bufferView')
             state['references'].append(gltf['bufferView'])
