@@ -8,16 +8,23 @@ class BlenderPhysics:
         'isDraft': True,
     }
 
-    def export_physics(self, obj):
+    def export_physics(self, obj, gltf_node):
         body = obj.rigid_body
+        bounds = [obj.dimensions[i] / gltf_node['scale'][i] for i in range(3)]
         physics = {
             'collisionShape': body.collision_shape.upper(),
             'mass': body.mass,
             'static': body.type == 'PASSIVE',
-            'dimensions': obj.dimensions[:],
+            'bounding_box': bounds,
+            'height_axis': 2,
         }
 
-        if body.collision_shape in ('CONVEX_HULL', 'MESH'):
+        if body.collision_shape == 'SPHERE':
+            physics['radius'] = max(bounds) / 2.0
+        elif body.collision_shape in ('CAPSULE', 'CYLINDER', 'CONE'):
+            physics['radius'] = max(bounds[0], bounds[1]) / 2.0
+            physics['height'] = bounds[2]
+        elif body.collision_shape in ('CONVEX_HULL', 'MESH'):
             physics['mesh'] = 'mesh_' + obj.data.name
 
         return physics
@@ -32,7 +39,7 @@ class BlenderPhysics:
         ]
         for obj, node in obj_pairs:
             node['extensions'] = node.get('extensions', {})
-            node['extensions']['BLENDER_physics'] = self.export_physics(obj)
+            node['extensions']['BLENDER_physics'] = self.export_physics(obj, node)
 
         scene_pairs = [
             (scene, state['output']['scenes'][state['refmap'][('scenes', scene.name)]])

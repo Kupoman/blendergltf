@@ -29,16 +29,73 @@
             "type": "boolean",
             "default": false
         },
-        "dimensions" : {
-            "description": "The bounding box dimensions of the node",
+        "bounding_box" : {
+            "description": "The local bounding box dimensions of the node",
             "type": "array",
             "items": {"type": "number"},
             "minItems": 3,
             "maxItems": 3
         },
-        "mesh": {
+        "radius" : {
+            "description": "Radius to use for calculating the physics shape based on bounding box of the node",
+            "type": "number",
+            "default": 0.0
+        },
+        "height" : {
+            "description": "Height to use for calculating the physics shape based on bounding box of the node",
+            "type": "number",
+            "default": 0.0
+        },
+        "height_axis" : {
+            "description": "The axis (0=X, 1=Y, 2=Z) to use for the height of the node",
+            "type": "number",
+            "default": 1
+        },
+        "mesh" : {
             "description": "The ID of the mesh to use for CONVEX_HULL and MESH collision shapes",
             "allOf": [{"$ref": "glTFid.schema.json"}]
+        },
+        "offset_matrix": {
+            "type": "array",
+            "description": "A 4x4 transform matrix applied to the physics shape in addition to the node's transform",
+            "items": {
+                "type": "number"
+            },
+            "minItems": 16,
+            "maxItems": 16,
+            "default": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]
+        },
+        "offset_rotation": {
+            "type": "array",
+            "description": "A rotation offset (as a quaternion) applied to the physics shape in addition to the node's rotation",
+            "items": {
+                "type": "number",
+                "minimum": -1.0,
+                "maximum": 1.0
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "default": [ 0.0, 0.0, 0.0, 1.0 ]
+        },
+        "offset_scale": {
+            "type": "array",
+            "description": "A non-uniform scale offset applied to the physics shape in addition to the node's scale",
+            "items": {
+                "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3,
+            "default": [ 1.0, 1.0, 1.0 ]
+        },
+        "offset_translation": {
+            "type": "array",
+            "description": "A translation offset applied to the physics shape in addition to the node's translation",
+            "items": {
+                "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3,
+            "default": [ 0.0, 0.0, 0.0 ]
         }
     },
     "additionalProperties" : false,
