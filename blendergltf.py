@@ -533,7 +533,6 @@ def export_material(state, material):
             )
             state['references'].append(gltf['occlusionTexture']['index'])
 
-
     return gltf
 
 
@@ -860,8 +859,6 @@ def export_skins(state):
         return gltf_skin
 
     return [export_skin(obj, mesh_name) for mesh_name, obj in state['skinned_meshes'].items()]
-
-
 
 
 def export_node(state, obj):

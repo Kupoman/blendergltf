@@ -67,9 +67,6 @@ class KhrMaterialsCommon:
             gltf_light = {'type': 'unsupported'}
 
         gltf_light['name'] = light.name
-        # extras = _get_custom_properties(light)
-        # if extras:
-            # gltf_light['extras'] = extras
         return gltf_light
 
     def export_material(self, state, material):

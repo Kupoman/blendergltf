@@ -33,7 +33,6 @@ class KhrTechniqueWebgl:
     }
     settings = None
 
-
     def export_material(self, state, material):
         shader_data = gpu.export_shader(bpy.context.scene, material)
         if state['settings']['asset_profile'] == 'DESKTOP':

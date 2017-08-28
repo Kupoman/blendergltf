@@ -61,7 +61,6 @@ def set_roughness_factor(self, value):
     material.specular_hardness = min(math.floor(self.hardness_float), 511)
 
 
-
 def get_texture(self, search_func, index_prop):
     material = self.id_data
     slots = [
