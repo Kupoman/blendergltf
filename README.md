@@ -2,14 +2,17 @@
 
 ## About
 
-Blendergltf is an addon for Blender that adds the ability to export to the
-[glTF format](https://github.com/KhronosGroup/glTF). This addon started its life as part of the
-[Blender Real TimeEngine addon](https://github.com/Kupoman/BlenderRealtimeEngineAddon)
-in order to provide a convenient way of streaming scene data to real time  engines. As interest has
-grown in glTF, the glTF exporting code of the Blender Real Time Engine addon was moved
-into this repository to be used as both a Python module and a Blender addon. While
-Blendergltf has support for most of the glTF 1.0 spec, it is not yet well tested with
-the various engines and importers that can consume glTF.
+Blendergltf is an addon for Blender that adds the ability to export to the [glTF format](https://github.com/KhronosGroup/glTF).
+This addon started its life as part of the [Blender Real TimeEngine addon](https://github.com/Kupoman/BlenderRealtimeEngineAddon)
+in order to provide a convenient way of streaming scene data to real time  engines.
+As interest has grown in glTF, the glTF exporting code of the Blender Real Time Engine addon was moved into this repository to be used as both a Python module and a Blender addon.
+
+Versions 1.0 and 2.0 of the glTF format are supported, however morph targets are [currently not supported](https://github.com/Kupoman/blendergltf/issues/91).
+The following list of extensions are also supported:
+* [BLENDER_physics](https://github.com/Kupoman/blendergltf/tree/master/extensions/BLENDER_physics) (Draft)
+* [KHR_lights](https://github.com/andreasplesch/glTF/blob/ec6f61d73bcd58d59d4a4ea9ac009f973c693c5f/extensions/Khronos/KHR_lights/README.md) (Draft)
+* [KHR_materials_common](https://github.com/KhronosGroup/glTF/tree/master/extensions/Khronos/KHR_materials_common) (Draft)
+* [KHR_technique_webgl](https://github.com/KhronosGroup/glTF/tree/master/extensions/Khronos/KHR_technique_webgl) (Draft)
 
 ## Installation
 
@@ -100,6 +103,3 @@ The most helpful way to contribute right now is to try and use the output of
 Blendergltf, and report any issues you find. This will help us identify where work
 is still needed, and it will help make the addon more robust. If you want to
  contribute code, there are likely some tasks floating around the issue tracker.
-If writing documentation is more your thing, we have some undocumented glTF
-extensions.
-
