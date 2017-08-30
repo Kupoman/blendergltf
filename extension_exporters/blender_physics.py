@@ -1,3 +1,6 @@
+from ..blendergltf import Reference
+
+
 class BlenderPhysics:
     ext_meta = {
         'name': 'BLENDER_physics',
@@ -8,7 +11,7 @@ class BlenderPhysics:
         'isDraft': True,
     }
 
-    def export_physics(self, obj, gltf_node):
+    def export_physics(self, state, obj, gltf_node):
         body = obj.rigid_body
         bounds = [obj.dimensions[i] / gltf_node['scale'][i] for i in range(3)]
         physics = {
@@ -20,7 +23,9 @@ class BlenderPhysics:
         }
 
         if body.collision_shape in ('CONVEX_HULL', 'MESH'):
-            physics['mesh'] = 'mesh_' + obj.data.name
+            mesh = state['mod_meshes'].get(obj.name, obj.data)
+            physics['mesh'] = Reference('meshes', mesh.name, physics, 'mesh')
+            state['references'].append(physics['mesh'])
 
         return physics
 
@@ -30,11 +35,11 @@ class BlenderPhysics:
         obj_pairs = [
             (obj, state['output']['nodes'][state['refmap'][('objects', obj.name)]])
             for obj in state['input']['objects']
-            if obj.rigid_body
+            if getattr(obj, 'rigid_body', False)
         ]
         for obj, node in obj_pairs:
             node['extensions'] = node.get('extensions', {})
-            node['extensions']['BLENDER_physics'] = self.export_physics(obj, node)
+            node['extensions']['BLENDER_physics'] = self.export_physics(state, obj, node)
 
         scene_pairs = [
             (scene, state['output']['scenes'][state['refmap'][('scenes', scene.name)]])
