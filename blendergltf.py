@@ -1356,18 +1356,22 @@ def export_animations(state, actions):
     return gltf_actions
 
 
-def insert_root_nodes(gltf_data, root_matrix):
-    for name, scene in gltf_data['scenes'].items():
-        node_name = 'node_{}_root'.format(name)
+def insert_root_nodes(state, root_matrix):
+    for i, scene in enumerate(state['output']['scenes']):
         # Generate a new root node for each scene
-        gltf_data['nodes'][node_name] = {
+        root_node = {
             'children': scene['nodes'],
             'matrix': root_matrix,
-            'name': node_name,
+            'name': '{}_root'.format(scene['name']),
         }
+        state['output']['nodes'].append(root_node)
+        ref_name = '__scene_root_{}_'.format(i)
+        state['input']['objects'].append(SimpleID(ref_name))
 
         # Replace scene node lists to just point to the new root nodes
-        scene['nodes'] = [node_name]
+        scene['nodes'] = []
+        scene['nodes'].append(Reference('objects', ref_name, scene['nodes'], 0))
+        state['references'].append(scene['nodes'][0])
 
 
 def build_string_refmap(input_data):
@@ -1377,13 +1381,9 @@ def build_string_refmap(input_data):
         'lamps': 'lights'
     }
     refmap = {}
-    node_offset = len(input_data['objects'])
     for key, value in input_data.items():
         refmap.update({
-            (key, data.name): '{}_{}'.format(
-                in_out_map.get(key, key),
-                i + (node_offset if key == 'bones' else 0)
-            )
+            (key, data.name): '{}_{}'.format(in_out_map.get(key, key), i)
             for i, data in enumerate(value)
         })
     return refmap
@@ -1391,11 +1391,8 @@ def build_string_refmap(input_data):
 
 def build_int_refmap(input_data):
     refmap = {}
-    node_offset = len(input_data['objects'])
     for key, value in input_data.items():
-        refmap.update({
-            (key, data.name): i + (node_offset if key == 'bones' else 0)
-            for i, data in enumerate(value)})
+        refmap.update({(key, data.name): i for i, data in enumerate(value)})
     return refmap
 
 
@@ -1434,7 +1431,7 @@ def export_gltf(scene_delta, settings=None):
         },
         'references': [],
     }
-    state['input'].update(scene_delta)
+    state['input'].update({key: value[:] for key, value in scene_delta.items()})
 
     # Apply modifiers
     mesh_list = []
@@ -1504,11 +1501,16 @@ def export_gltf(scene_delta, settings=None):
     state['output']['nodes'].extend([
         export_joint(state, sid.data) for sid in state['input']['bones']
     ])
+    state['input']['objects'].extend(state['input']['bones'])
 
     # Export extensions
     state['refmap'] = build_int_refmap(state['input'])
     for ext_exporter in settings['extension_exporters']:
         ext_exporter.export(state)
+
+    # Insert root nodes if axis conversion is needed
+    if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
+        insert_root_nodes(state, togl(settings['nodes_global_matrix']))
 
     state['output'].update(export_buffers(state))
     state['output'] = {key: value for key, value in state['output'].items() if value != []}
@@ -1529,10 +1531,6 @@ def export_gltf(scene_delta, settings=None):
         if extensions:
             state['output']['extensions'] = extensions
     gltf.update(state['output'])
-
-    # Insert root nodes if axis conversion is needed
-    if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
-        insert_root_nodes(gltf, togl(settings['nodes_global_matrix']))
 
     # Resolve references
     if state['version'] < Version('2.0'):
