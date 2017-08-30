@@ -25,31 +25,26 @@
             "default": 1.0
         },
         "static" : {
-            "description": "The Node should not be moved by physics simulations",
+            "description": "Whether or not the Node should be moved by physics simulations",
             "type": "boolean",
             "default": false
         },
         "bounding_box" : {
-            "description": "The local bounding box dimensions of the node",
+            "description": "The dimensions of the local (i.e., does not include the node's transform) bounding box of the collision shape centered on the origin",
             "type": "array",
             "items": {"type": "number"},
             "minItems": 3,
             "maxItems": 3
         },
-        "radius" : {
-            "description": "Radius to use for calculating the physics shape based on bounding box of the node",
-            "type": "number",
-            "default": 0.0
-        },
-        "height" : {
-            "description": "Height to use for calculating the physics shape based on bounding box of the node",
-            "type": "number",
-            "default": 0.0
-        },
-        "height_axis" : {
-            "description": "The axis (0=X, 1=Y, 2=Z) to use for the height of the node",
-            "type": "number",
-            "default": 1
+        "primary_axis" : {
+            "description": "The axis to use for the height of the collision shape",
+            "type": "string",
+            "enum": [
+                "X",
+                "Y",
+                "Z"
+            ],
+            "default": "Y"
         },
         "mesh" : {
             "description": "The ID of the mesh to use for CONVEX_HULL and MESH collision shapes",
@@ -57,7 +52,7 @@
         },
         "offset_matrix": {
             "type": "array",
-            "description": "A 4x4 transform matrix applied to the physics shape in addition to the node's transform",
+            "description": "A 4x4 transform matrix applied to the collision shape in addition to the node's transform",
             "items": {
                 "type": "number"
             },
@@ -67,7 +62,7 @@
         },
         "offset_rotation": {
             "type": "array",
-            "description": "A rotation offset (as a quaternion) applied to the physics shape in addition to the node's rotation",
+            "description": "A rotation offset (as a quaternion) applied to the collision shape in addition to the node's rotation",
             "items": {
                 "type": "number",
                 "minimum": -1.0,
@@ -79,7 +74,7 @@
         },
         "offset_scale": {
             "type": "array",
-            "description": "A non-uniform scale offset applied to the physics shape in addition to the node's scale",
+            "description": "A non-uniform scale offset applied to the collision shape in addition to the node's scale",
             "items": {
                 "type": "number"
             },
@@ -89,7 +84,7 @@
         },
         "offset_translation": {
             "type": "array",
-            "description": "A translation offset applied to the physics shape in addition to the node's translation",
+            "description": "A translation offset applied to the collision shape in addition to the node's translation",
             "items": {
                 "type": "number"
             },

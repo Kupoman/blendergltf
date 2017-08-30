@@ -16,15 +16,10 @@ class BlenderPhysics:
             'mass': body.mass,
             'static': body.type == 'PASSIVE',
             'bounding_box': bounds,
-            'height_axis': 2,
+            'primary_axis': "Z",
         }
 
-        if body.collision_shape == 'SPHERE':
-            physics['radius'] = max(bounds) / 2.0
-        elif body.collision_shape in ('CAPSULE', 'CYLINDER', 'CONE'):
-            physics['radius'] = max(bounds[0], bounds[1]) / 2.0
-            physics['height'] = bounds[2]
-        elif body.collision_shape in ('CONVEX_HULL', 'MESH'):
+        if body.collision_shape in ('CONVEX_HULL', 'MESH'):
             physics['mesh'] = 'mesh_' + obj.data.name
 
         return physics

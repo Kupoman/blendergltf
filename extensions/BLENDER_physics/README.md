@@ -30,20 +30,20 @@ The properties available are listed in the table below.
 |---|----|-----------|--------|
 |**collisionShape**|`string`|The shape a physics simulation should use to represent the node|No, default: `BOX`|
 |**mass**|`number`|The 'weight', irrespective of gravity, of the node|No, default: `1.0`|
-|**static**|`boolean`|Specifies if the Node should not be moved by physics simulations|No, default: `false`|
-|**bounding_box**|`array`|The bounding box dimensions of the node (x, y, z). Note: this is a local bounding box and does not take the node's transform into account.|Yes|
-|**radius**|`number`|Radius to use for calculating the physics shape. This is based on the dimensions of the bounding box. Note: not all shapes (e.g., `BOX`) make use of this field.|No, default: `0.0`|
-|**height**|`number`|Height to use for calculating the physics shape. This is based on the dimensions of the bounding box. Note: not all shapes (e.g., `BOX`) make use of this field.|No, default: `0.0`|
-|**height_axis**|`number`|Specifies which index of the bounding box (i.e., which axis) is the height (assuming the shape has a height)|No, default: `1`|
+|**static**|`boolean`|Whether or not the Node should be moved by physics simulations|No, default: `false`|
+|**bounding_box**|`array`|The dimensions of the local (i.e., does not include the node's transform) bounding box of the collision shape centered on the origin|Yes|
+|**primary_axis**|`number`|The axis to use for the height of the collision shape|No, default: `1`|
 |**mesh**|`glTF id`|The ID of the mesh to use for `CONVEX_HULL` and `MESH` collision shapes|No, default: `node's mesh` if it exists, otherwise use `BOX` shape|
-|**offset_matrix**|`array`|A 4x4 transform matrix applied to the physics shape in addition to the node's transform|No, default: `[ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]`|
+|**offset_matrix**|`array`|A 4x4 transform matrix applied to the collision shape in addition to the node's transform|No, default: `[ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]`|
 |**offset_rotation**|`array`|A rotation offset (as a quaternion) applied to the physics shape in addition to the node's rotation|No, default: `[0.0, 0.0, 0.0, 1.0]`|
-|**offset_scale**|`array`|A non-uniform scale offset applied to the physics shape in addition to the node's scale|No, default: `[1.0, 1.0, 1.0]`|
-|**offset_translation**|`array`|A translation offset applied to the physics shape in addition to the node's translation|No, default: `[0.0, 0.0, 0.0]`|
+|**offset_scale**|`array`|A non-uniform scale offset applied to the collision shape in addition to the node's scale|No, default: `[1.0, 1.0, 1.0]`|
+|**offset_translation**|`array`|A translation offset applied to the collision shape in addition to the node's translation|No, default: `[0.0, 0.0, 0.0]`|
 
 **Collision Shapes**
 
-Below are the allowed values for `collisionShape`:
+Below are the allowed values for `collisionShape`.
+When consuming this extension, an application should construct the `collisionShape` with parameters that best fill the `bounding_box`.
+The shape offset should be applied to the shape prior to the node's transform.
 
 * `BOX`
 * `SPHERE`
@@ -69,10 +69,8 @@ Replace `<glTF id>` with the value appropriate for the spec version.
                 4.323975563049316
             ],
             "collisionShape": "CAPSULE",
-            "height": 4.323975563049316,
-            "height_axis": 2,
+            "primary_axis": "Z",
             "mass": 1.0,
-            "radius": 1.0000004768371582,
             "static": false
         }
     },
@@ -101,12 +99,13 @@ Replace `<glTF id>` with the value appropriate for the spec version.
 {
     "extensions": {
         "BLENDER_physics": {
-            "collisionShape": "MESH",
-            "dimensions": [
+            "bounding_box": [
                 2.0000009536743164,
                 2.0000009536743164,
                 2.0
             ],
+            "collisionShape": "MESH",
+            "primary_axis": "Z",
             "mass": 1.0,
             "mesh": <glTF id>,
             "static": false
