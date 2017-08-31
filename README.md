@@ -69,10 +69,10 @@ This is an advanced option that can be useful for some importers.
 * **Embed** Embed shader data into the glTF file.
 
 ### Images
-#### Storage
-* **Copy** Embed image data into the glTF file.
 * **Reference** Use the same filepath that Blender uses for images.
-* **Embed** Copy images to output directory and use a relative reference.
+* **Copy** Copy images to output directory and use a relative reference.
+* **Embed** Embed image data into the glTF file.
+
 #### sRGB Texture Support
 Use sRGB texture formats for sRGB textures.
 This option will produce invalid glTF since the specification currently does not allow for sRGB texture types.
