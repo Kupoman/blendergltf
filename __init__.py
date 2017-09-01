@@ -233,7 +233,8 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col = layout.box().column()
         col.label('Images:', icon='IMAGE_DATA')
         col.prop(self, 'images_data_storage')
-        col.prop(self, 'images_allow_srgb')
+        if Version(self.asset_version) < Version('2.0'):
+            col.prop(self, 'images_allow_srgb')
 
         col = layout.box().column()
         col.label('Buffers:', icon='SORTALPHA')
