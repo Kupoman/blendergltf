@@ -244,8 +244,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col = layout.box().column()
         col.label('Extensions:', icon='PLUGIN')
         extension_filter = set()
-        if Version(self.asset_version) < Version('2.0'):
-            extension_filter.add('KHR_technique_webgl')
+
+        # Disable KHR_technique_webgl for all glTF versions
+        extension_filter.add('KHR_technique_webgl')
         for i in range(len(self.extension_props)):
             prop = self.extension_props[i]
             extension_exporter = self.ext_prop_to_exporter_map[prop.name]

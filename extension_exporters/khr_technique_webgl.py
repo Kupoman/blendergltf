@@ -26,7 +26,7 @@ class KhrTechniqueWebgl:
         'settings': {
             'embed_shaders': bpy.props.BoolProperty(
                 name='Embed Shader Data',
-                description='Embed shader data into the glTF file',
+                description='Embed shader data into the glTF file instead of a separate file',
                 default=False
             )
         }

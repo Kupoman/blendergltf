@@ -7,12 +7,11 @@ This addon started its life as part of the [Blender Real TimeEngine addon](https
 in order to provide a convenient way of streaming scene data to real time  engines.
 As interest has grown in glTF, the glTF exporting code of the Blender Real Time Engine addon was moved into this repository to be used as both a Python module and a Blender addon.
 
-Versions 1.0 and 2.0 of the glTF format are supported, however morph targets are [currently not supported](https://github.com/Kupoman/blendergltf/issues/91).
-The following list of extensions are also supported:
-* [BLENDER_physics](https://github.com/Kupoman/blendergltf/tree/master/extensions/BLENDER_physics) (Draft)
-* [KHR_lights](https://github.com/andreasplesch/glTF/blob/ec6f61d73bcd58d59d4a4ea9ac009f973c693c5f/extensions/Khronos/KHR_lights/README.md) (Draft)
-* [KHR_materials_common](https://github.com/KhronosGroup/glTF/tree/master/extensions/Khronos/KHR_materials_common) (Draft)
-* [KHR_technique_webgl](https://github.com/KhronosGroup/glTF/tree/master/extensions/Khronos/KHR_technique_webgl) (Draft)
+Versions 1.0 and 2.0 of the glTF format are supported. For currently supported extensions, check out the [extension settings](#extensions).
+
+The following features are not supported at this time:
+* [Morph targets](https://github.com/Kupoman/blendergltf/issues/91)
+* [Binary glTF](https://github.com/Kupoman/blendergltf/issues/21)
 
 ## Installation
 
@@ -62,11 +61,11 @@ When this option is disabled, no modifier data is exported.
 Store data for each vertex contiguously instead of each vertex property (e.g. position) contiguously.
 This is an advanced option that can be useful for some importers.
 
-### Shaders
-#### Storage
-* **None** Use the KHR_material_common extension instead of a shader.
-* **External** Save shaders to the output directory.
-* **Embed** Embed shader data into the glTF file.
+### Materials
+#### Disable Material Export
+Export minimum default materials. Useful when using material extensions. Additional maps are always exported when outputting glTF 2.0.
+#### Embed Shader Data (glTF 1.0 only)
+Embed shader data into the glTF file instead of as a separate file.
 
 ### Images
 #### Storage
@@ -84,12 +83,15 @@ Embed buffer data into the glTF file.
 Combine all buffers into a single buffer.
 
 ### Extensions
-#### Export Physics Settings
-Enable support for the [BLENDER_physics](https://github.com/Kupoman/blendergltf/tree/master/extensions/BLENDER_physics) extension.
-This extension adds Bullet physics data to glTF nodes.
+#### BLENDER_physics (Draft)
+Enable the [BLENDER_physics](https://github.com/Kupoman/blendergltf/tree/master/extensions/BLENDER_physics) extension to export rigid body physics data.
+#### KHR_lights (Draft)
+Enable the [KHR_lights](https://github.com/andreasplesch/glTF/blob/ec6f61d73bcd58d59d4a4ea9ac009f973c693c5f/extensions/Khronos/KHR_lights/README.md) extension to export light data.
+#### KHR_materials_common (Draft)
+Enable the [KHR_materials_common](https://github.com/KhronosGroup/glTF/tree/master/extensions/Khronos/KHR_materials_common) extension to export Blinn Phong materials.
 
 ### Output
-#### Profile
+#### Profile (glTF 1.0 only)
 * **Web** Target WebGL 1.0
 * **Desktop** Target OpenGL and GLSL 1.30.
 This profile is not explicitly supported by the glTF specification.
