@@ -32,7 +32,6 @@ def export_light(light):
             'point': {
                 'color': (light.color * light.energy)[:],
 
-                # TODO: grab values from Blender lamps
                 'constantAttenuation': 1,
                 'linearAttenuation': linear_factor,
                 'quadraticAttenuation': quad_factor,
@@ -45,10 +44,9 @@ def export_light(light):
             'spot': {
                 'color': (light.color * light.energy)[:],
 
-                # TODO: grab values from Blender lamps
+                'fallOffAngle': light.spot_size,
+                'fallOffExponent': 128.0 * light.spot_blend,
                 'constantAttenuation': 1.0,
-                'fallOffAngle': 3.14159265,
-                'fallOffExponent': 0.0,
                 'linearAttenuation': linear_factor,
                 'quadraticAttenuation': quad_factor,
             },
