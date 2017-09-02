@@ -920,8 +920,8 @@ def export_node(state, obj):
             Reference('objects', dupli.name, node['children'], i + len(node['children']))
             for i, dupli in enumerate(obj.dupli_group.objects)
         ]
-        node['children'].extends(dupli_refs)
-        state['references'].extends(dupli_refs)
+        node['children'].extend(dupli_refs)
+        state['references'].extend(dupli_refs)
     elif obj.type == 'ARMATURE':
         for i, bone in enumerate(obj.data.bones):
             state['input']['bones'].append(SimpleID(bone.as_pointer(), bone))
@@ -1008,7 +1008,7 @@ def export_scene(state, scene):
         for i, ref in enumerate(hidden_nodes):
             ref.source = result['extras']['hidden_nodes']
             ref.prop = i
-        state['references'].extend(result['estras']['hidden_nodes'])
+        state['references'].extend(result['extras']['hidden_nodes'])
 
     return result
 
