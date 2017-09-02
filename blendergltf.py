@@ -909,9 +909,13 @@ def export_node(state, obj):
         state['references'].append(node['camera'])
     elif obj.type == 'EMPTY' and obj.dupli_group is not None:
         # Expand dupli-groups
-        # TODO: list of references
         node['children'] = node.get('children', [])
-        node['children'] += ['node_' + i.name for i in obj.dupli_group.objects]
+        dupli_refs = [
+            Reference('objects', dupli.name, node['children'], i + len(node['children']))
+            for i, dupli in enumerate(obj.dupli_group.objects)
+        ]
+        node['children'].extends(dupli_refs)
+        state['references'].extends(dupli_refs)
     elif obj.type == 'ARMATURE':
         for i, bone in enumerate(obj.data.bones):
             state['input']['bones'].append(SimpleID(bone.as_pointer(), bone))
