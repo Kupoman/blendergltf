@@ -1436,6 +1436,7 @@ def export_gltf(scene_delta, settings=None):
             'bones': [],
             'anim_samplers': [],
             'samplers': [SimpleID('default')],
+            'scenes': [],
             'skins': [],
             'materials': [],
         },
@@ -1501,9 +1502,6 @@ def export_gltf(scene_delta, settings=None):
     }
     if state['version'] < Version('2.0'):
         gltf['asset']['profile'] = PROFILE_MAP[settings['asset_profile']]
-    scene_ref = Reference('scenes', bpy.context.scene.name, gltf, 'scene')
-    scene_ref.value = 0
-    state['references'].append(scene_ref)
 
     # Export samplers
     state['output']['samplers'] = [{'name': 'default'}]
@@ -1515,6 +1513,16 @@ def export_gltf(scene_delta, settings=None):
         export_joint(state, sid.data) for sid in state['input']['bones']
     ])
     state['input']['objects'].extend(state['input']['bones'])
+
+    # Export default scene
+    default_scene = None
+    for scene in state['input']['scenes']:
+        if scene == bpy.context.scene:
+            default_scene = scene
+    if default_scene:
+        scene_ref = Reference('scenes', bpy.context.scene.name, gltf, 'scene')
+        scene_ref.value = 0
+        state['references'].append(scene_ref)
 
     # Export extensions
     state['refmap'] = build_int_refmap(state['input'])
