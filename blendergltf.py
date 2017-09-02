@@ -1445,7 +1445,7 @@ def export_gltf(scene_delta, settings=None):
         },
         'references': [],
     }
-    state['input'].update({key: value[:] for key, value in scene_delta.items()})
+    state['input'].update({key: list(value) for key, value in scene_delta.items()})
 
     # Apply modifiers
     mesh_list = []
