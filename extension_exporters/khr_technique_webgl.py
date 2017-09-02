@@ -57,14 +57,23 @@ class KhrTechniqueWebgl:
                     fout.write(data)
             vs_uri, fs_uri = names
 
-        state['shaders'].append({'type': 35632, 'uri': fs_uri})
-        state['shaders'].append({'type': 35633, 'uri': vs_uri})
+        state['output']['shaders'].append({
+            'type': 35632,
+            'uri': fs_uri,
+            'name': material.name + 'FS',
+        })
+        state['output']['shaders'].append({
+            'type': 35633,
+            'uri': vs_uri,
+            'name': material.name + 'VS',
+        })
 
         # Handle programs
-        state['programs'].append({
+        state['output']['programs'].append({
             'attributes': [a['varname'] for a in shader_data['attributes']],
-            'fragmentShader': 'shader_{}_FS'.format(material.name),
-            'vertexShader': 'shader_{}_VS'.format(material.name),
+            'fragmentShader': 'shaders_{}FS'.format(material.name),
+            'vertexShader': 'shaders_{}VS'.format(material.name),
+            'name': material.name,
         })
 
         # Handle parameters/values
@@ -149,20 +158,21 @@ class KhrTechniqueWebgl:
             uniform['valname'] = valname
 
         # Handle techniques
-        tech_name = 'technique_' + material.name
-        state['techniques'].append({
+        tech_name = 'techniques_' + material.name
+        state['output']['techniques'].append({
             'parameters': parameters,
-            'program': 'program_' + material.name,
+            'program': 'programs_' + material.name,
             'attributes': {a['varname']: a['varname'] for a in shader_data['attributes']},
             'uniforms': {u['varname']: u['valname'] for u in shader_data['uniforms']},
+            'name': material.name,
         })
 
-        return {'technique': tech_name, 'values': values}
+        return {'technique': tech_name, 'values': values, 'name': material.name}
 
     def export(self, state):
+        state['output']['techniques'] = []
+        state['output']['shaders'] = []
+        state['output']['programs'] = []
         state['output']['materials'] = [
             self.export_material(state, bl_mat) for bl_mat in state['input']['materials']
         ]
-        state['output']['programs'] = state['programs']
-        state['output']['shaders'] = state['shaders']
-        state['output']['techniques'] = state['techniques']
