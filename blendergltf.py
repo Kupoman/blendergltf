@@ -286,6 +286,7 @@ class Buffer:
         gltf = {
             'byteLength': self.bytelength,
             'uri': uri,
+            'name': self.name,
         }
 
         if state['version'] < Version('2.0'):
@@ -312,6 +313,7 @@ class Buffer:
             gltf = {
                 'byteLength': value['bytelength'],
                 'byteOffset': value['byteoffset'],
+                'name': key,
             }
 
             if state['version'] >= Version('2.0') and value['bytestride'] > 0:
@@ -367,6 +369,7 @@ class Buffer:
                 'min': value.min[:value.type_size],
                 'max': value.max[:value.type_size],
                 'type': value.data_type,
+                'name': value.name,
             }
 
             if state['version'] < Version('2.0'):
@@ -789,9 +792,11 @@ def export_mesh(state, mesh):
 
         gltf_mesh['primitives'].append(gltf_prim)
 
-    state['input']['buffers'].append(buf)
+    state['buffers'].append(buf)
+    state['input']['buffers'].append(SimpleID(buf.name))
     if is_skinned:
-        state['input']['buffers'].append(skin_buf)
+        state['buffers'].append(skin_buf)
+        state['input']['buffers'].append(SimpleID(skin_buf.name))
         if state['version'] < Version('2.0'):
             gltf_mesh['skin'] = Reference('skins', mesh.name, gltf_mesh, 'skin')
             state['references'].append(gltf_mesh['skin'])
@@ -852,7 +857,8 @@ def export_skins(state):
             'inverseBindMatrices'
         )
         state['references'].append(gltf_skin['inverseBindMatrices'])
-        state['input']['buffers'].append(buf)
+        state['buffers'].append(buf)
+        state['input']['buffers'].append(SimpleID(buf.name))
 
         state['input']['skins'].append(SimpleID(mesh_name))
 
@@ -1009,10 +1015,11 @@ def export_scene(state, scene):
 
 def export_buffers(state):
     if state['settings']['buffers_combine_data']:
-        buffers = [functools.reduce(lambda x, y: x+y, state['input']['buffers'], Buffer('empty'))]
-        state['input']['buffers'] = buffers
+        buffers = [functools.reduce(lambda x, y: x+y, state['buffers'], Buffer('empty'))]
+        state['buffers'] = buffers
+        state['input']['buffers'] = [SimpleID(buffers[0].name)]
     else:
-        buffers = state['input']['buffers']
+        buffers = state['buffers']
 
     gltf = {}
     gltf['buffers'] = [buf.export_buffer(state) for buf in buffers]
@@ -1112,6 +1119,7 @@ def export_image(state, image):
 
     return {
         'uri': uri,
+        'name': image.name,
     }
 
 
@@ -1143,6 +1151,7 @@ def export_texture(state, texture):
     gltf_texture = {
         'sampler': 'sampler_default',
         'source': 'image_' + texture.image.name,
+        'name': texture.name,
     }
 
     gltf_texture['sampler'] = Reference('samplers', 'default', gltf_texture, 'sampler')
@@ -1235,7 +1244,8 @@ def export_animations(state, actions):
         for i in range(num_frames):
             tdata[i] = time
             time += state['animation_dt']
-        state['input']['buffers'].append(tbuf)
+        state['buffers'].append(tbuf)
+        state['input']['buffers'].append(SimpleID(tbuf.name))
         time_parameter_name = '{}_time_parameter'.format(action.name)
         ref = Reference('accessors', tdata.name, gltf_parameters, time_parameter_name)
         gltf_parameters[time_parameter_name] = ref
@@ -1259,7 +1269,8 @@ def export_animations(state, actions):
                 for j in range(4):
                     rdata[(i * 4) + j] = rot[j]
 
-            state['input']['buffers'].append(buf)
+            state['buffers'].append(buf)
+            state['input']['buffers'].append(SimpleID(buf.name))
 
             is_bone = False
             if targetid != obj.name:
@@ -1387,8 +1398,8 @@ def build_string_refmap(input_data):
     refmap = {}
     for key, value in input_data.items():
         refmap.update({
-            (key, data.name): '{}_{}'.format(in_out_map.get(key, key), i)
-            for i, data in enumerate(value)
+            (key, data.name): '{}_{}'.format(in_out_map.get(key, key), data.name)
+            for data in value
         })
     return refmap
 
@@ -1412,13 +1423,11 @@ def export_gltf(scene_delta, settings=None):
         'version': Version(settings['asset_version']),
         'settings': settings,
         'animation_dt': 1.0 / bpy.context.scene.render.fps,
-        'shaders': [],
-        'programs': [],
-        'techniques': [],
         'mod_meshes': {},
         'skinned_meshes': {},
         'extensions_used': [],
         'gl_extensions_used': [],
+        'buffers': [],
         'input': {
             'buffers': [],
             'accessors': [],
@@ -1497,7 +1506,7 @@ def export_gltf(scene_delta, settings=None):
     state['references'].append(scene_ref)
 
     # Export samplers
-    state['output']['samplers'] = [{}]
+    state['output']['samplers'] = [{'name': 'default'}]
 
     # Export animations
     state['output']['animations'] = export_animations(state, scene_delta.get('actions', []))
@@ -1528,7 +1537,7 @@ def export_gltf(scene_delta, settings=None):
         extensions = state['output'].get('extensions', [])
         state['output'] = {
             key: {
-                '{}_{}'.format(key, i): data for i, data in enumerate(value)
+                '{}_{}'.format(key, data['name']): data for data in value
             } for key, value in state['output'].items()
             if key != 'extensions'
         }
