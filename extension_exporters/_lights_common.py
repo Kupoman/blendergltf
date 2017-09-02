@@ -94,5 +94,5 @@ def export_lights(state, extension_name):
     if state['version'] < Version('2.0'):
         extension = state['output']['extensions'][extension_name]
         extension['lights'] = {
-            'lights_' + str(i): light for i, light in enumerate(extension['lights'])
+            'lights_' + light['name']: light for light in extension['lights']
         }
