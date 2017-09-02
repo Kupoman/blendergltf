@@ -31,7 +31,11 @@ class KhrMaterialsCommon:
         ]
         emission_textures = [
             Reference('textures', t.texture.name, None, None)
-            for t in all_textures if t.use_map_emit
+            for t in all_textures
+            if (
+                (material.use_shadeless and t.use_map_color_diffuse)
+                or (not material.use_shadeless and t.use_map_emit)
+            )
         ]
         specular_textures = [
             Reference('textures', t.texture.name, None, None)
@@ -48,7 +52,6 @@ class KhrMaterialsCommon:
         technique = 'PHONG'
         if material.use_shadeless:
             technique = 'CONSTANT'
-            emission_textures = diffuse_textures
             emission_color = diffuse_color
         elif material.specular_intensity == 0.0:
             technique = 'LAMBERT'
