@@ -5,6 +5,7 @@ from ..blendergltf import Reference
 
 def export_light(light):
     def calc_att():
+        constant_factor = 1
         linear_factor = 0
         quad_factor = 0
 
@@ -15,8 +16,12 @@ def export_light(light):
         elif light.falloff_type == 'LINEAR_QUADRATIC_WEIGHTED':
             linear_factor = light.linear_attenuation * (1 / light.distance)
             quad_factor = light.quadratic_attenuation * (1 / (light.distance * light.distance))
+        elif light.falloff_type == 'INVERSE_COEFFICIENTS':
+            constant_factor = light.constant_coefficient
+            linear_factor = light.linear_coefficient * (1 / light.distance)
+            quad_factor = light.quadratic_coefficient * (1 / (light.distance * light.distance))
 
-        return linear_factor, quad_factor
+        return constant_factor, linear_factor, quad_factor
 
     gltf_light = {}
     if light.type == 'SUN':
@@ -27,26 +32,26 @@ def export_light(light):
             'type': 'directional',
         }
     elif light.type == 'POINT':
-        linear_factor, quad_factor = calc_att()
+        constant_factor, linear_factor, quad_factor = calc_att()
         gltf_light = {
             'point': {
                 'color': (light.color * light.energy)[:],
 
-                'constantAttenuation': 1,
+                'constantAttenuation': constant_factor,
                 'linearAttenuation': linear_factor,
                 'quadraticAttenuation': quad_factor,
             },
             'type': 'point',
         }
     elif light.type == 'SPOT':
-        linear_factor, quad_factor = calc_att()
+        constant_factor, linear_factor, quad_factor = calc_att()
         gltf_light = {
             'spot': {
                 'color': (light.color * light.energy)[:],
 
                 'fallOffAngle': light.spot_size,
                 'fallOffExponent': 128.0 * light.spot_blend,
-                'constantAttenuation': 1.0,
+                'constantAttenuation': constant_factor,
                 'linearAttenuation': linear_factor,
                 'quadraticAttenuation': quad_factor,
             },
