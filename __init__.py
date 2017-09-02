@@ -183,7 +183,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         default=True
     )
 
-    def invoke(self, context, event):
+    def update_extensions(self):
         self.ext_prop_to_exporter_map = {ext.ext_meta['name']: ext for ext in self.ext_exporters}
 
         for exporter in self.ext_exporters:
@@ -202,9 +202,12 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             if Version(self.asset_version) < Version('2.0') and is_tech_ext:
                 prop.enable = True
 
+    def invoke(self, context, event):
+        self.update_extensions()
         return super().invoke(context, event)
 
     def draw(self, context):
+        self.update_extensions()
         layout = self.layout
         col = layout.column()
 
