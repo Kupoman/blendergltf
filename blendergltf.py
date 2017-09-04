@@ -427,6 +427,10 @@ def _get_custom_properties(data):
     }
 
 
+def _get_bone_name(bone):
+    return '{}_{}'.format(bone.id_data.name, bone.name)
+
+
 def export_camera(_, camera):
     camera_gltf = {}
     if camera.type == 'ORTHO':
@@ -820,7 +824,7 @@ def export_skins(state):
             'name': obj.name,
         }
         gltf_skin[joints_key] = [
-            Reference('bones', arm.data.bones[group.name].as_pointer(), None, None)
+            Reference('objects', _get_bone_name(arm.data.bones[group.name]), None, None)
             for group in bone_groups
         ]
         for i, ref in enumerate(gltf_skin[joints_key]):
@@ -832,10 +836,10 @@ def export_skins(state):
             gltf_skin['bindShapeMatrix'] = togl(bind_shape_mat)
             bind_shape_mat = mathutils.Matrix.Identity(4)
         else:
-            bone_names = [b.as_pointer() for b in arm.data.bones if b.parent is None]
+            bone_names = [_get_bone_name(b) for b in arm.data.bones if b.parent is None]
             if len(bone_names) > 1:
                 print('Warning: Armature {} has no root node'.format(arm.data.name))
-            gltf_skin['skeleton'] = Reference('bones', bone_names[0], gltf_skin, 'skeleton')
+            gltf_skin['skeleton'] = Reference('objects', bone_names[0], gltf_skin, 'skeleton')
             state['references'].append(gltf_skin['skeleton'])
 
         element_size = 16 * 4
@@ -899,10 +903,10 @@ def export_node(state, obj):
         if armature:
             state['skinned_meshes'][mesh.name] = obj
             if state['version'] < Version('2.0'):
-                bone_names = [b.as_pointer() for b in armature.data.bones if b.parent is None]
+                bone_names = [_get_bone_name(b) for b in armature.data.bones if b.parent is None]
                 node['skeletons'] = []
                 node['skeletons'].extend([
-                    Reference('bones', bone, node['skeletons'], i)
+                    Reference('objects', bone, node['skeletons'], i)
                     for i, bone in enumerate(bone_names)
                 ])
                 for ref in node['skeletons']:
@@ -924,12 +928,12 @@ def export_node(state, obj):
         state['references'].extend(dupli_refs)
     elif obj.type == 'ARMATURE':
         for i, bone in enumerate(obj.data.bones):
-            state['input']['bones'].append(SimpleID(bone.as_pointer(), bone))
+            state['input']['bones'].append(SimpleID(_get_bone_name(bone), bone))
         if not node['children']:
             node['children'] = []
         offset = len(node['children'])
         root_bones = [
-            Reference('bones', b.as_pointer(), node['children'], i + offset)
+            Reference('objects', _get_bone_name(b), node['children'], i + offset)
             for i, b in enumerate(obj.data.bones) if b.parent is None
         ]
         for bone in root_bones:
@@ -945,14 +949,19 @@ def export_joint(state, bone):
         matrix = bone.parent.matrix_local.inverted() * matrix
 
     gltf_joint = {
-        'name': bone.name,
+        'name': _get_bone_name(bone),
     }
     if state['version'] < Version('2.0'):
-        gltf_joint['jointName'] = Reference('bones', bone.as_pointer(), gltf_joint, 'jointName')
+        gltf_joint['jointName'] = Reference(
+            'objects',
+            _get_bone_name(bone),
+            gltf_joint,
+            'jointName'
+        )
         state['references'].append(gltf_joint['jointName'])
     if bone.children:
         gltf_joint['children'] = [
-            Reference('bones', child.as_pointer(), None, None) for child in bone.children
+            Reference('objects', _get_bone_name(child), None, None) for child in bone.children
         ]
     for i, ref in enumerate(gltf_joint.get('children', [])):
         ref.source = gltf_joint['children']
@@ -1275,7 +1284,7 @@ def export_animations(state, actions):
             is_bone = False
             if targetid != obj.name:
                 is_bone = True
-                targetid = bpy.data.armatures[obj.data.name].bones[targetid].as_pointer()
+                targetid = _get_bone_name(bpy.data.armatures[obj.data.name].bones[targetid])
 
             for path in ('translation', 'rotation', 'scale'):
                 sampler_name = '{}_{}_{}_sampler'.format(action.name, targetid, path)
@@ -1291,7 +1300,7 @@ def export_animations(state, actions):
                 }
                 gltf_channels.append(gltf_channel)
                 id_ref = Reference(
-                    'bones' if is_bone else 'objects',
+                    'objects' if is_bone else 'objects',
                     targetid,
                     gltf_channel['target'],
                     target_key
@@ -1512,7 +1521,10 @@ def export_gltf(scene_delta, settings=None):
     state['output']['nodes'].extend([
         export_joint(state, sid.data) for sid in state['input']['bones']
     ])
+
+    # Move bones to nodes for updating references
     state['input']['objects'].extend(state['input']['bones'])
+    state['input']['bones'] = []
 
     # Export default scene
     default_scene = None
