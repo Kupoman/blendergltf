@@ -198,9 +198,8 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             prop.name = exporter.ext_meta['name']
             prop.enable = exporter.ext_meta['enable']
 
-            is_tech_ext = exporter.ext_meta['name'] == 'KHR_technique_webgl'
-            if Version(self.asset_version) < Version('2.0') and is_tech_ext:
-                prop.enable = True
+            if exporter.ext_meta['name'] == 'KHR_technique_webgl':
+                prop.enable = Version(self.asset_version) < Version('2.0')
 
     def invoke(self, context, event):
         self.update_extensions()
