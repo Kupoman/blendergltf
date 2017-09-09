@@ -91,6 +91,20 @@
             "minItems": 3,
             "maxItems": 3,
             "default": [ 0.0, 0.0, 0.0 ]
+        },
+        "collisionGroups": {
+            "type": "integer",
+            "description": "A 32-bit bit field representing the node's group membership",
+            "minimum": 0,
+            "maximum": 4294967296,
+            "default": 1
+        },
+        "collisionMasks": {
+            "type": "integer",
+            "description": "A 32-bit bit field representing what groups the node can collide with",
+            "minimum": 0,
+            "maximum": 4294967296,
+            "default": 1
         }
     },
     "additionalProperties" : false,
