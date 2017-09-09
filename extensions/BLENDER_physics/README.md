@@ -42,7 +42,7 @@ The properties available are listed in the table below.
 **Collision Shapes**
 
 Below are the allowed values for `collisionShape`.
-When consuming this extension, an application should construct the `collisionShape` with parameters that best fill the `bounding_box`.
+When consuming this extension, an application should construct the `collisionShape` with parameters that best fill the `boundingBox`.
 The shape offset should be applied to the shape prior to the node's transform.
 
 * `BOX`
@@ -63,13 +63,13 @@ Replace `<glTF id>` with the value appropriate for the spec version.
 {
     "extensions": {
         "BLENDER_physics": {
-            "bounding_box": [
+            "boundingBox": [
                 2.0000009536743164,
                 2.0000009536743164,
                 4.323975563049316
             ],
             "collisionShape": "CAPSULE",
-            "primary_axis": "Z",
+            "primaryAxis": "Z",
             "mass": 1.0,
             "static": false
         }
@@ -99,13 +99,13 @@ Replace `<glTF id>` with the value appropriate for the spec version.
 {
     "extensions": {
         "BLENDER_physics": {
-            "bounding_box": [
+            "boundingBox": [
                 2.0000009536743164,
                 2.0000009536743164,
                 2.0
             ],
             "collisionShape": "MESH",
-            "primary_axis": "Z",
+            "primaryAxis": "Z",
             "mass": 1.0,
             "mesh": <glTF id>,
             "static": false
