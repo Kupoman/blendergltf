@@ -31,13 +31,13 @@ The properties available are listed in the table below.
 |**collisionShape**|`string`|The shape a physics simulation should use to represent the node|No, default: `BOX`|
 |**mass**|`number`|The 'weight', irrespective of gravity, of the node|No, default: `1.0`|
 |**static**|`boolean`|Whether or not the Node should be moved by physics simulations|No, default: `false`|
-|**bounding_box**|`array`|The dimensions of the local (i.e., does not include the node's transform) bounding box of the collision shape centered on the origin|Yes|
-|**primary_axis**|`number`|The axis to use for the height of the collision shape|No, default: `1`|
+|**boundingBox**|`array`|The dimensions of the local (i.e., does not include the node's transform) bounding box of the collision shape centered on the origin|Yes|
+|**primaryAxis**|`number`|The axis to use for the height of the collision shape|No, default: `1`|
 |**mesh**|`glTF id`|The ID of the mesh to use for `CONVEX_HULL` and `MESH` collision shapes|No, default: `node's mesh` if it exists, otherwise use `BOX` shape|
-|**offset_matrix**|`array`|A 4x4 transform matrix applied to the collision shape in addition to the node's transform|No, default: `[ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]`|
-|**offset_rotation**|`array`|A rotation offset (as a quaternion) applied to the physics shape in addition to the node's rotation|No, default: `[0.0, 0.0, 0.0, 1.0]`|
-|**offset_scale**|`array`|A non-uniform scale offset applied to the collision shape in addition to the node's scale|No, default: `[1.0, 1.0, 1.0]`|
-|**offset_translation**|`array`|A translation offset applied to the collision shape in addition to the node's translation|No, default: `[0.0, 0.0, 0.0]`|
+|**offsetMatrix**|`array`|A 4x4 transform matrix applied to the collision shape in addition to the node's transform|No, default: `[ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]`|
+|**offsetRotation**|`array`|A rotation offset (as a quaternion) applied to the physics shape in addition to the node's rotation|No, default: `[0.0, 0.0, 0.0, 1.0]`|
+|**offsetScale**|`array`|A non-uniform scale offset applied to the collision shape in addition to the node's scale|No, default: `[1.0, 1.0, 1.0]`|
+|**offsetTranslation**|`array`|A translation offset applied to the collision shape in addition to the node's translation|No, default: `[0.0, 0.0, 0.0]`|
 
 **Collision Shapes**
 

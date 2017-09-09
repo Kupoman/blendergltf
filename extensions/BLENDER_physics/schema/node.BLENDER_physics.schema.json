@@ -29,14 +29,14 @@
             "type": "boolean",
             "default": false
         },
-        "bounding_box" : {
+        "boundingBox" : {
             "description": "The dimensions of the local (i.e., does not include the node's transform) bounding box of the collision shape centered on the origin",
             "type": "array",
             "items": {"type": "number"},
             "minItems": 3,
             "maxItems": 3
         },
-        "primary_axis" : {
+        "primaryAxis" : {
             "description": "The axis to use for the height of the collision shape",
             "type": "string",
             "enum": [
@@ -50,7 +50,7 @@
             "description": "The ID of the mesh to use for CONVEX_HULL and MESH collision shapes",
             "allOf": [{"$ref": "glTFid.schema.json"}]
         },
-        "offset_matrix": {
+        "offsetMatrix": {
             "type": "array",
             "description": "A 4x4 transform matrix applied to the collision shape in addition to the node's transform",
             "items": {
@@ -60,7 +60,7 @@
             "maxItems": 16,
             "default": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]
         },
-        "offset_rotation": {
+        "offsetRotation": {
             "type": "array",
             "description": "A rotation offset (as a quaternion) applied to the collision shape in addition to the node's rotation",
             "items": {
@@ -72,7 +72,7 @@
             "maxItems": 4,
             "default": [ 0.0, 0.0, 0.0, 1.0 ]
         },
-        "offset_scale": {
+        "offsetScale": {
             "type": "array",
             "description": "A non-uniform scale offset applied to the collision shape in addition to the node's scale",
             "items": {
@@ -82,7 +82,7 @@
             "maxItems": 3,
             "default": [ 1.0, 1.0, 1.0 ]
         },
-        "offset_translation": {
+        "offsetTranslation": {
             "type": "array",
             "description": "A translation offset applied to the collision shape in addition to the node's translation",
             "items": {

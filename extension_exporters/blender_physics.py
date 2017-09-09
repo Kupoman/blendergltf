@@ -18,8 +18,8 @@ class BlenderPhysics:
             'collisionShape': body.collision_shape.upper(),
             'mass': body.mass,
             'static': body.type == 'PASSIVE',
-            'bounding_box': bounds,
-            'primary_axis': "Z",
+            'boundingBox': bounds,
+            'primaryAxis': "Z",
         }
 
         if body.collision_shape in ('CONVEX_HULL', 'MESH'):
