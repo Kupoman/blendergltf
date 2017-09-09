@@ -38,6 +38,8 @@ The properties available are listed in the table below.
 |**offsetRotation**|`array`|A rotation offset (as a quaternion) applied to the physics shape in addition to the node's rotation|No, default: `[0.0, 0.0, 0.0, 1.0]`|
 |**offsetScale**|`array`|A non-uniform scale offset applied to the collision shape in addition to the node's scale|No, default: `[1.0, 1.0, 1.0]`|
 |**offsetTranslation**|`array`|A translation offset applied to the collision shape in addition to the node's translation|No, default: `[0.0, 0.0, 0.0]`|
+|**collisionGroups**|`integer`|A 32-bit bit field representing the node's group membership|No, default: `1`|
+|**collisionMasks**|`integer`|A 32-bit bit field representing what groups the node can collide with|No, default: `1`|
 
 **Collision Shapes**
 
@@ -52,6 +54,12 @@ The shape offset should be applied to the shape prior to the node's transform.
 * `CONE`
 * `CONVEX_HULL`
 * `MESH`
+
+**Collision Filtering**
+
+When two objects collide, their collisionGroups and collisionMasks properties should be used to determine if the collision should be filtered out.
+If a bitwise AND operation between the collisionGroups of one object and the collisionMasks of the other object in a collision are greater than zero in both directions, then they will respond to collisions between each other.
+This aligns with how the Bullet physics library handles collision filtering with [groups and masks](http://www.bulletphysics.org/mediawiki-1.5.8/index.php?title=Collision_Filtering#Filtering_collisions_using_masks).
 
 **Example**
 

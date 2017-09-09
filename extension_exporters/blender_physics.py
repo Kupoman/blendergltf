@@ -14,12 +14,15 @@ class BlenderPhysics:
     def export_physics(self, state, obj, gltf_node):
         body = obj.rigid_body
         bounds = [obj.dimensions[i] / gltf_node['scale'][i] for i in range(3)]
+        collision_layers = sum(layer << i for i, layer in enumerate(body.collision_groups))
         physics = {
             'collisionShape': body.collision_shape.upper(),
             'mass': body.mass,
             'static': body.type == 'PASSIVE',
             'boundingBox': bounds,
             'primaryAxis': "Z",
+            'collisionGroups': collision_layers,
+            'collisionMasks': collision_layers,
         }
 
         if body.collision_shape in ('CONVEX_HULL', 'MESH'):
