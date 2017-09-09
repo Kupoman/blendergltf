@@ -37,9 +37,9 @@ The properties available are listed in the table below.
 |**offsetMatrix**|`array`|A 4x4 transform matrix applied to the collision shape in addition to the node's transform|No, default: `[ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]`|
 |**offsetRotation**|`array`|A rotation offset (as a quaternion) applied to the physics shape in addition to the node's rotation|No, default: `[0.0, 0.0, 0.0, 1.0]`|
 |**offsetScale**|`array`|A non-uniform scale offset applied to the collision shape in addition to the node's scale|No, default: `[1.0, 1.0, 1.0]`|
+|**offsetTranslation**|`array`|A translation offset applied to the collision shape in addition to the node's translation|No, default: `[0.0, 0.0, 0.0]`|
 |**collisionGroups**|`integer`|A 32-bit bit field representing the node's group membership|No, default: `1`|
 |**collisionMasks**|`integer`|A 32-bit bit field representing what groups the node can collide with|No, default: `1`|
-|**offsetTranslation**|`array`|A translation offset applied to the collision shape in addition to the node's translation|No, default: `[0.0, 0.0, 0.0]`|
 
 **Collision Shapes**
 
