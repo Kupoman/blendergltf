@@ -55,6 +55,12 @@ The shape offset should be applied to the shape prior to the node's transform.
 * `CONVEX_HULL`
 * `MESH`
 
+**Collision Filtering**
+
+When two objects collide, their collisionGroups and collisionMasks properties should be used to determine if the collision should be handled or filtered out.
+If a bitwise and operation between the collisionGroups of one object and the collisionMasks of the other object in a collision are greater than one in both directions, then the collision should be handled and not filtered out.
+This aligns with how the Bullet physics library handles collision filtering with groups and masks.
+
 **Example**
 
 Below are two example nodes with physics information defined.
