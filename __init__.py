@@ -26,7 +26,7 @@ from .pbr_utils import PbrExportPanel, PbrSettings
 bl_info = {
     "name": "glTF format",
     "author": "Daniel Stokes and GitHub contributors",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (2, 76, 0),
     "location": "File > Import-Export",
     "description": "Export glTF",
