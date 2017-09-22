@@ -90,10 +90,10 @@ class Vertex:
     def __init__(self, mesh, loop):
         vert_idx = loop.vertex_index
         loop_idx = loop.index
-        self.co = mesh.vertices[vert_idx].co.freeze()
-        self.normal = loop.normal.freeze()
-        self.uvs = tuple(layer.data[loop_idx].uv.freeze() for layer in mesh.uv_layers)
-        self.colors = tuple(layer.data[loop_idx].color.freeze() for layer in mesh.vertex_colors)
+        self.co = mesh.vertices[vert_idx].co[:]
+        self.normal = loop.normal[:]
+        self.uvs = tuple(layer.data[loop_idx].uv[:] for layer in mesh.uv_layers)
+        self.colors = tuple(layer.data[loop_idx].color[:] for layer in mesh.vertex_colors)
         self.loop_indices = [loop_idx]
 
         # Take the four most influential groups
@@ -659,11 +659,11 @@ def export_mesh(state, mesh):
             ndata[(i * 3) + j] = normal[j]
 
         for j, uv in enumerate(vtx.uvs):
-            tdata[j][i * 2] = uv.x
+            tdata[j][i * 2] = uv[0]
             if state['settings']['asset_profile'] == 'WEB':
-                tdata[j][i * 2 + 1] = 1.0 - uv.y
+                tdata[j][i * 2 + 1] = 1.0 - uv[1]
             else:
-                tdata[j][i * 2 + 1] = uv.y
+                tdata[j][i * 2 + 1] = uv[1]
 
         for j, col in enumerate(vtx.colors):
             cdata[j][i * 3] = col[0]
