@@ -422,7 +422,7 @@ _IGNORED_CUSTOM_PROPS = [
 
 def _get_custom_properties(data):
     return {
-        k: v for k, v in data.items()
+        k: v.to_list() if hasattr(v, 'to_list') else v for k, v in data.items()
         if k not in _IGNORED_CUSTOM_PROPS and not isinstance(v, idprop.types.IDPropertyGroup)
     }
 
