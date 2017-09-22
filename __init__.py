@@ -2,6 +2,7 @@ import importlib
 from distutils.version import StrictVersion as Version
 import json
 import os
+import time
 
 import bpy
 from bpy.props import (
@@ -346,7 +347,11 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             if prop.enable and not (self.materials_disable and is_builtin_mat_ext(prop.name))
         ]
 
+        start_time = time.perf_counter()
         gltf = export_gltf(data, settings)
+        end_time = time.perf_counter()
+        print('Export took {:.4} seconds'.format(end_time - start_time))
+
         with open(self.filepath, 'w') as fout:
             # Figure out indentation
             if self.pretty_print:
