@@ -871,6 +871,42 @@ def export_skins(state):
     return [export_skin(obj, mesh_name) for mesh_name, obj in state['skinned_meshes'].items()]
 
 
+def export_dupli_group(state, dupli_group):
+    group_sid = SimpleID('dupli_group_{}.{}'.format(dupli_group.name, len(state['dupli_nodes'])))
+    state['input']['dupli_ids'].append(group_sid)
+
+    group_node = {
+        'name': group_sid.name,
+    }
+    state['dupli_nodes'].append(group_node)
+
+    dupli_nodes = [group_node]
+    children = []
+
+    for dupli_obj in dupli_group.objects:
+        obj_node = export_node(state, dupli_obj)
+        state['dupli_nodes'].append(obj_node)
+
+        obj_sid = SimpleID('dupli_node_{}.{}'.format(dupli_obj.name, len(state['dupli_nodes'])))
+        state['input']['dupli_ids'].append(obj_sid)
+
+        obj_node['name'] = obj_sid.name
+        if dupli_obj.dupli_group is None and 'children' in obj_node:
+            del obj_node['children']
+
+        obj_ref = Reference('objects', obj_sid.name, children, len(children))
+        children.append(obj_ref)
+        state['references'].append(obj_ref)
+
+        dupli_nodes.append(obj_node)
+
+    group_node['children'] = children
+
+    group_ref = Reference('objects', group_sid.name, None, None)
+    state['references'].append(group_ref)
+    return group_ref
+
+
 def export_node(state, obj):
     node = {
         'name': obj.name,
@@ -918,14 +954,10 @@ def export_node(state, obj):
         node['camera'] = Reference('cameras', obj.data.name, node, 'camera')
         state['references'].append(node['camera'])
     elif obj.type == 'EMPTY' and obj.dupli_group is not None:
-        # Expand dupli-groups
         node['children'] = node.get('children', [])
-        dupli_refs = [
-            Reference('objects', dupli.name, node['children'], i + len(node['children']))
-            for i, dupli in enumerate(obj.dupli_group.objects)
-        ]
-        node['children'].extend(dupli_refs)
-        state['references'].extend(dupli_refs)
+        node['children'].append(export_dupli_group(state, obj.dupli_group))
+        node['children'][-1].source = node['children']
+        node['children'][-1].prop = len(node['children']) - 1
     elif obj.type == 'ARMATURE':
         for i, bone in enumerate(obj.data.bones):
             state['input']['bones'].append(SimpleID(_get_bone_name(bone), bone))
@@ -1434,6 +1466,7 @@ def export_gltf(scene_delta, settings=None):
         'animation_dt': 1.0 / bpy.context.scene.render.fps,
         'mod_meshes': {},
         'skinned_meshes': {},
+        'dupli_nodes': [],
         'extensions_used': [],
         'gl_extensions_used': [],
         'buffers': [],
@@ -1448,6 +1481,7 @@ def export_gltf(scene_delta, settings=None):
             'scenes': [],
             'skins': [],
             'materials': [],
+            'dupli_ids': [],
         },
         'output': {
             'extensions': [],
@@ -1525,6 +1559,11 @@ def export_gltf(scene_delta, settings=None):
     # Move bones to nodes for updating references
     state['input']['objects'].extend(state['input']['bones'])
     state['input']['bones'] = []
+
+    # Export dupli-groups
+    state['output']['nodes'].extend(state['dupli_nodes'])
+    state['input']['objects'].extend(state['input']['dupli_ids'])
+    state['input']['dupli_ids'] = []
 
     # Export default scene
     default_scene = None
