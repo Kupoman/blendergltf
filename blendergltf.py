@@ -1292,6 +1292,9 @@ def export_animations(state, actions):
         gltf_parameters[time_parameter_name] = ref
         state['references'].append(ref)
 
+        input_list = '{}_{}_samplers'.format(action.name, obj.name)
+        state['input'][input_list] = []
+
         sampler_keys = []
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
@@ -1338,8 +1341,8 @@ def export_animations(state, actions):
                     target_key
                 )
                 state['references'].append(id_ref)
-                state['input']['anim_samplers'].append(SimpleID(sampler_name))
-                sampler_ref = Reference('anim_samplers', sampler_name, gltf_channel, 'sampler')
+                state['input'][input_list].append(SimpleID(sampler_name))
+                sampler_ref = Reference(input_list, sampler_name, gltf_channel, 'sampler')
                 state['references'].append(sampler_ref)
 
                 gltf_sampler = {
