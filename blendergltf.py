@@ -1399,8 +1399,8 @@ def export_animations(state, actions):
             }
             gltf_action['parameters'] = gltf_parameters
 
-        obj.animation_data.action = prev_action
         sce.frame_set(prev_frame)
+        obj.animation_data.action = prev_action
 
         return gltf_action
 
