@@ -67,6 +67,14 @@ Export minimum default materials. Useful when using material extensions. Additio
 #### Embed Shader Data (glTF 1.0 only)
 Embed shader data into the glTF file instead of as a separate file.
 
+### Animations
+#### Armatures
+* **All Eligible** Export all actions that can be used by an object
+* **Active** Export the active action per object
+#### Objects
+* **All Eligible** Export all actions that can be used by an object
+* **Active** Export the active action per object
+
 ### Images
 #### Storage
 * **Embed** Embed image data into the glTF file.

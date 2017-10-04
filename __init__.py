@@ -65,6 +65,10 @@ IMAGE_STORAGE_ITEMS = (
     ('REFERENCE', 'Reference', 'Use the same filepath that Blender uses for images'),
     ('COPY', 'Copy', 'Copy images to output directory and use a relative reference')
 )
+ANIM_EXPORT_ITEMS = (
+    ('ACTIVE', 'Active Only', 'Export the active action per object'),
+    ('ELIGIBLE', 'All Eligible', 'Export all actions that can be used by an object'),
+)
 
 
 class ExtPropertyGroup(bpy.types.PropertyGroup):
@@ -142,6 +146,16 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             'instead of each vertex property (e.g. position) contiguously'
         ),
         default=True
+    )
+    animations_object_export = EnumProperty(
+        items=ANIM_EXPORT_ITEMS,
+        name='Objects',
+        default='ACTIVE'
+    )
+    animations_armature_export = EnumProperty(
+        items=ANIM_EXPORT_ITEMS,
+        name='Armatures',
+        default='ELIGIBLE'
     )
     images_data_storage = EnumProperty(
         items=IMAGE_STORAGE_ITEMS,
@@ -232,6 +246,11 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         if Version(self.asset_version) < Version('2.0'):
             material_settings = getattr(self, 'settings_KHR_technique_webgl')
             col.prop(material_settings, 'embed_shaders')
+
+        col = layout.box().column()
+        col.label('Animations:', icon='ACTION')
+        col.prop(self, 'animations_armature_export')
+        col.prop(self, 'animations_object_export')
 
         col = layout.box().column()
         col.label('Images:', icon='IMAGE_DATA')

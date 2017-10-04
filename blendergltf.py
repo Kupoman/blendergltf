@@ -33,6 +33,8 @@ DEFAULT_SETTINGS = {
     'asset_profile': 'WEB',
     'images_allow_srgb': False,
     'extension_exporters': [],
+    'animations_object_export': 'ACTIVE',
+    'animations_armature_export': 'ELIGIBLE',
 }
 
 
@@ -1404,13 +1406,46 @@ def export_animations(state, actions):
 
         return gltf_action
 
+    armature_objects = [obj for obj in state['input']['objects'] if obj.type == 'ARMATURE']
+    regular_objects = [obj for obj in state['input']['objects'] if obj.type != 'ARMATURE']
+
     gltf_actions = []
-    for obj in state['input']['objects']:
-        gltf_actions.extend([
-            export_animation(obj, action)
-            for action in actions
-            if _can_object_use_action(obj, action)
-        ])
+
+    def export_eligible(objects):
+        for obj in objects:
+            gltf_actions.extend([
+                export_animation(obj, action)
+                for action in actions
+                if _can_object_use_action(obj, action)
+            ])
+
+    def export_active(objects):
+        for obj in objects:
+            if obj.animation_data.action:
+                gltf_actions.append(export_animation(obj, obj.animation_data.action))
+
+    armature_setting = state['settings']['animations_armature_export']
+    object_setting = state['settings']['animations_object_export']
+
+    if armature_setting == 'ACTIVE':
+        export_active(armature_objects)
+    elif armature_setting == 'ELIGIBLE':
+        export_eligible(armature_objects)
+    else:
+        print(
+            'WARNING: Unrecognized setting for animations_armature_export:',
+            '{}'.format(armature_setting)
+        )
+
+    if object_setting == 'ACTIVE':
+        export_active(regular_objects)
+    elif object_setting == 'ELIGIBLE':
+        export_eligible(regular_objects)
+    else:
+        print(
+            'WARNING: Unrecognized setting for animations_object_export:',
+            '{}'.format(object_setting)
+        )
 
     return gltf_actions
 
