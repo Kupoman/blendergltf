@@ -1266,15 +1266,16 @@ def export_animations(state, actions):
         for frame in range(frame_start, frame_end + 1):
             sce.frame_set(frame)
 
-            channels[obj.name].append(obj.matrix_local)
+            # Decompose here so we don't store a reference the matrix
+            channels[obj.name].append(decompose(obj.matrix_local))
 
             if obj.type == 'ARMATURE':
                 for pbone in obj.pose.bones:
                     if pbone.parent:
                         mat = pbone.parent.matrix.inverted() * pbone.matrix
                     else:
-                        mat = pbone.matrix.copy()
-                    channels[pbone.name].append(mat)
+                        mat = pbone.matrix
+                    channels[pbone.name].append(decompose(mat))
 
         gltf_channels = []
         gltf_parameters = {}
@@ -1308,7 +1309,7 @@ def export_animations(state, actions):
             sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
 
             for i in range(num_frames):
-                loc, rot, scale = decompose(chan[i])
+                loc, rot, scale = chan[i]
                 for j in range(3):
                     ldata[(i * 3) + j] = loc[j]
                     sdata[(i * 3) + j] = scale[j]
