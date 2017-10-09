@@ -1422,7 +1422,7 @@ def export_animations(state, actions):
 
     def export_active(objects):
         for obj in objects:
-            if obj.animation_data.action:
+            if obj.animation_data and obj.animation_data.action:
                 gltf_actions.append(export_animation(obj, obj.animation_data.action))
 
     armature_setting = state['settings']['animations_armature_export']
