@@ -1534,6 +1534,17 @@ def export_gltf(scene_delta, settings=None):
     if settings['meshes_apply_modifiers']:
         scene = bpy.context.scene
         mod_obs = [ob for ob in state['input']['objects'] if ob.is_modified(scene, 'PREVIEW')]
+
+        # Apply modifiers with all armatures in pose mode
+        saved_pose_positions = [armature.pose_position for armature in bpy.data.armatures]
+        for armature in bpy.data.armatures:
+            armature.pose_position = 'REST'
+        if saved_pose_positions:
+            for obj in bpy.data.objects:
+                if obj.type == 'ARMATURE':
+                    obj.update_tag()
+        scene.frame_set(scene.frame_current)
+
         for mesh in scene_delta.get('meshes', []):
             mod_users = [ob for ob in mod_obs if ob.data == mesh]
 
@@ -1547,6 +1558,10 @@ def export_gltf(scene_delta, settings=None):
             if len(mod_users) < mesh.users:
                 mesh_list.append(mesh)
         mesh_list.extend(state['mod_meshes'].values())
+
+        # Restore armature pose positions
+        for i, armature in enumerate(bpy.data.armatures):
+            armature.pose_position = saved_pose_positions[i]
     else:
         mesh_list = scene_delta.get('meshes', [])
     state['input']['meshes'] = mesh_list
