@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Kupoman/blendergltf.svg?branch=master)](https://travis-ci.org/Kupoman/blendergltf)
+
 # Blendergltf
 
 ## About
