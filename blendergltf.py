@@ -808,7 +808,7 @@ def export_mesh(state, mesh):
 
 
 def export_skins(state):
-    def export_skin(obj, mesh_name):
+    def export_skin(obj):
         if state['version'] < Version('2.0'):
             joints_key = 'jointNames'
         else:
@@ -867,7 +867,7 @@ def export_skins(state):
 
         return gltf_skin
 
-    return [export_skin(obj, mesh_name) for mesh_name, obj in state['skinned_meshes'].items()]
+    return [export_skin(obj) for obj in state['skinned_meshes'].values()]
 
 
 def export_dupli_group(state, dupli_group):
@@ -1394,7 +1394,8 @@ def export_animations(state, actions):
 
         if state['version'] < Version('2.0'):
             gltf_action['samplers'] = {
-                '{}_{}'.format(input_list, i[0]): i[1] for i in zip(sampler_keys, gltf_action['samplers'])
+                '{}_{}'.format(input_list, i[0]): i[1]
+                for i in zip(sampler_keys, gltf_action['samplers'])
             }
             gltf_action['parameters'] = gltf_parameters
 
