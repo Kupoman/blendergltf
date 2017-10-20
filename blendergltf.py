@@ -1394,7 +1394,7 @@ def export_animations(state, actions):
 
         if state['version'] < Version('2.0'):
             gltf_action['samplers'] = {
-                i[0]: i[1] for i in zip(sampler_keys, gltf_action['samplers'])
+                '{}_{}'.format(input_list, i[0]): i[1] for i in zip(sampler_keys, gltf_action['samplers'])
             }
             gltf_action['parameters'] = gltf_parameters
 
