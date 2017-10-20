@@ -803,9 +803,6 @@ def export_mesh(state, mesh):
     if is_skinned:
         state['buffers'].append(skin_buf)
         state['input']['buffers'].append(SimpleID(skin_buf.name))
-        if state['version'] < Version('2.0'):
-            gltf_mesh['skin'] = Reference('skins', mesh.name, gltf_mesh, 'skin')
-            state['references'].append(gltf_mesh['skin'])
 
     return gltf_mesh
 
@@ -866,7 +863,7 @@ def export_skins(state):
         state['buffers'].append(buf)
         state['input']['buffers'].append(SimpleID(buf.name))
 
-        state['input']['skins'].append(SimpleID(mesh_name))
+        state['input']['skins'].append(SimpleID(obj.name))
 
         return gltf_skin
 
@@ -940,6 +937,8 @@ def export_node(state, obj):
         armature = obj.find_armature()
         if armature:
             state['skinned_meshes'][mesh.name] = obj
+            node['skin'] = Reference('skins', obj.name, node, 'skin')
+            state['references'].append(node['skin'])
             if state['version'] < Version('2.0'):
                 bone_names = [_get_bone_name(b) for b in armature.data.bones if b.parent is None]
                 node['skeletons'] = []
@@ -949,9 +948,6 @@ def export_node(state, obj):
                 ])
                 for ref in node['skeletons']:
                     state['references'].append(ref)
-            else:
-                node['skin'] = Reference('skins', mesh.name, node, 'skin')
-                state['references'].append(node['skin'])
     elif obj.type == 'CAMERA':
         node['camera'] = Reference('cameras', obj.data.name, node, 'camera')
         state['references'].append(node['camera'])
