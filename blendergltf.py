@@ -1568,23 +1568,33 @@ def export_gltf(scene_delta, settings=None):
         'blender_key',
         'export_func',
         'check_func',
+        'default_func',
     ])
+
+    # If check function can return False, make sure a default_func is provided
     exporters = [
-        exporter('cameras', 'cameras', export_camera, lambda x: True),
-        exporter('images', 'images', export_image, check_image),
-        exporter('nodes', 'objects', export_node, lambda x: True),
+        exporter('cameras', 'cameras', export_camera, lambda x: True, None),
+        exporter(
+            'images', 'images', export_image, check_image,
+            lambda x: {'name': x.name, 'uri': ''}
+        ),
+        exporter('nodes', 'objects', export_node, lambda x: True, None),
         # Make sure meshes come after nodes to detect which meshes are skinned
-        exporter('materials', 'materials', export_material, lambda x: True),
-        exporter('meshes', 'meshes', export_mesh, lambda x: True),
-        exporter('scenes', 'scenes', export_scene, lambda x: True),
-        exporter('textures', 'textures', export_texture, check_texture),
+        exporter('materials', 'materials', export_material, lambda x: True, None),
+        exporter('meshes', 'meshes', export_mesh, lambda x: True, None),
+        exporter('scenes', 'scenes', export_scene, lambda x: True, None),
+        exporter(
+            'textures', 'textures', export_texture, check_texture,
+            lambda x: {'name': x.name}
+        ),
     ]
 
     state['output'] = {
         exporter.gltf_key: [
             exporter.export_func(state, data)
-            for data in state['input'].get(exporter.blender_key, [])
             if exporter.check_func(data)
+            else exporter.default_func(data)
+            for data in state['input'].get(exporter.blender_key, [])
         ] for exporter in exporters
     }
 
