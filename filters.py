@@ -43,11 +43,14 @@ def used_only(bpy_data):
         'textures': [],
     }
 
-    # get list of objects
-    for obj in bpy_data['objects']:
-
+    def check_object(obj):
         # add object to list
         pruned_data['objects'].append(obj)
+
+        # handle dupli-groups
+        if obj.dupli_group:
+            for dupli_obj in obj.dupli_group.objects:
+                check_object(dupli_obj)
 
         # add scene to list
         for scene in obj.users_scene:
@@ -88,5 +91,9 @@ def used_only(bpy_data):
                         # add images to list
                         if tex.image not in pruned_data['images']:
                             pruned_data['images'].append(tex.image)
+
+    # get list of objects
+    for obj in bpy_data['objects']:
+        check_object(obj)
 
     return pruned_data
