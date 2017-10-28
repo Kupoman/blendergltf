@@ -48,7 +48,7 @@ if "bpy" in locals():
 
 
 GLTFOrientationHelper = orientation_helper_factory(
-    "GLTFOrientationHelper", axis_forward='-Z', axis_up='Y'
+    "GLTFOrientationHelper", axis_forward='Z', axis_up='Y'
 )
 
 VERSION_ITEMS = (
