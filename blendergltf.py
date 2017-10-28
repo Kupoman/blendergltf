@@ -959,7 +959,7 @@ def export_node(state, obj):
     elif obj.type == 'ARMATURE':
         for i, bone in enumerate(obj.data.bones):
             state['input']['bones'].append(SimpleID(_get_bone_name(bone), bone))
-        if not node['children']:
+        if 'children' not in node:
             node['children'] = []
         offset = len(node['children'])
         root_bones = [
