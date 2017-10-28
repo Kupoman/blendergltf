@@ -56,7 +56,7 @@ def used_only(bpy_data):
 
         materials = []
         if obj.data and hasattr(obj.data, 'materials'):
-            materials = obj.data.materials.values()
+            materials = [material for material in obj.data.materials.values() if material]
 
         for material in materials:
             material.tag = True
