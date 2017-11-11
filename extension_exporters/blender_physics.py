@@ -16,19 +16,22 @@ class BlenderPhysics:
         bounds = [obj.dimensions[i] / gltf_node['scale'][i] for i in range(3)]
         collision_layers = sum(layer << i for i, layer in enumerate(body.collision_groups))
         physics = {
-            'collisionShape': body.collision_shape.upper(),
+            'collisionShapes': [{
+                'shapeType': body.collision_shape.upper(),
+                'boundingBox': bounds,
+                'primaryAxis': "Z",
+            }],
             'mass': body.mass,
             'static': body.type == 'PASSIVE',
-            'boundingBox': bounds,
-            'primaryAxis': "Z",
             'collisionGroups': collision_layers,
             'collisionMasks': collision_layers,
         }
 
         if body.collision_shape in ('CONVEX_HULL', 'MESH'):
             mesh = state['mod_meshes'].get(obj.name, obj.data)
-            physics['mesh'] = Reference('meshes', mesh.name, physics, 'mesh')
-            state['references'].append(physics['mesh'])
+            meshref = Reference('meshes', mesh.name, physics['collisionShapes'][0], 'mesh')
+            physics['collisionShapes'][0]['mesh'] = meshref
+            state['references'].append(meshref)
 
         return physics
 
