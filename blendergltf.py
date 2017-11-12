@@ -283,6 +283,7 @@ class Buffer:
             uri = 'data:application/octet-stream;base64,' + base64.b64encode(data).decode('ascii')
         else:
             uri = bpy.path.clean_name(self.name) + '.bin'
+            uri = '{}_{}.bin'.format(state['settings']['gltf_name'], bpy.path.clean_name(self.name))
             with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as fout:
                 fout.write(data)
 
