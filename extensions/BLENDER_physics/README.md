@@ -35,6 +35,7 @@ The properties available are listed in the table below.
 |**collisionMasks**|`integer`|A 32-bit bit field representing what groups the node can collide with|No, default: `1`|
 
 **shape Properties**
+
 |   |Type|Description|Required|
 |---|----|-----------|--------|
 |**boundingBox**|`array`|The dimensions of the local (i.e., does not include the node's transform) bounding box of the collision shape centered on the origin|Yes|
