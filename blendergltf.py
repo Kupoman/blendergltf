@@ -20,6 +20,7 @@ __all__ = ['export_gltf']
 
 DEFAULT_SETTINGS = {
     'gltf_output_dir': '',
+    'gltf_name': 'gltf',
     'buffers_embed_data': True,
     'buffers_combine_data': False,
     'nodes_export_hidden': False,
@@ -386,9 +387,9 @@ class Buffer:
 
         return gltf_accessors
 
-    def __add__(self, other):
+    def combine(self, other, state):
         # Handle the simple stuff
-        combined = Buffer('combined')
+        combined = Buffer(state['settings']['gltf_name'])
         combined.bytelength = self.bytelength + other.bytelength
         combined.accessors = {**self.accessors, **other.accessors}
 
@@ -1054,7 +1055,11 @@ def export_scene(state, scene):
 
 def export_buffers(state):
     if state['settings']['buffers_combine_data']:
-        buffers = [functools.reduce(lambda x, y: x+y, state['buffers'], Buffer('empty'))]
+        buffers = [functools.reduce(
+            lambda x, y: x.combine(y, state),
+            state['buffers'],
+            Buffer('empty')
+        )]
         state['buffers'] = buffers
         state['input']['buffers'] = [SimpleID(buffers[0].name)]
     else:

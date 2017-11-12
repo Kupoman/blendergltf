@@ -320,6 +320,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         # Set the output directory based on the supplied file path
         settings['gltf_output_dir'] = os.path.dirname(self.filepath)
 
+        # Set the output name
+        settings['gltf_name'] = os.path.splitext(os.path.basename(self.filepath))[0]
+
         # Calculate a global transform matrix to apply to a root node
         settings['nodes_global_matrix'] = axis_conversion(
             to_forward=self.axis_forward,
