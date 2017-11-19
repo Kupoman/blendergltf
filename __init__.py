@@ -82,13 +82,21 @@ class ExtPropertyGroup(bpy.types.PropertyGroup):
 
 class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     """Save a Khronos glTF File"""
-    bl_idname = "export_scene.gltf"
+    bl_idname = 'export_scene.gltf'
     bl_label = 'Export glTF'
 
-    filename_ext = ".gltf"
+    filename_ext = ''
     filter_glob = StringProperty(
-        default="*.gltf",
+        default='*.gltf;*.glb',
         options={'HIDDEN'},
+    )
+
+    # Override filepath to simplify linting
+    filepath = StringProperty(
+        name='File Path',
+        description='Filepath used for exporting the file',
+        maxlen=1024,
+        subtype='FILE_PATH'
     )
 
     check_extension = True
@@ -187,6 +195,11 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         name='Profile',
         default='WEB'
     )
+    gltf_export_binary = BoolProperty(
+        name='Export as binary',
+        description='Export to the binary glTF file format (.glb)',
+        default=False
+    )
     pretty_print = BoolProperty(
         name='Pretty-print / indent JSON',
         description='Export JSON with indentation and a newline',
@@ -219,6 +232,25 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     def invoke(self, context, event):
         self.update_extensions()
         return super().invoke(context, event)
+
+    def check(self, context):
+        redraw = False
+
+        if self.gltf_export_binary and self.filepath.endswith('.gltf'):
+            self.filepath = self.filepath[:-4] + 'glb'
+            redraw = True
+        elif not self.gltf_export_binary and self.filepath.endswith('.glb'):
+            self.filepath = self.filepath[:-3] + 'gltf'
+            redraw = True
+
+        if self.gltf_export_binary and self.buffers_embed_data and not self.buffers_combine_data:
+            self.buffers_combine_data = True
+            redraw = True
+
+        self.filename_ext = '.glb' if self.gltf_export_binary else '.gltf'
+        redraw = redraw or super().check(context)
+
+        return redraw
 
     def draw(self, context):
         self.update_extensions()
@@ -303,6 +335,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         col = layout.box().column()
         col.label('Output:', icon='SCRIPTWIN')
+        col.prop(self, 'gltf_export_binary')
         col.prop(self, 'asset_version')
         if Version(self.asset_version) < Version('2.0'):
             col.prop(self, 'asset_profile')
@@ -374,20 +407,20 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         end_time = time.perf_counter()
         print('Export took {:.4} seconds'.format(end_time - start_time))
 
-        with open(self.filepath, 'w') as fout:
-            # Figure out indentation
-            if self.pretty_print:
-                indent = 4
-            else:
-                indent = None
+        if self.gltf_export_binary:
+            with open(self.filepath, 'wb') as fout:
+                fout.write(gltf)
+        else:
+            with open(self.filepath, 'w') as fout:
+                # Figure out indentation
+                indent = 4 if self.pretty_print else None
 
-            # Dump the JSON
-            json.dump(gltf, fout, indent=indent, sort_keys=True,
-                      check_circular=False)
+                # Dump the JSON
+                json.dump(gltf, fout, indent=indent, sort_keys=True, check_circular=False)
 
-            if self.pretty_print:
-                # Write a newline to the end of the file
-                fout.write('\n')
+                if self.pretty_print:
+                    # Write a newline to the end of the file
+                    fout.write('\n')
         return {'FINISHED'}
 
 

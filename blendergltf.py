@@ -20,6 +20,7 @@ __all__ = ['export_gltf']
 DEFAULT_SETTINGS = {
     'gltf_output_dir': '',
     'gltf_name': 'gltf',
+    'gltf_export_binary': False,
     'buffers_embed_data': True,
     'buffers_combine_data': False,
     'nodes_export_hidden': False,
@@ -1688,5 +1689,22 @@ def export_gltf(scene_delta, settings=None):
     for path, data in state['files'].items():
         with open(path, 'wb') as fout:
             fout.write(data)
+
+    # Transform gltf data to binary
+    if settings['gltf_export_binary']:
+        json_data = json.dumps(gltf, sort_keys=True, check_circular=False).encode()
+        json_length = len(json_data)
+        json_pad = (' ' * (4 - json_length % 4)).encode()
+        json_length += len(json_pad)
+        json_format = '<II{}s{}s'.format(len(json_data), len(json_pad))
+        chunks = [struct.pack(json_format, json_length, 0x4e4f534a, json_data, json_pad)]
+
+        version = 2
+        size = 12
+        for chunk in chunks:
+            size += len(chunk)
+        header = struct.pack('<4sII', b'glTF', version, size)
+
+        gltf = bytes(0).join([header, *chunks])
 
     return gltf
