@@ -6,7 +6,6 @@ import itertools
 import json
 import math
 import os
-import shutil
 import struct
 import zlib
 
@@ -283,8 +282,8 @@ class Buffer:
             uri = 'data:application/octet-stream;base64,' + base64.b64encode(data).decode('ascii')
         else:
             uri = bpy.path.clean_name(self.name) + '.bin'
-            with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as fout:
-                fout.write(data)
+            path = os.path.join(state['settings']['gltf_output_dir'], uri)
+            state['files'][path] = data
 
         gltf = {
             'byteLength': self.bytelength,
@@ -1073,7 +1072,7 @@ def export_buffers(state):
     return gltf
 
 
-def image_to_data_uri(image, as_bytes=False):
+def image_to_data_uri(image):
     width = image.size[0]
     height = image.size[1]
     buf = bytearray([int(p * 255) for p in image.pixels])
@@ -1095,10 +1094,7 @@ def image_to_data_uri(image, as_bytes=False):
         png_pack(b'IDAT', zlib.compress(raw_data, 9)),
         png_pack(b'IEND', b'')])
 
-    if as_bytes:
-        return png_bytes
-    else:
-        return 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
+    return png_bytes
 
 
 def check_image(image):
@@ -1126,6 +1122,8 @@ EXT_MAP = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
 
 def export_image(state, image):
     uri = ''
+    path = ''
+    data = None
 
     storage_setting = state['settings']['images_data_storage']
     image_packed = image.packed_file is not None
@@ -1136,30 +1134,33 @@ def export_image(state, image):
             temp = image.filepath
             image.filepath = os.path.join(state['settings']['gltf_output_dir'], uri)
             image.save()
+            with open(bpy.path.abspath(image.filepath), 'rb') as fin:
+                data = fin.read()
             image.filepath = temp
         else:
             # convert to png and save
             uri = '.'.join([image.name, 'png'])
-            png = image_to_data_uri(image, as_bytes=True)
-            with open(os.path.join(state['settings']['gltf_output_dir'], uri), 'wb') as outfile:
-                outfile.write(png)
+            data = image_to_data_uri(image)
+        path = uri
 
     elif storage_setting == 'COPY':
-        try:
-            shutil.copy(bpy.path.abspath(image.filepath), state['settings']['gltf_output_dir'])
-        except shutil.SameFileError:
-            # If the file already exists, no need to copy
-            pass
+        with open(bpy.path.abspath(image.filepath), 'rb') as fin:
+            data = fin.read()
         uri = bpy.path.basename(image.filepath)
+        path = os.path.join(state['settings']['gltf_output_dir'], uri)
     elif storage_setting == 'REFERENCE':
         uri = image.filepath.replace('//', '')
     elif storage_setting == 'EMBED':
-        uri = image_to_data_uri(image)
+        png_bytes = image_to_data_uri(image)
+        uri = 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
     else:
         print(
             'Encountered unknown option ({}) for images_data_storage setting'
             .format(storage_setting)
         )
+
+    if path:
+        state['files'][path] = data
 
     return {
         'uri': uri,
@@ -1528,6 +1529,7 @@ def export_gltf(scene_delta, settings=None):
             'extensions': [],
         },
         'references': [],
+        'files': {},
     }
     state['input'].update({key: list(value) for key, value in scene_delta.items()})
 
@@ -1681,5 +1683,10 @@ def export_gltf(scene_delta, settings=None):
     # Remove any temporary meshes from applying modifiers
     for mesh in state['mod_meshes'].values():
         bpy.data.meshes.remove(mesh)
+
+    # Write secondary files
+    for path, data in state['files'].items():
+        with open(path, 'wb') as fout:
+            fout.write(data)
 
     return gltf
