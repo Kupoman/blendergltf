@@ -293,7 +293,10 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col = layout.box().column()
         col.label('Buffers:', icon='SORTALPHA')
         col.prop(self, 'buffers_embed_data')
-        col.prop(self, 'buffers_combine_data')
+
+        col = col.column()
+        col.enabled = not self.gltf_export_binary or not self.buffers_embed_data
+        prop = col.prop(self, 'buffers_combine_data')
 
         col = layout.box().column()
         col.label('Extensions:', icon='PLUGIN')

@@ -279,7 +279,7 @@ class Buffer:
         for view in self.buffer_views.values():
             data.extend(view['data'])
 
-        if state['settings']['buffers_embed_data']:
+        if state['settings']['buffers_embed_data'] and not state['settings']['gltf_export_binary']:
             uri = 'data:application/octet-stream;base64,' + base64.b64encode(data).decode('ascii')
         else:
             uri = bpy.path.clean_name(self.name) + '.bin'
@@ -288,9 +288,15 @@ class Buffer:
 
         gltf = {
             'byteLength': self.bytelength,
-            'uri': uri,
             'name': self.name,
         }
+
+        embedded_binary = (
+            state['settings']['buffers_embed_data']
+            and state['settings']['gltf_export_binary']
+        )
+        if not embedded_binary:
+            gltf['uri'] = uri
 
         if state['version'] < Version('2.0'):
             gltf['type'] = 'arraybuffer'
@@ -1685,19 +1691,35 @@ def export_gltf(scene_delta, settings=None):
     for mesh in state['mod_meshes'].values():
         bpy.data.meshes.remove(mesh)
 
-    # Write secondary files
-    for path, data in state['files'].items():
-        with open(path, 'wb') as fout:
-            fout.write(data)
-
     # Transform gltf data to binary
     if settings['gltf_export_binary']:
         json_data = json.dumps(gltf, sort_keys=True, check_circular=False).encode()
         json_length = len(json_data)
         json_pad = (' ' * (4 - json_length % 4)).encode()
+        json_pad = json_pad if len(json_pad) != 4 else b''
         json_length += len(json_pad)
         json_format = '<II{}s{}s'.format(len(json_data), len(json_pad))
         chunks = [struct.pack(json_format, json_length, 0x4e4f534a, json_data, json_pad)]
+
+        if settings['buffers_embed_data']:
+            buffers = [data for path, data in state['files'].items() if path.endswith('.bin')]
+
+            # Get padded lengths
+            lengths = [len(buffer) for buffer in buffers]
+            lengths = [
+                length + ((4 - length % 4) if length % 4 != 0 else 0)
+                for length in lengths
+            ]
+
+            chunks.extend([
+                struct.pack('<II{}s'.format(length), length, 0x004E4942, buffer)
+                for buffer, length in zip(buffers, lengths)
+            ])
+
+            state['files'] = {
+                path: data for path, data in state['files'].items()
+                if not path.endswith('.bin')
+            }
 
         version = 2
         size = 12
@@ -1706,5 +1728,10 @@ def export_gltf(scene_delta, settings=None):
         header = struct.pack('<4sII', b'glTF', version, size)
 
         gltf = bytes(0).join([header, *chunks])
+
+    # Write secondary files
+    for path, data in state['files'].items():
+        with open(path, 'wb') as fout:
+            fout.write(data)
 
     return gltf
