@@ -1128,38 +1128,56 @@ EXT_MAP = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
 
 
 def export_image(state, image):
-    uri = ''
     path = ''
     data = None
+
+    gltf = {'name': image.name}
 
     storage_setting = state['settings']['images_data_storage']
     image_packed = image.packed_file is not None
     if image_packed and storage_setting in ['COPY', 'REFERENCE']:
         if image.file_format in EXT_MAP:
             # save the file to the output directory
-            uri = '.'.join([image.name, EXT_MAP[image.file_format]])
+            gltf['uri'] = '.'.join([image.name, EXT_MAP[image.file_format]])
             temp = image.filepath
-            image.filepath = os.path.join(state['settings']['gltf_output_dir'], uri)
+            image.filepath = os.path.join(state['settings']['gltf_output_dir'], gltf['uri'])
             image.save()
             with open(bpy.path.abspath(image.filepath), 'rb') as fin:
                 data = fin.read()
             image.filepath = temp
         else:
             # convert to png and save
-            uri = '.'.join([image.name, 'png'])
+            gltf['uri'] = '.'.join([image.name, 'png'])
             data = image_to_data_uri(image)
-        path = uri
+        path = gltf['uri']
 
     elif storage_setting == 'COPY':
         with open(bpy.path.abspath(image.filepath), 'rb') as fin:
             data = fin.read()
-        uri = bpy.path.basename(image.filepath)
-        path = os.path.join(state['settings']['gltf_output_dir'], uri)
+        gltf['uri'] = bpy.path.basename(image.filepath)
+        path = os.path.join(state['settings']['gltf_output_dir'], gltf['uri'])
     elif storage_setting == 'REFERENCE':
-        uri = image.filepath.replace('//', '')
+        gltf['uri'] = image.filepath.replace('//', '')
     elif storage_setting == 'EMBED':
         png_bytes = image_to_data_uri(image)
-        uri = 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
+        gltf['mimeType'] = 'image/png'
+        if state['settings']['gltf_export_binary']:
+            buf = Buffer(image.name)
+            view_key = buf.add_view(len(png_bytes), 0, None)
+            view = buf.buffer_views[view_key]
+            view['data'] = png_bytes
+
+            pad = 4 - len(png_bytes) % 4
+            if pad not in [0, 4]:
+                buf.add_view(pad, 0, None)
+
+            gltf['bufferView'] = Reference('bufferViews', view_key, gltf, 'bufferView')
+            state['references'].append(gltf['bufferView'])
+
+            state['buffers'].append(buf)
+            state['input']['buffers'].append(SimpleID('buffer_' + image.name))
+        else:
+            gltf['uri'] = 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
     else:
         print(
             'Encountered unknown option ({}) for images_data_storage setting'
@@ -1169,10 +1187,7 @@ def export_image(state, image):
     if path:
         state['files'][path] = data
 
-    return {
-        'uri': uri,
-        'name': image.name,
-    }
+    return gltf
 
 
 def check_texture(texture):
