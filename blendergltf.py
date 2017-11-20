@@ -46,6 +46,16 @@ GL_RGBA = 6408
 GL_LUMINANCE = 6409
 GL_LUMINANCE_ALPHA = 6410
 
+# Texture filtering
+GL_NEAREST = 9728
+GL_LINEAR = 9729
+GL_LINEAR_MIPMAP_LINEAR = 9987
+
+# Texture wrapping
+GL_CLAMP_TO_EDGE = 33071
+GL_MIRRORED_REPEAT = 33648
+GL_REPEAT = 10497
+
 # sRGB texture formats (not actually part of WebGL 1.0 or glTF 1.0)
 GL_SRGB = 0x8C40
 GL_SRGB_ALPHA = 0x8C42
@@ -1222,13 +1232,44 @@ def check_texture(texture):
 
 
 def export_texture(state, texture):
-    gltf_texture = {
-        'sampler': 'sampler_default',
-        'source': 'image_' + texture.image.name,
+    # Generate sampler for this texture
+    gltf_sampler = {
         'name': texture.name,
     }
 
-    gltf_texture['sampler'] = Reference('samplers', 'default', gltf_texture, 'sampler')
+    # Handle wrapS and wrapT
+    if texture.extension in ('REPEAT', 'CHECKER', 'EXTEND'):
+        if texture.use_mirror_x:
+            gltf_sampler['wrapS'] = GL_MIRRORED_REPEAT
+        else:
+            gltf_sampler['wrapS'] = GL_REPEAT
+
+        if texture.use_mirror_y:
+            gltf_sampler['wrapT'] = GL_MIRRORED_REPEAT
+        else:
+            gltf_sampler['wrapT'] = GL_REPEAT
+    elif texture.extension in ('CLIP', 'CLIP_CUBE'):
+        gltf_sampler['wrapS'] = GL_CLAMP_TO_EDGE
+        gltf_sampler['wrapT'] = GL_CLAMP_TO_EDGE
+    else:
+        print('Warning: Unknown texture extension option:', texture.extension)
+
+    # Handle minFilter and magFilter
+    if texture.use_mipmap:
+        gltf_sampler['minFilter'] = GL_LINEAR_MIPMAP_LINEAR
+        gltf_sampler['magFilter'] = GL_LINEAR
+    else:
+        gltf_sampler['minFilter'] = GL_NEAREST
+        gltf_sampler['magFilter'] = GL_NEAREST
+
+    gltf_texture = {
+        'name': texture.name,
+    }
+
+    state['input']['samplers'].append(SimpleID(texture.name))
+    state['samplers'].append(gltf_sampler)
+
+    gltf_texture['sampler'] = Reference('samplers', texture.name, gltf_texture, 'sampler')
     state['references'].append(gltf_texture['sampler'])
 
     gltf_texture['source'] = Reference('images', texture.image.name, gltf_texture, 'source')
@@ -1239,18 +1280,18 @@ def export_texture(state, texture):
     image_is_srgb = texture.image.colorspace_settings.name == 'sRGB'
     use_srgb = state['settings']['images_allow_srgb'] and image_is_srgb
 
-    if channels == 3:
-        if use_srgb:
-            tformat = GL_SRGB
-        else:
-            tformat = GL_RGB
-    elif channels == 4:
-        if use_srgb:
-            tformat = GL_SRGB_ALPHA
-        else:
-            tformat = GL_RGBA
-
     if state['version'] < Version('2.0'):
+        if channels == 3:
+            if use_srgb:
+                tformat = GL_SRGB
+            else:
+                tformat = GL_RGB
+        elif channels == 4:
+            if use_srgb:
+                tformat = GL_SRGB_ALPHA
+            else:
+                tformat = GL_RGBA
+
         gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
 
     return gltf_texture
@@ -1541,6 +1582,7 @@ def export_gltf(scene_delta, settings=None):
         'extensions_used': [],
         'gl_extensions_used': [],
         'buffers': [],
+        'samplers': [],
         'input': {
             'buffers': [],
             'accessors': [],
@@ -1548,7 +1590,7 @@ def export_gltf(scene_delta, settings=None):
             'objects': [],
             'bones': [],
             'anim_samplers': [],
-            'samplers': [SimpleID('default')],
+            'samplers': [],
             'scenes': [],
             'skins': [],
             'materials': [],
@@ -1644,7 +1686,7 @@ def export_gltf(scene_delta, settings=None):
         gltf['asset']['profile'] = PROFILE_MAP[settings['asset_profile']]
 
     # Export samplers
-    state['output']['samplers'] = [{'name': 'default'}]
+    state['output']['samplers'] = state['samplers']
 
     # Export animations
     state['output']['animations'] = export_animations(state, scene_delta.get('actions', []))
