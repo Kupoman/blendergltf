@@ -84,6 +84,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     """Save a Khronos glTF File"""
     bl_idname = 'export_scene.gltf'
     bl_label = 'Export glTF'
+    bl_options = {'PRESET'}
 
     filename_ext = ''
     filter_glob = StringProperty(
