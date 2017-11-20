@@ -211,6 +211,36 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         description='Do not export any data-blocks that have no users or references',
         default=True
     )
+    enable_actions = BoolProperty(
+        name='Actions',
+        description='Enable the export of actions',
+        default=True
+    )
+    enable_cameras = BoolProperty(
+        name='Cameras',
+        description='Enable the export of cameras',
+        default=True
+    )
+    enable_lamps = BoolProperty(
+        name='Lamps',
+        description='Enable the export of lamps',
+        default=True
+    )
+    enable_materials = BoolProperty(
+        name='Materials',
+        description='Enable the export of materials',
+        default=True
+    )
+    enable_meshes = BoolProperty(
+        name='Meshes',
+        description='Enable the export of meshes',
+        default=True
+    )
+    enable_textures = BoolProperty(
+        name='Textures',
+        description='Enable the export of textures',
+        default=True
+    )
 
     def update_extensions(self):
         self.ext_prop_to_exporter_map = {ext.ext_meta['name']: ext for ext in self.ext_exporters}
@@ -256,7 +286,17 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     def draw(self, context):
         self.update_extensions()
         layout = self.layout
-        col = layout.column()
+
+        col = layout.box().column(align=True)
+        col.label('Enable:')
+        row = col.row(align=True)
+        row.prop(self, 'enable_actions', toggle=True)
+        row.prop(self, 'enable_cameras', toggle=True)
+        row.prop(self, 'enable_lamps', toggle=True)
+        row = col.row(align=True)
+        row.prop(self, 'enable_materials', toggle=True)
+        row.prop(self, 'enable_meshes', toggle=True)
+        row.prop(self, 'enable_textures', toggle=True)
 
         col = layout.box().column()
         col.label('Axis Conversion:', icon='MANIPUL')
@@ -368,16 +408,33 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         # filter data according to settings
         data = {
-            'actions': list(bpy.data.actions),
-            'cameras': list(bpy.data.cameras),
-            'lamps': list(bpy.data.lamps),
-            'images': list(bpy.data.images),
-            'materials': list(bpy.data.materials),
-            'meshes': list(bpy.data.meshes),
+            'actions': list(bpy.data.actions) if self.enable_actions else [],
+            'cameras': list(bpy.data.cameras) if self.enable_cameras else [],
+            'lamps': list(bpy.data.lamps) if self.enable_lamps else [],
+            'images': list(bpy.data.images) if self.enable_textures else [],
+            'materials': list(bpy.data.materials) if self.enable_materials else [],
+            'meshes': list(bpy.data.meshes) if self.enable_meshes else [],
             'objects': list(bpy.data.objects),
             'scenes': list(bpy.data.scenes),
-            'textures': list(bpy.data.textures),
+            'textures': list(bpy.data.textures) if self.enable_textures else [],
         }
+
+        # Remove objects that point to disabled data
+        if not self.enable_cameras:
+            data['objects'] = [
+                obj for obj in data['objects']
+                if not isinstance(obj.data, bpy.types.Camera)
+            ]
+        if not self.enable_lamps:
+            data['objects'] = [
+                obj for obj in data['objects']
+                if not isinstance(obj.data, bpy.types.Lamp)
+            ]
+        if not self.enable_meshes:
+            data['objects'] = [
+                obj for obj in data['objects']
+                if not isinstance(obj.data, bpy.types.Mesh)
+            ]
 
         if not settings['nodes_export_hidden']:
             data = visible_only(data)

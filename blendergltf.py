@@ -485,7 +485,8 @@ def export_material(state, material):
             'roughnessFactor': pbr_settings.roughness_factor,
         }
 
-        if pbr_settings.base_color_texture:
+        base_color_text = pbr_settings.base_color_texture
+        if base_color_text and base_color_text in state['input']['textures']:
             pbr['baseColorTexture'] = {
                 'texCoord': pbr_settings.base_color_text_index,
             }
@@ -497,7 +498,8 @@ def export_material(state, material):
             )
             state['references'].append(pbr['baseColorTexture']['index'])
 
-        if pbr_settings.metal_roughness_texture:
+        metal_rough_text = pbr_settings.metal_roughness_texture
+        if metal_rough_text and metal_rough_text in state['input']['textures']:
             pbr['metallicRoughnessTexture'] = {
                 'texCoord': pbr_settings.metal_rough_text_index,
             }
@@ -513,7 +515,8 @@ def export_material(state, material):
 
         gltf['emissiveFactor'] = pbr_settings.emissive_factor[:]
 
-        if pbr_settings.emissive_texture:
+        emissive_text = pbr_settings.emissive_texture
+        if emissive_text and emissive_text in state['input']['textures']:
             gltf['emissiveTexture'] = {
                 'texCoord': pbr_settings.emissive_text_index,
             }
@@ -525,7 +528,8 @@ def export_material(state, material):
             )
             state['references'].append(gltf['emissiveTexture']['index'])
 
-        if pbr_settings.normal_texture:
+        normal_text = pbr_settings.normal_texture
+        if normal_text and normal_text in state['input']['textures']:
             gltf['normalTexture'] = {
                 'texCoord': pbr_settings.normal_text_index,
             }
@@ -537,7 +541,8 @@ def export_material(state, material):
             )
             state['references'].append(gltf['normalTexture']['index'])
 
-        if pbr_settings.occlusion_texture:
+        occlusion_text = pbr_settings.occlusion_texture
+        if occlusion_text and occlusion_text in state['input']['textures']:
             gltf['occlusionTexture'] = {
                 'texCoord': pbr_settings.occlusion_text_index,
             }
@@ -691,7 +696,8 @@ def export_mesh(state, mesh):
     # For each material, make an empty primitive set.
     # This dictionary maps material names to list of indices that form the
     # part of the mesh that the material should be applied to.
-    prims = {ma.name if ma else '': [] for ma in mesh.materials}
+    mesh_materials = [ma for ma in mesh.materials if ma in state['input']['materials']]
+    prims = {ma.name if ma else '': [] for ma in mesh_materials}
     if not prims:
         prims = {'': []}
 
@@ -703,11 +709,11 @@ def export_mesh(state, mesh):
     for poly in mesh.polygons:
         # Find the primitive that this polygon ought to belong to (by
         # material).
-        if not mesh.materials:
+        if not mesh_materials:
             prim = prims['']
         else:
             try:
-                mat = mesh.materials[poly.material_index]
+                mat = mesh_materials[poly.material_index]
             except IndexError:
                 # Polygon has a bad material index, so skip it
                 continue
@@ -917,9 +923,11 @@ def export_node(state, obj):
     node = {
         'name': obj.name,
     }
-    if obj.children:
+
+    obj_children = [child for child in obj.children if child in state['input']['objects']]
+    if obj_children:
         node['children'] = []
-    for i, child in enumerate(obj.children):
+    for i, child in enumerate(obj_children):
         node['children'].append(Reference('objects', child.name, node['children'], i))
         state['references'].append(node['children'][-1])
 
@@ -1014,13 +1022,12 @@ def export_scene(state, scene):
     result = {
         'extras': {
             'background_color': scene.world.horizon_color[:] if scene.world else [0.05]*3,
-            'active_camera': 'camera_'+scene.camera.name if scene.camera else None,
             'frames_per_second': scene.render.fps,
         },
         'name': scene.name,
     }
 
-    if scene.camera:
+    if scene.camera and scene.camera.data in state['input']['cameras']:
         result['extras']['active_camera'] = Reference(
             'cameras',
             scene.camera.name,
@@ -1697,10 +1704,17 @@ def export_gltf(scene_delta, settings=None):
     # Resolve references
     if state['version'] < Version('2.0'):
         refmap = build_string_refmap(state['input'])
+        ref_default = 'INVALID'
     else:
         refmap = build_int_refmap(state['input'])
+        ref_default = -1
     for ref in state['references']:
-        ref.source[ref.prop] = refmap[(ref.blender_type, ref.blender_name)]
+        ref.source[ref.prop] = refmap.get((ref.blender_type, ref.blender_name), ref_default)
+        if ref.source[ref.prop] == ref_default:
+            print(
+                'Warning: {} contains an invalid reference to {}'
+                .format(ref.source, (ref.blender_type, ref.blender_name))
+            )
 
     # Remove any temporary meshes from applying modifiers
     for mesh in state['mod_meshes'].values():
