@@ -495,8 +495,9 @@ def export_material(state, material):
             'roughnessFactor': pbr_settings.roughness_factor,
         }
 
+        input_textures = [texture.name for texture in state['input']['textures']]
         base_color_text = pbr_settings.base_color_texture
-        if base_color_text and base_color_text in state['input']['textures']:
+        if base_color_text and base_color_text in input_textures:
             pbr['baseColorTexture'] = {
                 'texCoord': pbr_settings.base_color_text_index,
             }
@@ -509,7 +510,7 @@ def export_material(state, material):
             state['references'].append(pbr['baseColorTexture']['index'])
 
         metal_rough_text = pbr_settings.metal_roughness_texture
-        if metal_rough_text and metal_rough_text in state['input']['textures']:
+        if metal_rough_text and metal_rough_text in input_textures:
             pbr['metallicRoughnessTexture'] = {
                 'texCoord': pbr_settings.metal_rough_text_index,
             }
@@ -526,7 +527,7 @@ def export_material(state, material):
         gltf['emissiveFactor'] = pbr_settings.emissive_factor[:]
 
         emissive_text = pbr_settings.emissive_texture
-        if emissive_text and emissive_text in state['input']['textures']:
+        if emissive_text and emissive_text in input_textures:
             gltf['emissiveTexture'] = {
                 'texCoord': pbr_settings.emissive_text_index,
             }
@@ -539,7 +540,7 @@ def export_material(state, material):
             state['references'].append(gltf['emissiveTexture']['index'])
 
         normal_text = pbr_settings.normal_texture
-        if normal_text and normal_text in state['input']['textures']:
+        if normal_text and normal_text in input_textures:
             gltf['normalTexture'] = {
                 'texCoord': pbr_settings.normal_text_index,
             }
@@ -552,7 +553,7 @@ def export_material(state, material):
             state['references'].append(gltf['normalTexture']['index'])
 
         occlusion_text = pbr_settings.occlusion_texture
-        if occlusion_text and occlusion_text in state['input']['textures']:
+        if occlusion_text and occlusion_text in input_textures:
             gltf['occlusionTexture'] = {
                 'texCoord': pbr_settings.occlusion_text_index,
             }
