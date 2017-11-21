@@ -568,6 +568,177 @@ def export_material(state, material):
     return gltf
 
 
+def export_attributes(state, mesh, vert_list, base_vert_list):
+    is_skinned = mesh.name in state['skinned_meshes']
+
+    num_uv_layers = len(mesh.uv_layers)
+    num_col_layers = len(mesh.vertex_colors)
+    vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * 3) * 4
+
+    buf = Buffer(mesh.name)
+
+    num_verts = len(vert_list)
+
+    if state['settings']['meshes_interleave_vertex_data']:
+        view = buf.add_view(vertex_size * num_verts, vertex_size, Buffer.ARRAY_BUFFER)
+        vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        if not base_vert_list:
+            tdata = [
+                buf.add_accessor(
+                    view,
+                    24 + 8 * i,
+                    vertex_size,
+                    Buffer.FLOAT,
+                    num_verts,
+                    Buffer.VEC2
+                )
+                for i in range(num_uv_layers)
+            ]
+            cdata = [
+                buf.add_accessor(
+                    view,
+                    24 + 8 * num_uv_layers + 12 * i,
+                    vertex_size,
+                    Buffer.FLOAT,
+                    num_verts,
+                    Buffer.VEC3
+                )
+                for i in range(num_col_layers)
+            ]
+    else:
+        view = buf.add_view(vertex_size * num_verts, 12, Buffer.ARRAY_BUFFER)
+        vdata = buf.add_accessor(view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        ndata = buf.add_accessor(view, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        if not base_vert_list:
+            tdata = [
+                buf.add_accessor(
+                    view,
+                    num_verts * (24 + 8 * i),
+                    8,
+                    Buffer.FLOAT,
+                    num_verts,
+                    Buffer.VEC2
+                )
+                for i in range(num_uv_layers)
+            ]
+            cdata = [
+                buf.add_accessor(
+                    view,
+                    num_verts * (24 + 8 * num_uv_layers + 12 * i),
+                    12,
+                    Buffer.FLOAT,
+                    num_verts,
+                    Buffer.VEC3
+                )
+                for i in range(num_col_layers)
+            ]
+
+    # Copy vertex data
+    if base_vert_list:
+        vert_iter = [(i, v[0], v[1]) for i, v in enumerate(zip(vert_list, base_vert_list))]
+        for i, vtx, base_vtx in vert_iter:
+            co = [a - b for a, b in zip(vtx.co, base_vtx.co)]
+            normal = [a - b for a, b in zip(vtx.normal, base_vtx.normal)]
+            for j in range(3):
+                vdata[(i * 3) + j] = co[j]
+                ndata[(i * 3) + j] = normal[j]
+
+    else:
+        for i, vtx in enumerate(vert_list):
+            vtx.index = i
+            co = vtx.co
+            normal = vtx.normal
+
+            for j in range(3):
+                vdata[(i * 3) + j] = co[j]
+                ndata[(i * 3) + j] = normal[j]
+
+            for j, uv in enumerate(vtx.uvs):
+                tdata[j][i * 2] = uv[0]
+                if state['settings']['asset_profile'] == 'WEB':
+                    tdata[j][i * 2 + 1] = 1.0 - uv[1]
+                else:
+                    tdata[j][i * 2 + 1] = uv[1]
+
+            for j, col in enumerate(vtx.colors):
+                cdata[j][i * 3] = col[0]
+                cdata[j][i * 3 + 1] = col[1]
+                cdata[j][i * 3 + 2] = col[2]
+
+    # Handle attribute references
+    gltf_attrs = {}
+    gltf_attrs['POSITION'] = Reference('accessors', vdata.name, gltf_attrs, 'POSITION')
+    state['references'].append(gltf_attrs['POSITION'])
+
+    gltf_attrs['NORMAL'] = Reference('accessors', ndata.name, gltf_attrs, 'NORMAL')
+    state['references'].append(gltf_attrs['NORMAL'])
+
+    if not base_vert_list:
+        for i, accessor in enumerate(tdata):
+            attr_name = 'TEXCOORD_' + str(i)
+            gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
+            state['references'].append(gltf_attrs[attr_name])
+        for i, accessor in enumerate(cdata):
+            attr_name = 'COLOR_' + str(i)
+            gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
+            state['references'].append(gltf_attrs[attr_name])
+
+    state['buffers'].append(buf)
+    state['input']['buffers'].append(SimpleID(buf.name))
+
+    if is_skinned:
+        skin_buf = Buffer('{}_skin'.format(mesh.name))
+
+        skin_vertex_size = (4 + 4) * 4
+        skin_view = skin_buf.add_view(
+            skin_vertex_size * num_verts,
+            skin_vertex_size,
+            Buffer.ARRAY_BUFFER
+        )
+        jdata = skin_buf.add_accessor(
+            skin_view,
+            0,
+            skin_vertex_size,
+            Buffer.UNSIGNED_BYTE,
+            num_verts,
+            Buffer.VEC4
+        )
+        wdata = skin_buf.add_accessor(
+            skin_view,
+            16,
+            skin_vertex_size,
+            Buffer.FLOAT,
+            num_verts,
+            Buffer.VEC4
+        )
+
+        for i, vtx in enumerate(vert_list):
+            joints = vtx.joint_indexes
+            weights = vtx.weights
+
+            for j in range(4):
+                jdata[(i * 4) + j] = joints[j]
+                wdata[(i * 4) + j] = weights[j]
+
+        if state['version'] < Version('2.0'):
+            joint_key = 'JOINT'
+            weight_key = 'WEIGHT'
+        else:
+            joint_key = 'JOINTS_0'
+            weight_key = 'WEIGHTS_0'
+
+        gltf_attrs[joint_key] = Reference('accessors', jdata.name, gltf_attrs, joint_key)
+        state['references'].append(gltf_attrs[joint_key])
+        gltf_attrs[weight_key] = Reference('accessors', wdata.name, gltf_attrs, weight_key)
+        state['references'].append(gltf_attrs[weight_key])
+
+        state['buffers'].append(skin_buf)
+        state['input']['buffers'].append(SimpleID(skin_buf.name))
+
+    return buf, gltf_attrs
+
+
 def export_mesh(state, mesh):
     # glTF data
     gltf_mesh = {
@@ -579,130 +750,25 @@ def export_mesh(state, mesh):
     if extras:
         gltf_mesh['extras'] = extras
 
-    is_skinned = mesh.name in state['skinned_meshes']
-
     mesh.calc_normals_split()
     mesh.calc_tessface()
+    # Remove duplicate verts with dictionary hashing
+    vert_list = collections.OrderedDict((Vertex(mesh, loop), 0) for loop in mesh.loops).keys()
+    # Process mesh data and gather attributes
+    buf, gltf_attrs = export_attributes(state, mesh, vert_list, None)
 
-    num_uv_layers = len(mesh.uv_layers)
-    num_col_layers = len(mesh.vertex_colors)
-    vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * 3) * 4
-
-    buf = Buffer(mesh.name)
-    skin_buf = Buffer('{}_skin'.format(mesh.name))
-
-    # Vertex data
-
-    vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
-    num_verts = len(vert_list)
-
-    # Interleave
-    if state['settings']['meshes_interleave_vertex_data']:
-        view = buf.add_view(vertex_size * num_verts, vertex_size, Buffer.ARRAY_BUFFER)
-        vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        tdata = [
-            buf.add_accessor(
-                view,
-                24 + 8 * i,
-                vertex_size,
-                Buffer.FLOAT,
-                num_verts,
-                Buffer.VEC2
-            )
-            for i in range(num_uv_layers)
-        ]
-        cdata = [
-            buf.add_accessor(
-                view,
-                24 + 8 * num_uv_layers + 12 * i,
-                vertex_size,
-                Buffer.FLOAT,
-                num_verts,
-                Buffer.VEC3
-            )
-            for i in range(num_col_layers)
-        ]
-    else:
-        view = buf.add_view(vertex_size * num_verts, 12, Buffer.ARRAY_BUFFER)
-        vdata = buf.add_accessor(view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        ndata = buf.add_accessor(view, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        tdata = [
-            buf.add_accessor(
-                view,
-                num_verts * (24 + 8 * i),
-                8,
-                Buffer.FLOAT,
-                num_verts,
-                Buffer.VEC2
-            )
-            for i in range(num_uv_layers)
-        ]
-        cdata = [
-            buf.add_accessor(
-                view,
-                num_verts * (24 + 8 * num_uv_layers + 12 * i),
-                12,
-                Buffer.FLOAT,
-                num_verts,
-                Buffer.VEC3
-            )
-            for i in range(num_col_layers)
-        ]
-
-    skin_vertex_size = (4 + 4) * 4
-    skin_view = skin_buf.add_view(
-        skin_vertex_size * num_verts,
-        skin_vertex_size,
-        Buffer.ARRAY_BUFFER
-    )
-    jdata = skin_buf.add_accessor(
-        skin_view,
-        0,
-        skin_vertex_size,
-        Buffer.UNSIGNED_BYTE,
-        num_verts,
-        Buffer.VEC4
-    )
-    wdata = skin_buf.add_accessor(
-        skin_view,
-        16,
-        skin_vertex_size,
-        Buffer.FLOAT,
-        num_verts,
-        Buffer.VEC4
-    )
-
-    # Copy vertex data
-    for i, vtx in enumerate(vert_list):
-        vtx.index = i
-        co = vtx.co
-        normal = vtx.normal
-
-        for j in range(3):
-            vdata[(i * 3) + j] = co[j]
-            ndata[(i * 3) + j] = normal[j]
-
-        for j, uv in enumerate(vtx.uvs):
-            tdata[j][i * 2] = uv[0]
-            if state['settings']['asset_profile'] == 'WEB':
-                tdata[j][i * 2 + 1] = 1.0 - uv[1]
-            else:
-                tdata[j][i * 2 + 1] = uv[1]
-
-        for j, col in enumerate(vtx.colors):
-            cdata[j][i * 3] = col[0]
-            cdata[j][i * 3 + 1] = col[1]
-            cdata[j][i * 3 + 2] = col[2]
-
-    if is_skinned:
-        for i, vtx in enumerate(vert_list):
-            joints = vtx.joint_indexes
-            weights = vtx.weights
-
-            for j in range(4):
-                jdata[(i * 4) + j] = joints[j]
-                wdata[(i * 4) + j] = weights[j]
+    # Process shape keys
+    shape_keys = state['shape_keys'].get(mesh.name, [])
+    targets = []
+    for shape_key_mesh in [key[1] for key in shape_keys]:
+        shape_key_mesh.calc_normals_split()
+        shape_key_mesh.calc_tessface()
+        shape_verts = collections.OrderedDict(
+            (Vertex(shape_key_mesh, loop), 0) for loop in shape_key_mesh.loops
+        ).keys()
+        targets.append(export_attributes(state, shape_key_mesh, shape_verts, vert_list)[1])
+    if shape_keys:
+        gltf_mesh['weights'] = [key[0] for key in shape_keys]
 
     # For each material, make an empty primitive set.
     # This dictionary maps material names to list of indices that form the
@@ -754,13 +820,6 @@ def export_mesh(state, mesh):
         if OES_ELEMENT_INDEX_UINT not in state['gl_extensions_used']:
             state['gl_extensions_used'].append(OES_ELEMENT_INDEX_UINT)
 
-    if state['version'] < Version('2.0'):
-        joint_key = 'JOINT'
-        weight_key = 'WEIGHT'
-    else:
-        joint_key = 'JOINTS_0'
-        weight_key = 'WEIGHTS_0'
-
     for mat, prim in prims.items():
         # For each primitive set add an index buffer and accessor.
 
@@ -785,35 +844,15 @@ def export_mesh(state, mesh):
             idata[i] = index
 
         gltf_prim = {
+            'attributes': gltf_attrs,
             'mode': 4,
         }
 
         gltf_prim['indices'] = Reference('accessors', idata.name, gltf_prim, 'indices')
         state['references'].append(gltf_prim['indices'])
 
-        # Handle attribute references
-        gltf_attrs = {}
-        gltf_attrs['POSITION'] = Reference('accessors', vdata.name, gltf_attrs, 'POSITION')
-        state['references'].append(gltf_attrs['POSITION'])
-
-        gltf_attrs['NORMAL'] = Reference('accessors', ndata.name, gltf_attrs, 'NORMAL')
-        state['references'].append(gltf_attrs['NORMAL'])
-
-        for i, accessor in enumerate(tdata):
-            attr_name = 'TEXCOORD_' + str(i)
-            gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
-            state['references'].append(gltf_attrs[attr_name])
-        for i, accessor in enumerate(cdata):
-            attr_name = 'COLOR_' + str(i)
-            gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
-            state['references'].append(gltf_attrs[attr_name])
-        if is_skinned:
-            gltf_attrs[joint_key] = Reference('accessors', jdata.name, gltf_attrs, joint_key)
-            state['references'].append(gltf_attrs[joint_key])
-            gltf_attrs[weight_key] = Reference('accessors', wdata.name, gltf_attrs, weight_key)
-            state['references'].append(gltf_attrs[weight_key])
-
-        gltf_prim['attributes'] = gltf_attrs
+        if targets:
+            gltf_prim['targets'] = targets
 
         # Add the material reference after checking that it is valid
         if mat:
@@ -821,12 +860,6 @@ def export_mesh(state, mesh):
             state['references'].append(gltf_prim['material'])
 
         gltf_mesh['primitives'].append(gltf_prim)
-
-    state['buffers'].append(buf)
-    state['input']['buffers'].append(SimpleID(buf.name))
-    if is_skinned:
-        state['buffers'].append(skin_buf)
-        state['input']['buffers'].append(SimpleID(skin_buf.name))
 
     return gltf_mesh
 
@@ -1578,6 +1611,7 @@ def export_gltf(scene_delta, settings=None):
         'settings': settings,
         'animation_dt': 1.0 / bpy.context.scene.render.fps,
         'mod_meshes': {},
+        'shape_keys': {},
         'skinned_meshes': {},
         'dupli_nodes': [],
         'extensions_used': [],
@@ -1605,45 +1639,93 @@ def export_gltf(scene_delta, settings=None):
     }
     state['input'].update({key: list(value) for key, value in scene_delta.items()})
 
-    # Apply modifiers
+    # Make sure any temporary meshes do not have animation data baked in
+    default_scene = bpy.context.scene
+    saved_pose_positions = [armature.pose_position for armature in bpy.data.armatures]
+    for armature in bpy.data.armatures:
+        armature.pose_position = 'REST'
+    if saved_pose_positions:
+        for obj in bpy.data.objects:
+            if obj.type == 'ARMATURE':
+                obj.update_tag()
+    default_scene.frame_set(default_scene.frame_current)
+
     mesh_list = []
-    if settings['meshes_apply_modifiers']:
-        scene = bpy.context.scene
+    mod_obs = [
+        ob for ob in state['input']['objects']
+        if [mod for mod in ob.modifiers if mod.type != 'ARMATURE']
+    ]
+    for mesh in scene_delta.get('meshes', []):
 
-        def get_modifiers(obj):
-            return [mod for mod in obj.modifiers if mod.type != 'ARMATURE']
-        mod_obs = [ob for ob in state['input']['objects'] if get_modifiers(ob)]
+        # Mute shape keys
+        if mesh.shape_keys and mesh.shape_keys.use_relative:
+            keys = [key for key in mesh.shape_keys.key_blocks if key != key.relative_key]
 
-        # Apply modifiers with all armatures in pose mode
-        saved_pose_positions = [armature.pose_position for armature in bpy.data.armatures]
-        for armature in bpy.data.armatures:
-            armature.pose_position = 'REST'
-        if saved_pose_positions:
-            for obj in bpy.data.objects:
-                if obj.type == 'ARMATURE':
-                    obj.update_tag()
-        scene.frame_set(scene.frame_current)
+            # Gather weight values
+            weights = [key.value for key in keys]
 
-        for mesh in scene_delta.get('meshes', []):
+            # Clear weight values
+            for key in keys:
+                key.value = 0.0
+
+        # Handle base mesh
+        if settings['meshes_apply_modifiers']:
             mod_users = [ob for ob in mod_obs if ob.data == mesh]
 
             # Only convert meshes with modifiers, otherwise each non-modifier
             # user ends up with a copy of the mesh and we lose instancing
             state['mod_meshes'].update(
-                {ob.name: ob.to_mesh(scene, True, 'PREVIEW') for ob in mod_users}
+                {ob.name: ob.to_mesh(default_scene, True, 'PREVIEW') for ob in mod_users}
             )
 
             # Add unmodified meshes directly to the mesh list
             if len(mod_users) < mesh.users:
                 mesh_list.append(mesh)
-        mesh_list.extend(state['mod_meshes'].values())
+        else:
+            mesh_list.append(mesh)
 
-        # Restore armature pose positions
-        for i, armature in enumerate(bpy.data.armatures):
-            armature.pose_position = saved_pose_positions[i]
-    else:
-        mesh_list = scene_delta.get('meshes', [])
+        # Handle shape keys
+        if mesh.shape_keys and mesh.shape_keys.use_relative:
+            mesh_users = [obj for obj in state['input']['objects'] if obj.data == mesh]
+
+            # Mute modifiers if necessary
+            muted_modifiers = []
+            original_modifier_states = []
+            if not settings['meshes_apply_modifiers']:
+                muted_modifiers = itertools.chain.from_iterable(
+                    [obj.modifiers for obj in mesh_users]
+                )
+                original_modifier_states = [mod.show_viewport for mod in muted_modifiers]
+                for modifier in muted_modifiers:
+                    modifier.show_viewport = False
+
+            for user in mesh_users:
+                mesh_name = state['mod_meshes'].get(user.name, mesh).name
+                if mesh_name not in state['shape_keys']:
+                    key_meshes = []
+                    for key, weight in zip(keys, weights):
+                        key.value = key.slider_max
+                        key_meshes.append((
+                            weight,
+                            user.to_mesh(default_scene, True, 'PREVIEW')
+                        ))
+                        key.value = 0.0
+                    state['shape_keys'][mesh_name] = key_meshes
+
+            # Reset weight values
+            for key, weight in zip(keys, weights):
+                key.value = weight
+
+            # Unmute modifiers
+            for modifier, state in zip(muted_modifiers, original_modifier_states):
+                modifier.show_viewport = state
+
+    mesh_list.extend(state['mod_meshes'].values())
     state['input']['meshes'] = mesh_list
+
+    # Restore armature pose positions
+    for i, armature in enumerate(bpy.data.armatures):
+        armature.pose_position = saved_pose_positions[i]
 
     exporter = collections.namedtuple('exporter', [
         'gltf_key',
@@ -1762,8 +1844,12 @@ def export_gltf(scene_delta, settings=None):
                 .format(ref.source, (ref.blender_type, ref.blender_name))
             )
 
-    # Remove any temporary meshes from applying modifiers
-    for mesh in state['mod_meshes'].values():
+    # Remove any temporary meshes
+    shape_key_meshes = [
+        shape_key_pair[1] for shape_key_pair
+        in itertools.chain.from_iterable(state['shape_keys'].values())
+    ]
+    for mesh in itertools.chain(state['mod_meshes'].values(), shape_key_meshes):
         bpy.data.meshes.remove(mesh)
 
     # Transform gltf data to binary
