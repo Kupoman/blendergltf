@@ -1608,7 +1608,10 @@ def export_gltf(scene_delta, settings=None):
     mesh_list = []
     if settings['meshes_apply_modifiers']:
         scene = bpy.context.scene
-        mod_obs = [ob for ob in state['input']['objects'] if ob.is_modified(scene, 'PREVIEW')]
+
+        def get_modifiers(obj):
+            return [mod for mod in obj.modifiers if mod.type != 'ARMATURE']
+        mod_obs = [ob for ob in state['input']['objects'] if get_modifiers(ob)]
 
         # Apply modifiers with all armatures in pose mode
         saved_pose_positions = [armature.pose_position for armature in bpy.data.armatures]
