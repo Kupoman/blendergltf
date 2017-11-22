@@ -11,10 +11,6 @@ As interest has grown in glTF, the glTF exporting code of the Blender Real Time 
 
 Versions 1.0 and 2.0 of the glTF format are supported. For currently supported extensions, check out the [extension settings](#extensions).
 
-The following features are not supported at this time:
-* [Morph targets](https://github.com/Kupoman/blendergltf/issues/91)
-* [Binary glTF](https://github.com/Kupoman/blendergltf/issues/21)
-
 ## Installation
 
 1. Download the [blendergltf ZIP file from GitHub](https://github.com/Kupoman/blendergltf/archive/master.zip).
