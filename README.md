@@ -57,7 +57,8 @@ Apply all modifiers to the output mesh data.
 When this option is disabled, no modifier data is exported.
 #### Interleave Vertex Data
 Store data for each vertex contiguously instead of each vertex property (e.g. position) contiguously.
-This is an advanced option that can be useful for some importers.
+This could give a slight performance improvement to vertex processing, but a lot of importers do not handle interleaved data well.
+It is not recommended to use this setting unless you are looking for importer bugs.
 
 ### Materials
 #### Disable Material Export

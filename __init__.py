@@ -154,7 +154,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
             'Store data for each vertex contiguously'
             'instead of each vertex property (e.g. position) contiguously'
         ),
-        default=True
+        default=False
     )
     animations_object_export = EnumProperty(
         items=ANIM_EXPORT_ITEMS,
