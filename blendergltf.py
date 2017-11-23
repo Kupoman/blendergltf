@@ -768,20 +768,24 @@ def export_mesh(state, mesh):
 
     mesh.calc_normals_split()
     mesh.calc_tessface()
-    # Remove duplicate verts with dictionary hashing
-    vert_list = collections.OrderedDict((Vertex(mesh, loop), 0) for loop in mesh.loops).keys()
+
+    shape_keys = state['shape_keys'].get(mesh.name, [])
+
+    # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
+    if shape_keys:
+        vert_list = [Vertex(mesh, loop) for loop in mesh.loops]
+    else:
+        vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
+
     # Process mesh data and gather attributes
     buf, gltf_attrs = export_attributes(state, mesh, vert_list, None)
 
     # Process shape keys
-    shape_keys = state['shape_keys'].get(mesh.name, [])
     targets = []
     for shape_key_mesh in [key[1] for key in shape_keys]:
         shape_key_mesh.calc_normals_split()
         shape_key_mesh.calc_tessface()
-        shape_verts = collections.OrderedDict(
-            (Vertex(shape_key_mesh, loop), 0) for loop in shape_key_mesh.loops
-        ).keys()
+        shape_verts = [Vertex(shape_key_mesh, loop) for loop in shape_key_mesh]
         targets.append(export_attributes(state, shape_key_mesh, shape_verts, vert_list)[1])
     if shape_keys:
         gltf_mesh['weights'] = [key[0] for key in shape_keys]
