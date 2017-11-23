@@ -739,6 +739,22 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
     return buf, gltf_attrs
 
 
+def check_mesh(mesh):
+    errors = []
+    if not mesh.loops:
+        errors.append('mesh has no vertices')
+
+    if errors:
+        err_list = '\n\t'.join(errors)
+        print(
+            'Unable to export mesh {} due to the following errors:\n\t{}'
+            .format(mesh.name, err_list)
+        )
+        return False
+
+    return True
+
+
 def export_mesh(state, mesh):
     # glTF data
     gltf_mesh = {
@@ -1745,7 +1761,10 @@ def export_gltf(scene_delta, settings=None):
         exporter('nodes', 'objects', export_node, lambda x: True, None),
         # Make sure meshes come after nodes to detect which meshes are skinned
         exporter('materials', 'materials', export_material, lambda x: True, None),
-        exporter('meshes', 'meshes', export_mesh, lambda x: True, None),
+        exporter(
+            'meshes', 'meshes', export_mesh, check_mesh,
+            lambda x: {'name': x.name}
+        ),
         exporter('scenes', 'scenes', export_scene, lambda x: True, None),
         exporter(
             'textures', 'textures', export_texture, check_texture,
