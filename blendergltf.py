@@ -607,32 +607,37 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
                 for i in range(num_col_layers)
             ]
     else:
-        view = buf.add_view(vertex_size * num_verts, 12, Buffer.ARRAY_BUFFER)
-        vdata = buf.add_accessor(view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
-        ndata = buf.add_accessor(view, num_verts*12, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        prop_buffer = Buffer(mesh.name + '_POSITION')
+        state['buffers'].append(prop_buffer)
+        state['input']['buffers'].append(SimpleID(buf.name))
+        prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
+        vdata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+
+        prop_buffer = Buffer(mesh.name + '_NORMAL')
+        state['buffers'].append(prop_buffer)
+        state['input']['buffers'].append(SimpleID(buf.name))
+        prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
+        ndata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+
         if not base_vert_list:
-            tdata = [
-                buf.add_accessor(
-                    view,
-                    num_verts * (24 + 8 * i),
-                    8,
-                    Buffer.FLOAT,
-                    num_verts,
-                    Buffer.VEC2
+            tdata = []
+            for uv_layer in range(num_uv_layers):
+                prop_buffer = Buffer('{}_TEXCOORD_{}'.format(mesh.name, uv_layer))
+                state['buffers'].append(prop_buffer)
+                state['input']['buffers'].append(SimpleID(buf.name))
+                prop_view = prop_buffer.add_view(8 * num_verts, 8, Buffer.ARRAY_BUFFER)
+                tdata.append(
+                    prop_buffer.add_accessor(prop_view, 0, 8, Buffer.FLOAT, num_verts, Buffer.VEC2)
                 )
-                for i in range(num_uv_layers)
-            ]
-            cdata = [
-                buf.add_accessor(
-                    view,
-                    num_verts * (24 + 8 * num_uv_layers + 12 * i),
-                    12,
-                    Buffer.FLOAT,
-                    num_verts,
-                    Buffer.VEC3
+            cdata = []
+            for col_layer in range(num_col_layers):
+                prop_buffer = Buffer('{}_COLOR_{}'.format(mesh.name, col_layer))
+                state['buffers'].append(prop_buffer)
+                state['input']['buffers'].append(SimpleID(buf.name))
+                prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
+                cdata.append(
+                    prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC2)
                 )
-                for i in range(num_col_layers)
-            ]
 
     # Copy vertex data
     if base_vert_list:

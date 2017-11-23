@@ -57,6 +57,8 @@ Apply all modifiers to the output mesh data.
 When this option is disabled, no modifier data is exported.
 #### Interleave Vertex Data
 Store data for each vertex contiguously instead of each vertex property (e.g. position) contiguously.
+When vertex data is interleaved, all properties share one buffer.
+Otherwise, each property is stored in a separate buffer.
 This could give a slight performance improvement to vertex processing, but a lot of importers do not handle interleaved data well.
 It is not recommended to use this setting unless you are looking for importer bugs.
 
