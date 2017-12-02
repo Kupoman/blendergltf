@@ -135,3 +135,38 @@ def gltf_material_default():
             'roughnessFactor': 1.0
         }
     }
+
+
+@pytest.fixture
+def bpy_scene_default(mocker, bpy_camera_default):
+    scene = mocker.MagicMock()
+
+    scene.name = 'Scene'
+
+    scene.world = mocker.MagicMock()
+    scene.world.horizon_color = [0.05087608844041824, 0.05087608844041824, 0.05087608844041824]
+
+    scene.render = mocker.MagicMock()
+    scene.render.fps = 24
+
+    scene.camera = bpy_camera_default
+    scene.camera.data = scene.camera.name
+
+    return scene
+
+
+@pytest.fixture
+def gltf_scene_default():
+    return {
+        "extras": {
+            "active_camera": 'Camera',
+            "background_color": [
+                0.05087608844041824,
+                0.05087608844041824,
+                0.05087608844041824
+            ],
+            "frames_per_second": 24
+        },
+        "name": "Scene",
+        "nodes": []
+    }
