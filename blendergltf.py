@@ -463,10 +463,11 @@ def export_camera(_, camera):
             'type': 'orthographic',
         }
     else:
+        angle_y = camera.angle_y if camera.angle_y != 0.0 else 1e-6
         camera_gltf = {
             'perspective': {
-                'aspectRatio': camera.angle_x / camera.angle_y,
-                'yfov': camera.angle_y,
+                'aspectRatio': camera.angle_x / angle_y,
+                'yfov': angle_y,
                 'zfar': camera.clip_end,
                 'znear': camera.clip_start,
             },
