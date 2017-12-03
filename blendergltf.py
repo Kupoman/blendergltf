@@ -1392,25 +1392,30 @@ def export_animations(state, actions):
         num_frames = frame_end - frame_start + 1
         obj.animation_data.action = action
 
-        channels[obj.name] = []
-
+        pose_bones = []
         if obj.type == 'ARMATURE':
-            for pbone in obj.pose.bones:
-                channels[pbone.name] = []
+            pose_bones = [bone for bone in obj.pose.bones if bone.name in action.groups]
+        channels.update({pbone.name: [] for pbone in pose_bones})
+
+        bone_groups = set([pbone.name for pbone in pose_bones])
+        obj_groups = set(action.groups.keys()) - bone_groups
+
+        if obj_groups:
+            channels[obj.name] = []
 
         for frame in range(frame_start, frame_end + 1):
             sce.frame_set(frame)
 
-            # Decompose here so we don't store a reference the matrix
-            channels[obj.name].append(decompose(obj.matrix_local))
+            if obj.name in channels:
+                # Decompose here so we don't store a reference the matrix
+                channels[obj.name].append(decompose(obj.matrix_local))
 
-            if obj.type == 'ARMATURE':
-                for pbone in obj.pose.bones:
-                    if pbone.parent:
-                        mat = pbone.parent.matrix.inverted() * pbone.matrix
-                    else:
-                        mat = pbone.matrix
-                    channels[pbone.name].append(decompose(mat))
+            for pbone in pose_bones:
+                if pbone.parent:
+                    mat = pbone.parent.matrix.inverted() * pbone.matrix
+                else:
+                    mat = pbone.matrix
+                channels[pbone.name].append(decompose(mat))
 
         gltf_channels = []
         gltf_parameters = {}
