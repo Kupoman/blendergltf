@@ -610,13 +610,13 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
     else:
         prop_buffer = Buffer(mesh.name + '_POSITION')
         state['buffers'].append(prop_buffer)
-        state['input']['buffers'].append(SimpleID(buf.name))
+        state['input']['buffers'].append(SimpleID(prop_buffer.name))
         prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
         vdata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
 
         prop_buffer = Buffer(mesh.name + '_NORMAL')
         state['buffers'].append(prop_buffer)
-        state['input']['buffers'].append(SimpleID(buf.name))
+        state['input']['buffers'].append(SimpleID(prop_buffer.name))
         prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
         ndata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
 
@@ -625,7 +625,7 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
             for uv_layer in range(num_uv_layers):
                 prop_buffer = Buffer('{}_TEXCOORD_{}'.format(mesh.name, uv_layer))
                 state['buffers'].append(prop_buffer)
-                state['input']['buffers'].append(SimpleID(buf.name))
+                state['input']['buffers'].append(SimpleID(prop_buffer.name))
                 prop_view = prop_buffer.add_view(8 * num_verts, 8, Buffer.ARRAY_BUFFER)
                 tdata.append(
                     prop_buffer.add_accessor(prop_view, 0, 8, Buffer.FLOAT, num_verts, Buffer.VEC2)
@@ -634,7 +634,7 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
             for col_layer in range(num_col_layers):
                 prop_buffer = Buffer('{}_COLOR_{}'.format(mesh.name, col_layer))
                 state['buffers'].append(prop_buffer)
-                state['input']['buffers'].append(SimpleID(buf.name))
+                state['input']['buffers'].append(SimpleID(prop_buffer.name))
                 prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
                 cdata.append(
                     prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC2)
