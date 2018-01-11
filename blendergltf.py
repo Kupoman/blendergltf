@@ -1047,13 +1047,15 @@ def export_node(state, obj):
         if 'children' not in node:
             node['children'] = []
         offset = len(node['children'])
-        root_bones = [
+        root_bones = [bone for bone in obj.data.bones if bone.parent is None]
+        root_refs = [
             Reference('objects', _get_bone_name(b), node['children'], i + offset)
-            for i, b in enumerate(obj.data.bones) if b.parent is None
+            for i, b in enumerate(root_bones)
         ]
-        for bone in root_bones:
+
+        for bone in root_refs:
             state['references'].append(bone)
-        node['children'].extend(root_bones)
+        node['children'].extend(root_refs)
 
     return node
 
