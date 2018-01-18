@@ -1392,30 +1392,63 @@ def export_animations(state, actions):
         num_frames = frame_end - frame_start + 1
         obj.animation_data.action = action
 
-        pose_bones = []
-        if obj.type == 'ARMATURE':
-            pose_bones = [bone for bone in obj.pose.bones if bone.name in action.groups]
+        has_location = set()
+        has_rotation = set()
+        has_scale = set()
+
+        # Check action groups to see what needs to be animated
+        pose_bones = set()
+        for group in action.groups:
+            for channel in group.channels:
+                data_path = channel.data_path
+                if 'pose.bones' in data_path:
+                    target_name = data_path.split('"')[1]
+                    transform = data_path.split('.')[-1]
+                    pose_bones.add(obj.pose.bones[target_name])
+                else:
+                    target_name = obj.name
+                    transform = data_path.lower()
+                    if obj.name not in channels:
+                        channels[obj.name] = []
+
+                if 'location' in transform:
+                    has_location.add(target_name)
+                if 'rotation' in transform:
+                    has_rotation.add(target_name)
+                if 'scale' in transform:
+                    has_scale.add(target_name)
         channels.update({pbone.name: [] for pbone in pose_bones})
 
-        bone_groups = set([pbone.name for pbone in pose_bones])
-        obj_groups = set(action.groups.keys()) - bone_groups
-
-        if obj_groups:
-            channels[obj.name] = []
-
+        # Iterate frames and bake animations
         for frame in range(frame_start, frame_end + 1):
             sce.frame_set(frame)
 
             if obj.name in channels:
-                # Decompose here so we don't store a reference the matrix
-                channels[obj.name].append(decompose(obj.matrix_local))
+                # Decompose here so we don't store a reference to the matrix
+                loc, rot, scale = decompose(obj.matrix_local)
+                if obj.name not in has_location:
+                    loc = None
+                if obj.name not in has_rotation:
+                    rot = None
+                if obj.name not in has_scale:
+                    scale = None
+                channels[obj.name].append((loc, rot, scale))
 
             for pbone in pose_bones:
                 if pbone.parent:
                     mat = pbone.parent.matrix.inverted() * pbone.matrix
                 else:
                     mat = pbone.matrix
-                channels[pbone.name].append(decompose(mat))
+
+                loc, rot, scale = decompose(mat)
+
+                if pbone.name not in has_location:
+                    loc = None
+                if pbone.name not in has_rotation:
+                    rot = None
+                if pbone.name not in has_scale:
+                    scale = None
+                channels[pbone.name].append((loc, rot, scale))
 
         gltf_channels = []
         gltf_parameters = {}
@@ -1441,20 +1474,35 @@ def export_animations(state, actions):
         sampler_keys = []
         for targetid, chan in channels.items():
             buf = Buffer('{}_{}'.format(targetid, action.name))
-            lbv = buf.add_view(num_frames * 3 * 4, 3 * 4, None)
-            ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
-            rbv = buf.add_view(num_frames * 4 * 4, 4 * 4, None)
-            rdata = buf.add_accessor(rbv, 0, 4 * 4, Buffer.FLOAT, num_frames, Buffer.VEC4)
-            sbv = buf.add_view(num_frames * 3 * 4, 3 * 4, None)
-            sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
+            ldata = rdata = sdata = None
+            paths = []
+            if targetid in has_location:
+                lbv = buf.add_view(num_frames * 3 * 4, 3 * 4, None)
+                ldata = buf.add_accessor(lbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
+                paths.append('translation')
+            if targetid in has_rotation:
+                rbv = buf.add_view(num_frames * 4 * 4, 4 * 4, None)
+                rdata = buf.add_accessor(rbv, 0, 4 * 4, Buffer.FLOAT, num_frames, Buffer.VEC4)
+                paths.append('rotation')
+            if targetid in has_scale:
+                sbv = buf.add_view(num_frames * 3 * 4, 3 * 4, None)
+                sdata = buf.add_accessor(sbv, 0, 3 * 4, Buffer.FLOAT, num_frames, Buffer.VEC3)
+                paths.append('scale')
+
+            if not paths:
+                continue
 
             for i in range(num_frames):
                 loc, rot, scale = chan[i]
-                for j in range(3):
-                    ldata[(i * 3) + j] = loc[j]
-                    sdata[(i * 3) + j] = scale[j]
-                for j in range(4):
-                    rdata[(i * 4) + j] = rot[j]
+                if ldata:
+                    for j in range(3):
+                        ldata[(i * 3) + j] = loc[j]
+                if sdata:
+                    for j in range(3):
+                        sdata[(i * 3) + j] = scale[j]
+                if rdata:
+                    for j in range(4):
+                        rdata[(i * 4) + j] = rot[j]
 
             state['buffers'].append(buf)
             state['input']['buffers'].append(SimpleID(buf.name))
@@ -1464,7 +1512,7 @@ def export_animations(state, actions):
                 is_bone = True
                 targetid = _get_bone_name(bpy.data.armatures[obj.data.name].bones[targetid])
 
-            for path in ('translation', 'rotation', 'scale'):
+            for path in paths:
                 sampler_name = '{}_{}_{}_sampler'.format(action.name, targetid, path)
                 sampler_keys.append(sampler_name)
                 parameter_name = '{}_{}_{}_parameter'.format(action.name, targetid, path)
@@ -1496,9 +1544,9 @@ def export_animations(state, actions):
                 gltf_samplers.append(gltf_sampler)
 
                 accessor_name = {
-                    'translation': ldata.name,
-                    'rotation': rdata.name,
-                    'scale': sdata.name,
+                    'translation': ldata.name if ldata else None,
+                    'rotation': rdata.name if rdata else None,
+                    'scale': sdata.name if sdata else None,
                 }[path]
 
                 if state['version'] < Version('2.0'):
