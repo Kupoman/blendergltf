@@ -36,6 +36,7 @@ DEFAULT_SETTINGS = {
     'extension_exporters': [],
     'animations_object_export': 'ACTIVE',
     'animations_armature_export': 'ELIGIBLE',
+    'hacks_streaming': False,
 }
 
 
@@ -1669,14 +1670,15 @@ def export_gltf(scene_delta, settings=None):
 
     # Make sure any temporary meshes do not have animation data baked in
     default_scene = bpy.context.scene
-    saved_pose_positions = [armature.pose_position for armature in bpy.data.armatures]
-    for armature in bpy.data.armatures:
-        armature.pose_position = 'REST'
-    if saved_pose_positions:
-        for obj in bpy.data.objects:
-            if obj.type == 'ARMATURE':
-                obj.update_tag()
-    default_scene.frame_set(default_scene.frame_current)
+    if not settings['hacks_streaming']:
+        saved_pose_positions = [armature.pose_position for armature in bpy.data.armatures]
+        for armature in bpy.data.armatures:
+            armature.pose_position = 'REST'
+        if saved_pose_positions:
+            for obj in bpy.data.objects:
+                if obj.type == 'ARMATURE':
+                    obj.update_tag()
+        default_scene.frame_set(default_scene.frame_current)
 
     mesh_list = []
     mod_obs = [
@@ -1869,7 +1871,7 @@ def export_gltf(scene_delta, settings=None):
         ref_default = -1
     for ref in state['references']:
         ref.source[ref.prop] = refmap.get((ref.blender_type, ref.blender_name), ref_default)
-        if ref.source[ref.prop] == ref_default:
+        if ref.source[ref.prop] == ref_default and not settings['hacks_streaming']:
             print(
                 'Warning: {} contains an invalid reference to {}'
                 .format(ref.source, (ref.blender_type, ref.blender_name))
