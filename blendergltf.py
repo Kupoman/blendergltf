@@ -1862,16 +1862,31 @@ def export_gltf(scene_delta, settings=None):
             state['output']['extensions'] = extensions
     gltf.update(state['output'])
 
+    # Gather refmap inputs
+    reference_inputs = state['input']
+    if settings['hacks_streaming']:
+        reference_inputs.update({
+            'actions': list(bpy.data.actions),
+            'cameras': list(bpy.data.cameras),
+            'lamps': list(bpy.data.lamps),
+            'images': list(bpy.data.images),
+            'materials': list(bpy.data.materials),
+            'meshes': list(bpy.data.meshes),
+            'objects': list(bpy.data.objects),
+            'scenes': list(bpy.data.scenes),
+            'textures': list(bpy.data.textures),
+        })
+
     # Resolve references
     if state['version'] < Version('2.0'):
-        refmap = build_string_refmap(state['input'])
+        refmap = build_string_refmap(reference_inputs)
         ref_default = 'INVALID'
     else:
-        refmap = build_int_refmap(state['input'])
+        refmap = build_int_refmap(reference_inputs)
         ref_default = -1
     for ref in state['references']:
         ref.source[ref.prop] = refmap.get((ref.blender_type, ref.blender_name), ref_default)
-        if ref.source[ref.prop] == ref_default and not settings['hacks_streaming']:
+        if ref.source[ref.prop] == ref_default:
             print(
                 'Warning: {} contains an invalid reference to {}'
                 .format(ref.source, (ref.blender_type, ref.blender_name))
