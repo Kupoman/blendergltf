@@ -207,7 +207,7 @@ class Buffer:
             self.component_type = component_type
             self.count = count
             self.min = [math.inf for i in range(16)]
-            self.max = [0 for i in range(16)]
+            self.max = [-math.inf for i in range(16)]
             self.data_type = data_type
 
             if self.data_type == Buffer.MAT4:
