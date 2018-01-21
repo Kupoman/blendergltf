@@ -995,7 +995,10 @@ def export_node(state, obj):
         'name': obj.name,
     }
 
-    obj_children = [child for child in obj.children if child in state['input']['objects']]
+    obj_children = [
+        child for child in obj.children
+        if child in state['input']['objects'] and not child.parent_bone
+    ]
     if obj_children:
         node['children'] = []
     for i, child in enumerate(obj_children):
@@ -1010,6 +1013,13 @@ def export_node(state, obj):
     })
     if extras:
         node['extras'] = extras
+
+    if obj.parent_bone:
+        parent_bone = obj.parent.data.bones[obj.parent_bone]
+        bone_name = _get_bone_name(parent_bone)
+        if bone_name not in state['bone_children']:
+            state['bone_children'][bone_name] = []
+        state['bone_children'][bone_name].append(obj.name)
 
     if obj.type == 'MESH':
         mesh = state['mod_meshes'].get(obj.name, obj.data)
@@ -1066,13 +1076,15 @@ def export_joint(state, bone):
     if bone.parent:
         matrix = bone.parent.matrix_local.inverted() * matrix
 
+    bone_name = _get_bone_name(bone)
+
     gltf_joint = {
-        'name': _get_bone_name(bone),
+        'name': bone_name,
     }
     if state['version'] < Version('2.0'):
         gltf_joint['jointName'] = Reference(
             'objects',
-            _get_bone_name(bone),
+            bone_name,
             gltf_joint,
             'jointName'
         )
@@ -1081,6 +1093,12 @@ def export_joint(state, bone):
         gltf_joint['children'] = [
             Reference('objects', _get_bone_name(child), None, None) for child in bone.children
         ]
+    if bone_name in state['bone_children']:
+        bone_children = [
+            Reference('objects', obj_name, None, None)
+            for obj_name in state['bone_children'][bone_name]
+        ]
+        gltf_joint['children'] = gltf_joint.get('children', []) + bone_children
     for i, ref in enumerate(gltf_joint.get('children', [])):
         ref.source = gltf_joint['children']
         ref.prop = i
@@ -1696,6 +1714,7 @@ def export_gltf(scene_delta, settings=None):
         'shape_keys': {},
         'skinned_meshes': {},
         'dupli_nodes': [],
+        'bone_children': {},
         'extensions_used': [],
         'gl_extensions_used': [],
         'buffers': [],
