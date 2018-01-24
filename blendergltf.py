@@ -1686,10 +1686,9 @@ def export_gltf(scene_delta, settings=None):
         if [mod for mod in ob.modifiers if mod.type != 'ARMATURE']
     ]
     for mesh in scene_delta.get('meshes', []):
-
-        # Mute shape keys
         if mesh.shape_keys and mesh.shape_keys.use_relative:
-            keys = [key for key in mesh.shape_keys.key_blocks if key != key.relative_key]
+            relative_key = mesh.shape_keys.key_blocks[0].relative_key
+            keys = [key for key in mesh.shape_keys.key_blocks if key != relative_key]
 
             # Gather weight values
             weights = [key.value for key in keys]
@@ -1697,25 +1696,6 @@ def export_gltf(scene_delta, settings=None):
             # Clear weight values
             for key in keys:
                 key.value = 0.0
-
-        # Handle base mesh
-        if settings['meshes_apply_modifiers']:
-            mod_users = [ob for ob in mod_obs if ob.data == mesh]
-
-            # Only convert meshes with modifiers, otherwise each non-modifier
-            # user ends up with a copy of the mesh and we lose instancing
-            state['mod_meshes'].update(
-                {ob.name: ob.to_mesh(default_scene, True, 'PREVIEW') for ob in mod_users}
-            )
-
-            # Add unmodified meshes directly to the mesh list
-            if len(mod_users) < mesh.users:
-                mesh_list.append(mesh)
-        else:
-            mesh_list.append(mesh)
-
-        # Handle shape keys
-        if mesh.shape_keys and mesh.shape_keys.use_relative:
             mesh_users = [obj for obj in state['input']['objects'] if obj.data == mesh]
 
             # Mute modifiers if necessary
@@ -1730,7 +1710,10 @@ def export_gltf(scene_delta, settings=None):
                     modifier.show_viewport = False
 
             for user in mesh_users:
-                mesh_name = state['mod_meshes'].get(user.name, mesh).name
+                base_mesh = user.to_mesh(default_scene, True, 'PREVIEW')
+                mesh_name = base_mesh.name
+                state['mod_meshes'][user.name] = base_mesh
+
                 if mesh_name not in state['shape_keys']:
                     key_meshes = []
                     for key, weight in zip(keys, weights):
@@ -1749,6 +1732,20 @@ def export_gltf(scene_delta, settings=None):
             # Unmute modifiers
             for modifier, state in zip(muted_modifiers, original_modifier_states):
                 modifier.show_viewport = state
+        elif settings['meshes_apply_modifiers']:
+            mod_users = [ob for ob in mod_obs if ob.data == mesh]
+
+            # Only convert meshes with modifiers, otherwise each non-modifier
+            # user ends up with a copy of the mesh and we lose instancing
+            state['mod_meshes'].update(
+                {ob.name: ob.to_mesh(default_scene, True, 'PREVIEW') for ob in mod_users}
+            )
+
+            # Add unmodified meshes directly to the mesh list
+            if len(mod_users) < mesh.users:
+                mesh_list.append(mesh)
+        else:
+            mesh_list.append(mesh)
 
     mesh_list.extend(state['mod_meshes'].values())
     state['input']['meshes'] = mesh_list
