@@ -792,7 +792,7 @@ def export_mesh(state, mesh):
     for shape_key_mesh in [key[1] for key in shape_keys]:
         shape_key_mesh.calc_normals_split()
         shape_key_mesh.calc_tessface()
-        shape_verts = [Vertex(shape_key_mesh, loop) for loop in shape_key_mesh]
+        shape_verts = [Vertex(shape_key_mesh, loop) for loop in shape_key_mesh.loops]
         targets.append(export_attributes(state, shape_key_mesh, shape_verts, vert_list)[1])
     if shape_keys:
         gltf_mesh['weights'] = [key[0] for key in shape_keys]
