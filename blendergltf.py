@@ -1614,6 +1614,81 @@ def export_animations(state, actions):
 
         return gltf_action
 
+    def export_shape_key_animation(obj):
+        action = obj.data.shape_keys.animation_data.action
+        fcurves = action.fcurves
+        frame_range = action.frame_range
+        frame_count = int(frame_range[1]) - int(frame_range[0])
+        for fcurve in fcurves:
+            fcurve.convert_to_samples(*frame_range)
+        samples = {
+            fcurve.data_path.split('"')[1]: [point.co[1] for point in fcurve.sampled_points]
+            for fcurve in fcurves
+        }
+        shape_keys = [
+            block for block in obj.data.shape_keys.key_blocks
+            if block != block.relative_key
+        ]
+        empty_data = [0.0] * frame_count
+
+        weight_data = zip(*[samples.get(key.name, empty_data) for key in shape_keys])
+        weight_data = itertools.chain.from_iterable(weight_data)
+        dt_data = [state['animation_dt'] * i for i in range(frame_count)]
+
+        anim_buffer = Buffer('{}_{}'.format(obj.name, action.name))
+        state['buffers'].append(anim_buffer)
+        state['input']['buffers'].append(SimpleID(anim_buffer.name))
+
+        time_view = anim_buffer.add_view(frame_count * 1 * 4, 1 * 4, None)
+        time_acc = anim_buffer.add_accessor(
+            time_view,
+            0,
+            1 * 4,
+            Buffer.FLOAT,
+            frame_count,
+            Buffer.SCALAR
+        )
+        for i, dt in enumerate(dt_data):
+            time_acc[i] = dt
+
+        key_count = len(shape_keys)
+        weight_view = anim_buffer.add_view(frame_count * key_count * 4, 4, None)
+        weight_acc = anim_buffer.add_accessor(
+            weight_view,
+            0,
+            1 * 4,
+            Buffer.FLOAT,
+            frame_count * key_count,
+            Buffer.SCALAR
+        )
+        for i, weight in enumerate(weight_data):
+            weight_acc[i] = weight
+
+        channel = {
+            'sampler': 0,
+            'target': {
+                'path': 'weights',
+            },
+        }
+        channel['target']['node'] = Reference('objects', obj.name, channel['target'], 'node')
+        state['references'].append(channel['target']['node'])
+
+        sampler = {
+            'interpolation': 'LINEAR',
+        }
+        sampler['input'] = Reference('accessors', time_acc.name, sampler, 'input')
+        state['references'].append(sampler['input'])
+        sampler['output'] = Reference('accessors', weight_acc.name, sampler, 'output')
+        state['references'].append(sampler['output'])
+
+        gltf_action = {
+            'name': action.name,
+            'channels': [channel],
+            'samplers': [sampler],
+        }
+
+        return gltf_action
+
     armature_objects = [obj for obj in state['input']['objects'] if obj.type == 'ARMATURE']
     regular_objects = [obj for obj in state['input']['objects'] if obj.type != 'ARMATURE']
 
@@ -1631,6 +1706,13 @@ def export_animations(state, actions):
         for obj in objects:
             if obj.animation_data and obj.animation_data.action:
                 gltf_actions.append(export_animation(obj, obj.animation_data.action))
+
+    shape_key_objects = [
+        obj for obj in state['input']['objects']
+        if obj.type == 'MESH' and obj.data.shape_keys
+    ]
+    for obj in shape_key_objects:
+        gltf_actions.append(export_shape_key_animation(obj))
 
     armature_setting = state['settings']['animations_armature_export']
     object_setting = state['settings']['animations_object_export']
