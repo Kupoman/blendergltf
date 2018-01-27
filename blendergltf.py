@@ -36,6 +36,7 @@ DEFAULT_SETTINGS = {
     'extension_exporters': [],
     'animations_object_export': 'ACTIVE',
     'animations_armature_export': 'ELIGIBLE',
+    'animations_shape_key_export': 'ELIGIBLE',
     'hacks_streaming': False,
 }
 
@@ -1614,8 +1615,7 @@ def export_animations(state, actions):
 
         return gltf_action
 
-    def export_shape_key_animation(obj):
-        action = obj.data.shape_keys.animation_data.action
+    def export_shape_key_animation(obj, action):
         fcurves = action.fcurves
         frame_range = action.frame_range
         frame_count = int(frame_range[1]) - int(frame_range[0])
@@ -1691,6 +1691,10 @@ def export_animations(state, actions):
 
     armature_objects = [obj for obj in state['input']['objects'] if obj.type == 'ARMATURE']
     regular_objects = [obj for obj in state['input']['objects'] if obj.type != 'ARMATURE']
+    shape_key_objects = [
+        obj for obj in state['input']['objects']
+        if obj.type == 'MESH' and obj.data.shape_keys
+    ]
 
     gltf_actions = []
 
@@ -1707,15 +1711,9 @@ def export_animations(state, actions):
             if obj.animation_data and obj.animation_data.action:
                 gltf_actions.append(export_animation(obj, obj.animation_data.action))
 
-    shape_key_objects = [
-        obj for obj in state['input']['objects']
-        if obj.type == 'MESH' and obj.data.shape_keys
-    ]
-    for obj in shape_key_objects:
-        gltf_actions.append(export_shape_key_animation(obj))
-
     armature_setting = state['settings']['animations_armature_export']
     object_setting = state['settings']['animations_object_export']
+    shape_key_setting = state['settings']['animations_shape_key_export']
 
     if armature_setting == 'ACTIVE':
         export_active(armature_objects)
@@ -1734,6 +1732,29 @@ def export_animations(state, actions):
     else:
         print(
             'WARNING: Unrecognized setting for animations_object_export:',
+            '{}'.format(object_setting)
+        )
+
+    if shape_key_setting == 'ACTIVE':
+        for obj in shape_key_objects:
+            action = obj.data.shape_keys.animation_data.action
+            gltf_actions.append(export_shape_key_animation(obj, action))
+    elif shape_key_setting == 'ELIGIBLE':
+        for obj in shape_key_objects:
+            eligible_actions = []
+            shape_keys = set([
+                block.name for block in obj.data.shape_keys.key_blocks
+                if block != block.relative_key
+            ])
+            for action in actions:
+                fcurve_keys = set([fcurve.data_path.split('"')[1] for fcurve in action.fcurves])
+                if fcurve_keys <= shape_keys:
+                    eligible_actions.append(action)
+            for action in eligible_actions:
+                gltf_actions.append(export_shape_key_animation(obj, action))
+    else:
+        print(
+            'WARNING: Unrecognized setting for animations_shape_key_export:',
             '{}'.format(object_setting)
         )
 

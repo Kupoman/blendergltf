@@ -166,6 +166,11 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         name='Armatures',
         default='ELIGIBLE'
     )
+    animations_shape_key_export = EnumProperty(
+        items=ANIM_EXPORT_ITEMS,
+        name='Shape Keys',
+        default='ELIGIBLE'
+    )
     images_data_storage = EnumProperty(
         items=IMAGE_STORAGE_ITEMS,
         name='Storage',
@@ -324,6 +329,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col.label('Animations:', icon='ACTION')
         col.prop(self, 'animations_armature_export')
         col.prop(self, 'animations_object_export')
+        col.prop(self, 'animations_shape_key_export')
 
         col = layout.box().column()
         col.label('Images:', icon='IMAGE_DATA')
