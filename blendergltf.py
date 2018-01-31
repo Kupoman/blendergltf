@@ -901,7 +901,7 @@ def export_skins(state):
 
         arm = obj.find_armature()
 
-        bind_shape_mat = obj.matrix_world * arm.matrix_world.inverted()
+        bind_shape_mat = arm.matrix_world.inverted() * obj.matrix_world
         bone_groups = [group for group in obj.vertex_groups if group.name in arm.data.bones]
 
         gltf_skin = {
