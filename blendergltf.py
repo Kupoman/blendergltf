@@ -747,22 +747,6 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
     return buf, gltf_attrs
 
 
-def check_mesh(mesh):
-    errors = []
-    if not mesh.loops:
-        errors.append('mesh has no vertices')
-
-    if errors:
-        err_list = '\n\t'.join(errors)
-        print(
-            'Unable to export mesh {} due to the following errors:\n\t{}'
-            .format(mesh.name, err_list)
-        )
-        return False
-
-    return True
-
-
 def export_mesh(state, mesh):
     # glTF data
     gltf_mesh = {
@@ -1847,6 +1831,15 @@ def export_gltf(scene_delta, settings=None):
     }
     state['input'].update({key: list(value) for key, value in scene_delta.items()})
 
+    # Filter out empty meshes
+    if 'meshes' in state['input']:
+        state['input']['meshes'] = [mesh for mesh in state['input']['meshes'] if mesh.loops]
+        if 'objects' in state['input']:
+            state['input']['objects'] = [
+                obj for obj in state['input']['objects']
+                if obj.type != 'MESH' or obj.data in state['input']['meshes']
+            ]
+
     # Make sure any temporary meshes do not have animation data baked in
     default_scene = bpy.context.scene
     if not settings['hacks_streaming']:
@@ -1864,7 +1857,7 @@ def export_gltf(scene_delta, settings=None):
         ob for ob in state['input']['objects']
         if [mod for mod in ob.modifiers if mod.type != 'ARMATURE']
     ]
-    for mesh in scene_delta.get('meshes', []):
+    for mesh in state['input'].get('meshes', []):
         if mesh.shape_keys and mesh.shape_keys.use_relative:
             relative_key = mesh.shape_keys.key_blocks[0].relative_key
             keys = [key for key in mesh.shape_keys.key_blocks if key != relative_key]
@@ -1951,10 +1944,7 @@ def export_gltf(scene_delta, settings=None):
         exporter('nodes', 'objects', export_node, lambda x: True, None),
         # Make sure meshes come after nodes to detect which meshes are skinned
         exporter('materials', 'materials', export_material, lambda x: True, None),
-        exporter(
-            'meshes', 'meshes', export_mesh, check_mesh,
-            lambda x: {'name': x.name}
-        ),
+        exporter('meshes', 'meshes', export_mesh, lambda x: True, None),
         exporter('scenes', 'scenes', export_scene, lambda x: True, None),
         exporter(
             'textures', 'textures', export_texture, check_texture,
@@ -1984,7 +1974,7 @@ def export_gltf(scene_delta, settings=None):
     state['output']['samplers'] = state['samplers']
 
     # Export animations
-    state['output']['animations'] = export_animations(state, scene_delta.get('actions', []))
+    state['output']['animations'] = export_animations(state, state['input'].get('actions', []))
     state['output']['skins'] = export_skins(state)
     state['output']['nodes'].extend([
         export_joint(state, sid.data) for sid in state['input']['bones']
@@ -2018,7 +2008,8 @@ def export_gltf(scene_delta, settings=None):
     if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
         insert_root_nodes(state, togl(settings['nodes_global_matrix']))
 
-    state['output'].update(export_buffers(state))
+    if state['buffers']:
+        state['output'].update(export_buffers(state))
     state['output'] = {key: value for key, value in state['output'].items() if value != []}
     if state['extensions_used']:
         gltf.update({'extensionsUsed': state['extensions_used']})
