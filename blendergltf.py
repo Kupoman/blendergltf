@@ -911,7 +911,7 @@ def export_skins(state):
             state['references'].append(ref)
 
         if state['version'] < Version('2.0'):
-            gltf_skin['bindShapeMatrix'] = mathutils.Matrix.Identity(4)
+            gltf_skin['bindShapeMatrix'] = togl(mathutils.Matrix.Identity(4))
         else:
             bone_names = [_get_bone_name(b) for b in arm.data.bones if b.parent is None]
             if len(bone_names) > 1:
