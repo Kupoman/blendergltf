@@ -1015,7 +1015,7 @@ def export_node(state, obj):
     if extras:
         node['extras'] = extras
 
-    if obj.parent_bone:
+    if obj.parent and obj.parent_bone:
         parent_bone = obj.parent.data.bones[obj.parent_bone]
         bone_name = _get_bone_name(parent_bone)
         if bone_name not in state['bone_children']:
