@@ -10,7 +10,6 @@ import struct
 import zlib
 
 import bpy
-import idprop
 import mathutils
 
 
@@ -442,9 +441,16 @@ _IGNORED_CUSTOM_PROPS = [
 
 
 def _get_custom_properties(data):
+    def is_serializable(a):
+        try:
+            json.dumps(a)
+            return True
+        except TypeError:
+            return False
+
     return {
         k: v.to_list() if hasattr(v, 'to_list') else v for k, v in data.items()
-        if k not in _IGNORED_CUSTOM_PROPS and not isinstance(v, idprop.types.IDPropertyGroup)
+        if k not in _IGNORED_CUSTOM_PROPS and is_serializable(v)
     }
 
 
