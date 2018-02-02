@@ -256,7 +256,7 @@ class PbrExportPanel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.material is not None
+        return context.material is not None and hasattr(context.material, 'pbr_export_settings')
 
     def draw(self, context):
         settings = context.material.pbr_export_settings
