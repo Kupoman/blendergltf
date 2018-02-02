@@ -441,9 +441,9 @@ _IGNORED_CUSTOM_PROPS = [
 
 
 def _get_custom_properties(data):
-    def is_serializable(a):
+    def is_serializable(value):
         try:
-            json.dumps(a)
+            json.dumps(value)
             return True
         except TypeError:
             return False
