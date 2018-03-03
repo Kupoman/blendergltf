@@ -192,6 +192,10 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         description='Combine all buffers into a single buffer',
         default=True
     )
+    asset_copyright = StringProperty(
+        name='Copyright',
+        description='Copyright string to include in output file'
+    )
     asset_version = EnumProperty(
         items=VERSION_ITEMS,
         name='Version',
@@ -386,8 +390,9 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
 
         col = layout.box().column()
         col.label('Output:', icon='SCRIPTWIN')
-        col.prop(self, 'gltf_export_binary')
+        col.prop(self, 'asset_copyright')
         col.prop(self, 'asset_version')
+        col.prop(self, 'gltf_export_binary')
         if Version(self.asset_version) < Version('2.0'):
             col.prop(self, 'asset_profile')
         col.prop(self, 'pretty_print')

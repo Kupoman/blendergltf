@@ -1974,6 +1974,7 @@ def export_gltf(scene_delta, settings=None):
         'asset': {
             'version': settings['asset_version'],
             'generator': 'blendergltf v1.1.0',
+            'copyright': settings['asset_copyright'],
         }
     }
     if state['version'] < Version('2.0'):

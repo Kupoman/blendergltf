@@ -100,6 +100,8 @@ Enable the [KHR_lights](https://github.com/andreasplesch/glTF/blob/ec6f61d73bcd5
 Enable the [KHR_materials_common](https://github.com/KhronosGroup/glTF/tree/master/extensions/Khronos/KHR_materials_common) extension to export Blinn Phong materials.
 
 ### Output
+#### Copyright
+Copyright string to include in output file.
 #### Profile (glTF 1.0 only)
 * **Web** Target WebGL 1.0
 * **Desktop** Target OpenGL and GLSL 1.30.
