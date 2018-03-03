@@ -61,6 +61,10 @@ When vertex data is interleaved, all properties share one buffer.
 Otherwise, each property is stored in a separate buffer.
 This could give a slight performance improvement to vertex processing, but a lot of importers do not handle interleaved data well.
 It is not recommended to use this setting unless you are looking for importer bugs.
+#### Export Vertex Color Alpha
+Export vertex colors with 4 channels instead of 3.
+The fourth channel is always filled with a value of 1.0.
+This option needs to be enabled when exporting for Facebook.
 
 ### Materials
 #### Disable Material Export

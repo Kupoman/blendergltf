@@ -28,6 +28,7 @@ DEFAULT_SETTINGS = {
     'blocks_prune_unused': True,
     'meshes_apply_modifiers': True,
     'meshes_interleave_vertex_data': True,
+    'meshes_vertex_color_alpha': True,
     'images_data_storage': 'COPY',
     'asset_version': '2.0',
     'asset_copyright': '',
@@ -582,9 +583,15 @@ def export_material(state, material):
 def export_attributes(state, mesh, vert_list, base_vert_list):
     is_skinned = mesh.name in state['skinned_meshes']
 
+    color_type = Buffer.VEC3
+    color_size = 3
+    if state['settings']['meshes_vertex_color_alpha']:
+        color_type = Buffer.VEC4
+        color_size = 4
+
     num_uv_layers = len(mesh.uv_layers)
     num_col_layers = len(mesh.vertex_colors)
-    vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * 3) * 4
+    vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * color_size) * 4
 
     buf = Buffer(mesh.name)
 
@@ -613,7 +620,7 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
                     vertex_size,
                     Buffer.FLOAT,
                     num_verts,
-                    Buffer.VEC3
+                    color_type
                 )
                 for i in range(num_col_layers)
             ]
@@ -645,9 +652,20 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
                 prop_buffer = Buffer('{}_COLOR_{}'.format(mesh.name, col_layer))
                 state['buffers'].append(prop_buffer)
                 state['input']['buffers'].append(SimpleID(prop_buffer.name))
-                prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
+                prop_view = prop_buffer.add_view(
+                    4 * color_size * num_verts,
+                    4 * color_size,
+                    Buffer.ARRAY_BUFFER
+                )
                 cdata.append(
-                    prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+                    prop_buffer.add_accessor(
+                        prop_view,
+                        0,
+                        color_size * 4,
+                        Buffer.FLOAT,
+                        num_verts,
+                        color_type
+                    )
                 )
 
     # Copy vertex data
@@ -678,9 +696,12 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
                     tdata[j][i * 2 + 1] = uv[1]
 
             for j, col in enumerate(vtx.colors):
-                cdata[j][i * 3] = col[0]
-                cdata[j][i * 3 + 1] = col[1]
-                cdata[j][i * 3 + 2] = col[2]
+                cdata[j][i * color_size] = col[0]
+                cdata[j][i * color_size + 1] = col[1]
+                cdata[j][i * color_size + 2] = col[2]
+
+                if state['settings']['meshes_vertex_color_alpha']:
+                    cdata[j][i * color_size + 3] = 1.0
 
     # Handle attribute references
     gltf_attrs = {}

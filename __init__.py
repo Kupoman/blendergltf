@@ -149,11 +149,19 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         description='Apply all modifiers to the output mesh data',
         default=True
     )
+    meshes_vertex_color_alpha = BoolProperty(
+        name='Export Vertex Color Alpha',
+        description=(
+            'Export vertex colors with 4 channels'
+            ' (the value of the fourth channel is always 1.0)'
+        ),
+        default=False
+    )
     meshes_interleave_vertex_data = BoolProperty(
         name='Interleave Vertex Data',
         description=(
             'Store data for each vertex contiguously'
-            'instead of each vertex property (e.g. position) contiguously'
+            ' instead of each vertex property (e.g. position) contiguously'
         ),
         default=False
     )
@@ -322,6 +330,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
         col.label('Meshes:', icon='MESH_DATA')
         col.prop(self, 'meshes_apply_modifiers')
         col.prop(self, 'meshes_interleave_vertex_data')
+        col.prop(self, 'meshes_vertex_color_alpha')
 
         col = layout.box().column()
         col.label('Materials:', icon='MATERIAL_DATA')
