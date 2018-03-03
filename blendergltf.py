@@ -1408,6 +1408,8 @@ def export_animations(state, actions):
         has_rotation = set()
         has_scale = set()
 
+        action_name = '{}_{}'.format(obj.name, action.name)
+
         # Check action groups to see what needs to be animated
         pose_bones = set()
         for group in action.groups:
@@ -1466,7 +1468,7 @@ def export_animations(state, actions):
         gltf_parameters = {}
         gltf_samplers = []
 
-        tbuf = Buffer('{}_time'.format(action.name))
+        tbuf = Buffer('{}_time'.format(action_name))
         tbv = tbuf.add_view(num_frames * 1 * 4, 1 * 4, None)
         tdata = tbuf.add_accessor(tbv, 0, 1 * 4, Buffer.FLOAT, num_frames, Buffer.SCALAR)
         time = 0
@@ -1475,17 +1477,17 @@ def export_animations(state, actions):
             time += state['animation_dt']
         state['buffers'].append(tbuf)
         state['input']['buffers'].append(SimpleID(tbuf.name))
-        time_parameter_name = '{}_time_parameter'.format(action.name)
+        time_parameter_name = '{}_time_parameter'.format(action_name)
         ref = Reference('accessors', tdata.name, gltf_parameters, time_parameter_name)
         gltf_parameters[time_parameter_name] = ref
         state['references'].append(ref)
 
-        input_list = '{}_{}_samplers'.format(action.name, obj.name)
+        input_list = '{}_{}_samplers'.format(action_name, obj.name)
         state['input'][input_list] = []
 
         sampler_keys = []
         for targetid, chan in channels.items():
-            buf = Buffer('{}_{}'.format(targetid, action.name))
+            buf = Buffer('{}_{}'.format(targetid, action_name))
             ldata = rdata = sdata = None
             paths = []
             if targetid in has_location:
@@ -1525,9 +1527,9 @@ def export_animations(state, actions):
                 targetid = _get_bone_name(bpy.data.armatures[obj.data.name].bones[targetid])
 
             for path in paths:
-                sampler_name = '{}_{}_{}_sampler'.format(action.name, targetid, path)
+                sampler_name = '{}_{}_{}_sampler'.format(action_name, targetid, path)
                 sampler_keys.append(sampler_name)
-                parameter_name = '{}_{}_{}_parameter'.format(action.name, targetid, path)
+                parameter_name = '{}_{}_{}_parameter'.format(action_name, targetid, path)
 
                 gltf_channel = {
                     'sampler': sampler_name,
@@ -1591,7 +1593,7 @@ def export_animations(state, actions):
                 state['references'].append(accessor_ref)
 
         gltf_action = {
-            'name': action.name,
+            'name': action_name,
             'channels': gltf_channels,
             'samplers': gltf_samplers,
         }
@@ -1609,6 +1611,7 @@ def export_animations(state, actions):
         return gltf_action
 
     def export_shape_key_animation(obj, action):
+        action_name = '{}_{}'.format(obj.name, action.name)
         fcurves = action.fcurves
         frame_range = action.frame_range
         frame_count = int(frame_range[1]) - int(frame_range[0])
@@ -1628,7 +1631,7 @@ def export_animations(state, actions):
         weight_data = itertools.chain.from_iterable(weight_data)
         dt_data = [state['animation_dt'] * i for i in range(frame_count)]
 
-        anim_buffer = Buffer('{}_{}'.format(obj.name, action.name))
+        anim_buffer = Buffer('{}_{}'.format(obj.name, action_name))
         state['buffers'].append(anim_buffer)
         state['input']['buffers'].append(SimpleID(anim_buffer.name))
 
@@ -1675,7 +1678,7 @@ def export_animations(state, actions):
         state['references'].append(sampler['output'])
 
         gltf_action = {
-            'name': action.name,
+            'name': action_name,
             'channels': [channel],
             'samplers': [sampler],
         }
