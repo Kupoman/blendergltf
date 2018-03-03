@@ -102,6 +102,10 @@ Enable the [KHR_materials_common](https://github.com/KhronosGroup/glTF/tree/mast
 ### Output
 #### Copyright
 Copyright string to include in output file.
+#### Version
+The version of the glTF specification to output as.
+#### Export as binary
+Export to the binary glTF file format (.glb).
 #### Profile (glTF 1.0 only)
 * **Web** Target WebGL 1.0
 * **Desktop** Target OpenGL and GLSL 1.30.
