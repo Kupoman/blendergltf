@@ -278,3 +278,5 @@ class PbrExportPanel(bpy.types.Panel):
 
         self.layout.prop_search(settings, 'normal_texture', bpy.data, 'textures')
         self.layout.prop_search(settings, 'occlusion_texture', bpy.data, 'textures')
+
+        self.layout.prop(context.material.game_settings, 'use_backface_culling')

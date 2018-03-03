@@ -497,6 +497,7 @@ def export_material(state, material):
         return gltf
 
     if hasattr(material, 'pbr_export_settings'):
+        gltf['doubleSided'] = not material.game_settings.use_backface_culling
         pbr_settings = material.pbr_export_settings
         pbr = {
             'baseColorFactor': pbr_settings.base_color_factor[:],
