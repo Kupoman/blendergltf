@@ -3,6 +3,15 @@ import math
 import bpy
 import mathutils
 
+ALPHA_MODE_ITEMS = [
+    ('OPAQUE', 'Opaque', 'The alpha value is ignored and the rendered output is fully opaque'),
+    ('MASK', 'Mask', (
+        'The rendered output is either fully opaque or fully transparent depending on the '
+        'alpha value and the specified alpha cutoff value'
+    )),
+    ('BLEND', 'Blend', 'The alpha value is used to composite the source and destination areas'),
+]
+
 
 def get_base_color_factor(self):
     material = self.id_data
@@ -33,6 +42,44 @@ def get_emissive_factor(self):
 def set_emissive_factor(self, value):
     material = self.id_data
     material.emit = mathutils.Color(value).v * 2.0
+
+
+def get_alpha_mode(self):
+    material = self.id_data
+
+    alpha_mode = 'OPAQUE'
+
+    if material.use_transparency:
+        gs_alpha = material.game_settings.alpha_blend
+        if gs_alpha == 'CLIP':
+            alpha_mode = 'MASK'
+        else:
+            alpha_mode = 'BLEND'
+
+    for i, mode in enumerate(ALPHA_MODE_ITEMS):
+        if mode[0] == alpha_mode:
+            alpha_mode = i
+            break
+    else:
+        alpha_mode = 0
+
+    return alpha_mode
+
+
+def set_alpha_mode(self, value):
+    material = self.id_data
+
+    value = ALPHA_MODE_ITEMS[value][0]
+
+    if value == 'OPAQUE':
+        material.use_transparency = False
+        material.game_settings.alpha_blend = 'OPAQUE'
+    elif value == 'MASK':
+        material.use_transparency = True
+        material.game_settings.alpha_blend = 'CLIP'
+    elif value == 'BLEND':
+        material.use_transparency = True
+        material.game_settings.alpha_blend = 'ALPHA'
 
 
 def get_roughness_factor(self):
@@ -204,6 +251,21 @@ class PbrSettings(bpy.types.PropertyGroup):
         set=set_base_color_texture,
     )
 
+    alpha_mode = bpy.props.EnumProperty(
+        items=ALPHA_MODE_ITEMS,
+        name='Alpha Mode',
+        default='OPAQUE',
+        get=get_alpha_mode,
+        set=set_alpha_mode,
+    )
+
+    alpha_cutoff = bpy.props.FloatProperty(
+        name='Alpha Cutoff',
+        min=0.0,
+        max=1.0,
+        default=0.5,
+    )
+
     metallic_factor = bpy.props.FloatProperty(
         name='Metallic Factor',
         min=0.0,
@@ -264,6 +326,8 @@ class PbrExportPanel(bpy.types.Panel):
         box = self.layout.box()
         box.prop(settings, 'base_color_factor', text='Factor')
         box.prop_search(settings, 'base_color_texture', bpy.data, 'textures')
+        box.prop(settings, 'alpha_mode')
+        box.prop(settings, 'alpha_cutoff')
 
         self.layout.label('Roughness:')
         box = self.layout.box()

@@ -507,6 +507,10 @@ def export_material(state, material):
             'roughnessFactor': pbr_settings.roughness_factor,
         }
 
+        gltf['alphaMode'] = pbr_settings.alpha_mode
+        if gltf['alphaMode'] == 'MASK':
+            gltf['alphaCutoff'] = pbr_settings.alpha_cutoff
+
         input_textures = [texture.name for texture in state['input']['textures']]
         base_color_text = pbr_settings.base_color_texture
         if base_color_text and base_color_text in input_textures:
