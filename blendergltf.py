@@ -426,7 +426,7 @@ def togl(matrix):
     return [i for col in matrix.col for i in col]
 
 
-def decompose(matrix):
+def _decompose(matrix):
     loc, rot, scale = matrix.decompose()
     loc = loc.to_tuple()
     rot = (rot.x, rot.y, rot.z, rot.w)
@@ -1026,7 +1026,11 @@ def export_node(state, obj):
         node['children'].append(Reference('objects', child.name, node['children'], i))
         state['references'].append(node['children'][-1])
 
-    node['translation'], node['rotation'], node['scale'] = decompose(obj.matrix_local)
+    (
+        node['translation'],
+        node['rotation'],
+        node['scale']
+    ) = state['decompose_fn'](obj.matrix_local)
 
     extras = _get_custom_properties(obj)
     extras.update({
@@ -1125,7 +1129,11 @@ def export_joint(state, bone):
         ref.prop = i
         state['references'].append(ref)
 
-    gltf_joint['translation'], gltf_joint['rotation'], gltf_joint['scale'] = decompose(matrix)
+    (
+        gltf_joint['translation'],
+        gltf_joint['rotation'],
+        gltf_joint['scale']
+    ) = state['decompose_fn'](matrix)
 
     return gltf_joint
 
@@ -1422,6 +1430,7 @@ def export_animations(state, actions):
             target_key = 'node'
 
         channels = {}
+        decompose = state['decompose_fn']
 
         sce = bpy.context.scene
         prev_frame = sce.frame_current
@@ -1863,6 +1872,7 @@ def export_gltf(scene_delta, settings=None):
         },
         'references': [],
         'files': {},
+        'decompose_fn': _decompose,
     }
     state['input'].update({key: list(value) for key, value in scene_delta.items()})
 
