@@ -10,8 +10,8 @@ def test_camera_ortho(blendergltf, state, bpy_camera_default):
     assert output == {
         "name": "Camera",
         "orthographic": {
-            "xmag": 7.314285755157471,
-            "ymag": 7.314285755157471,
+            "xmag": 6.501587337917751,
+            "ymag": 3.6571428775787354,
             "zfar": 100.0,
             "znear": 0.10000000149011612
         },

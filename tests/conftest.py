@@ -28,6 +28,7 @@ def state():
         'version': Version(settings['asset_version']),
         'settings': settings,
         'animation_dt': 1.0 / 24.0,
+        'aspect_ratio': 1920 / 1080,
         'mod_meshes': {},
         'shape_keys': {},
         'skinned_meshes': {},

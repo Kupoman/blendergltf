@@ -461,13 +461,15 @@ def _get_bone_name(bone):
     return '{}_{}'.format(bone.id_data.name, bone.name)
 
 
-def export_camera(_, camera):
+def export_camera(state, camera):
     camera_gltf = {}
     if camera.type == 'ORTHO':
+        xmag = 0.5 * camera.ortho_scale
+        ymag = xmag * state['aspect_ratio']
         camera_gltf = {
             'orthographic': {
-                'xmag': camera.ortho_scale,
-                'ymag': camera.ortho_scale,
+                'xmag': ymag,
+                'ymag': xmag,
                 'zfar': camera.clip_end,
                 'znear': camera.clip_start,
             },
@@ -1865,12 +1867,15 @@ def export_gltf(scene_delta, settings=None):
     for key, value in DEFAULT_SETTINGS.items():
         settings.setdefault(key, value)
 
+    res_x = bpy.context.scene.render.resolution_x
+    res_y = bpy.context.scene.render.resolution_y
     # Initialize export state
     state = {
         'version': Version(settings['asset_version']),
         'settings': settings,
         'animation_dt': 1.0 / bpy.context.scene.render.fps,
         'mod_meshes_obj': {},
+        'aspect_ratio': res_x / res_y,
         'mod_meshes': {},
         'shape_keys': {},
         'skinned_meshes': {},
