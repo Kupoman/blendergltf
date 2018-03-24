@@ -2005,10 +2005,13 @@ def export_gltf(scene_delta, settings=None):
 
         transformed_meshes = [mesh.copy() for mesh in mesh_list]
         for mesh in transformed_meshes:
-            mesh.transform(global_mat, shape_keys=True)
+            mesh.transform(global_mat, shape_keys=False)
         state['mod_meshes'].update(
             {mesh.name: xformed_mesh for xformed_mesh, mesh in zip(transformed_meshes, mesh_list)}
         )
+        for shape_key_list in state['shape_keys'].values():
+            for shape_key in shape_key_list:
+                shape_key[1].transform(global_mat, shape_keys=False)
 
     # Restore armature pose positions
     for i, armature in enumerate(bpy.data.armatures):
