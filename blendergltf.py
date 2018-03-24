@@ -585,8 +585,8 @@ def export_material(state, material):
     return gltf
 
 
-def export_attributes(state, mesh, vert_list, base_vert_list):
-    is_skinned = mesh.name in state['skinned_meshes']
+def export_attributes(state, mesh, mesh_name, vert_list, base_vert_list):
+    is_skinned = mesh_name in state['skinned_meshes']
 
     color_type = Buffer.VEC3
     color_size = 3
@@ -598,7 +598,7 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
     num_col_layers = len(mesh.vertex_colors)
     vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * color_size) * 4
 
-    buf = Buffer(mesh.name)
+    buf = Buffer(mesh_name)
 
     num_verts = len(vert_list)
 
@@ -630,13 +630,13 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
                 for i in range(num_col_layers)
             ]
     else:
-        prop_buffer = Buffer(mesh.name + '_POSITION')
+        prop_buffer = Buffer(mesh_name + '_POSITION')
         state['buffers'].append(prop_buffer)
         state['input']['buffers'].append(SimpleID(prop_buffer.name))
         prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
         vdata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
 
-        prop_buffer = Buffer(mesh.name + '_NORMAL')
+        prop_buffer = Buffer(mesh_name + '_NORMAL')
         state['buffers'].append(prop_buffer)
         state['input']['buffers'].append(SimpleID(prop_buffer.name))
         prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
@@ -645,7 +645,7 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
         if not base_vert_list:
             tdata = []
             for uv_layer in range(num_uv_layers):
-                prop_buffer = Buffer('{}_TEXCOORD_{}'.format(mesh.name, uv_layer))
+                prop_buffer = Buffer('{}_TEXCOORD_{}'.format(mesh_name, uv_layer))
                 state['buffers'].append(prop_buffer)
                 state['input']['buffers'].append(SimpleID(prop_buffer.name))
                 prop_view = prop_buffer.add_view(8 * num_verts, 8, Buffer.ARRAY_BUFFER)
@@ -654,7 +654,7 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
                 )
             cdata = []
             for col_layer in range(num_col_layers):
-                prop_buffer = Buffer('{}_COLOR_{}'.format(mesh.name, col_layer))
+                prop_buffer = Buffer('{}_COLOR_{}'.format(mesh_name, col_layer))
                 state['buffers'].append(prop_buffer)
                 state['input']['buffers'].append(SimpleID(prop_buffer.name))
                 prop_view = prop_buffer.add_view(
@@ -730,7 +730,7 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
     state['input']['buffers'].append(SimpleID(buf.name))
 
     if is_skinned:
-        skin_buf = Buffer('{}_skin'.format(mesh.name))
+        skin_buf = Buffer('{}_skin'.format(mesh_name))
 
         skin_vertex_size = (4 + 4) * 4
         skin_view = skin_buf.add_view(
@@ -783,8 +783,10 @@ def export_attributes(state, mesh, vert_list, base_vert_list):
 
 def export_mesh(state, mesh):
     # glTF data
+    mesh_name = mesh.name
+    mesh = state['mod_meshes'].get(mesh.name, mesh)
     gltf_mesh = {
-        'name': mesh.name,
+        'name': mesh_name,
         'primitives': [],
     }
 
@@ -795,7 +797,7 @@ def export_mesh(state, mesh):
     mesh.calc_normals_split()
     mesh.calc_tessface()
 
-    shape_keys = state['shape_keys'].get(mesh.name, [])
+    shape_keys = state['shape_keys'].get(mesh_name, [])
 
     # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
     if shape_keys:
@@ -804,7 +806,7 @@ def export_mesh(state, mesh):
         vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
 
     # Process mesh data and gather attributes
-    buf, gltf_attrs = export_attributes(state, mesh, vert_list, None)
+    buf, gltf_attrs = export_attributes(state, mesh, mesh_name, vert_list, None)
 
     # Process shape keys
     targets = []
@@ -812,7 +814,13 @@ def export_mesh(state, mesh):
         shape_key_mesh.calc_normals_split()
         shape_key_mesh.calc_tessface()
         shape_verts = [Vertex(shape_key_mesh, loop) for loop in shape_key_mesh.loops]
-        targets.append(export_attributes(state, shape_key_mesh, shape_verts, vert_list)[1])
+        targets.append(export_attributes(
+            state,
+            shape_key_mesh,
+            shape_key_mesh.name,
+            shape_verts,
+            vert_list
+        )[1])
     if shape_keys:
         gltf_mesh['weights'] = [key[0] for key in shape_keys]
 
@@ -1048,17 +1056,19 @@ def export_node(state, obj):
         state['bone_children'][bone_name].append(obj.name)
 
     if obj.type == 'MESH':
-        mesh = state['mod_meshes'].get(obj.name, obj.data)
+        mesh = state['mod_meshes_obj'].get(obj.name, obj.data)
+        mesh_name = mesh.name
+        mesh = state['mod_meshes'].get(mesh.name, mesh)
         if state['version'] < Version('2.0'):
             node['meshes'] = []
-            node['meshes'].append(Reference('meshes', mesh.name, node['meshes'], 0))
+            node['meshes'].append(Reference('meshes', mesh_name, node['meshes'], 0))
             state['references'].append(node['meshes'][0])
         else:
-            node['mesh'] = Reference('meshes', mesh.name, node, 'mesh')
+            node['mesh'] = Reference('meshes', mesh_name, node, 'mesh')
             state['references'].append(node['mesh'])
         armature = obj.find_armature()
         if armature:
-            state['skinned_meshes'][mesh.name] = obj
+            state['skinned_meshes'][mesh_name] = obj
             node['skin'] = Reference('skins', obj.name, node, 'skin')
             state['references'].append(node['skin'])
             if state['version'] < Version('2.0'):
@@ -1846,6 +1856,7 @@ def export_gltf(scene_delta, settings=None):
         'version': Version(settings['asset_version']),
         'settings': settings,
         'animation_dt': 1.0 / bpy.context.scene.render.fps,
+        'mod_meshes_obj': {},
         'mod_meshes': {},
         'shape_keys': {},
         'skinned_meshes': {},
@@ -1930,7 +1941,7 @@ def export_gltf(scene_delta, settings=None):
             for user in mesh_users:
                 base_mesh = user.to_mesh(default_scene, True, 'PREVIEW')
                 mesh_name = base_mesh.name
-                state['mod_meshes'][user.name] = base_mesh
+                state['mod_meshes_obj'][user.name] = base_mesh
 
                 if mesh_name not in state['shape_keys']:
                     key_meshes = []
@@ -1955,7 +1966,7 @@ def export_gltf(scene_delta, settings=None):
 
             # Only convert meshes with modifiers, otherwise each non-modifier
             # user ends up with a copy of the mesh and we lose instancing
-            state['mod_meshes'].update(
+            state['mod_meshes_obj'].update(
                 {ob.name: ob.to_mesh(default_scene, True, 'PREVIEW') for ob in mod_users}
             )
 
@@ -1965,7 +1976,7 @@ def export_gltf(scene_delta, settings=None):
         else:
             mesh_list.append(mesh)
 
-    mesh_list.extend(state['mod_meshes'].values())
+    mesh_list.extend(state['mod_meshes_obj'].values())
     state['input']['meshes'] = mesh_list
 
     apply_global_matrix = (
@@ -1991,6 +2002,13 @@ def export_gltf(scene_delta, settings=None):
 
             return loc, rot, scale
         state['decompose_fn'] = decompose_apply
+
+        transformed_meshes = [mesh.copy() for mesh in mesh_list]
+        for mesh in transformed_meshes:
+            mesh.transform(global_mat, shape_keys=True)
+        state['mod_meshes'].update(
+            {mesh.name: xformed_mesh for xformed_mesh, mesh in zip(transformed_meshes, mesh_list)}
+        )
 
     # Restore armature pose positions
     for i, armature in enumerate(bpy.data.armatures):
@@ -2136,11 +2154,15 @@ def export_gltf(scene_delta, settings=None):
             )
 
     # Remove any temporary meshes
-    shape_key_meshes = [
-        shape_key_pair[1] for shape_key_pair
-        in itertools.chain.from_iterable(state['shape_keys'].values())
-    ]
-    for mesh in itertools.chain(state['mod_meshes'].values(), shape_key_meshes):
+    temp_mesh_collections = (
+        state['mod_meshes'].values(),
+        state['mod_meshes_obj'].values(),
+        [
+            shape_key_pair[1] for shape_key_pair
+            in itertools.chain.from_iterable(state['shape_keys'].values())
+        ]
+    )
+    for mesh in itertools.chain(*temp_mesh_collections):
         bpy.data.meshes.remove(mesh)
 
     # Transform gltf data to binary
