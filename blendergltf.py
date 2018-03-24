@@ -24,6 +24,7 @@ DEFAULT_SETTINGS = {
     'buffers_combine_data': False,
     'nodes_export_hidden': False,
     'nodes_global_matrix': mathutils.Matrix.Identity(4),
+    'nodes_global_matrix_apply': True,
     'nodes_selected_only': False,
     'blocks_prune_unused': True,
     'meshes_apply_modifiers': True,
@@ -1967,6 +1968,30 @@ def export_gltf(scene_delta, settings=None):
     mesh_list.extend(state['mod_meshes'].values())
     state['input']['meshes'] = mesh_list
 
+    apply_global_matrix = (
+        settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4)
+        and settings['nodes_global_matrix_apply']
+    )
+    if apply_global_matrix:
+        global_mat = settings['nodes_global_matrix']
+        global_scale_mat = mathutils.Matrix([[abs(j) for j in i] for i in global_mat])
+        def decompose_apply(matrix):
+            loc, rot, scale = matrix.decompose()
+
+            loc.rotate(global_mat)
+            loc = loc.to_tuple()
+
+            rot = mathutils.Vector(list(rot.to_euler()))
+            rot.rotate(global_mat)
+            rot = mathutils.Euler(rot, 'XYZ').to_quaternion()
+            rot = (rot.x, rot.y, rot.z, rot.w)
+
+            scale.rotate(global_scale_mat)
+            scale = scale.to_tuple()
+
+            return loc, rot, scale
+        state['decompose_fn'] = decompose_apply
+
     # Restore armature pose positions
     for i, armature in enumerate(bpy.data.armatures):
         armature.pose_position = saved_pose_positions[i]
@@ -2052,7 +2077,11 @@ def export_gltf(scene_delta, settings=None):
         ext_exporter.export(state)
 
     # Insert root nodes if axis conversion is needed
-    if settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4):
+    root_node_needed = (
+        settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4)
+        and not settings['nodes_global_matrix_apply']
+    )
+    if root_node_needed:
         insert_root_nodes(state, togl(settings['nodes_global_matrix']))
 
     if state['buffers']:
