@@ -1466,7 +1466,6 @@ def export_animations(state, actions):
         if state['settings']['nodes_global_matrix_apply']:
             axis_mat = state['settings']['nodes_global_matrix']
 
-
         sce = bpy.context.scene
         prev_frame = sce.frame_current
         prev_action = obj.animation_data.action
