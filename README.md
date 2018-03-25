@@ -40,10 +40,8 @@ will ask for the location to save the exported file.
 ### Axis Conversion
 #### Up
 Up axis of output coordinate system.
-Axis conversion is handled by adding a new root node with the appropriate transformation.
 #### Forward
 Forward axis of output coordinate system.
-Axis conversion is handled by adding a new root node with the appropriate transformation.
 
 ### Nodes
 #### Export Hidden Objects
