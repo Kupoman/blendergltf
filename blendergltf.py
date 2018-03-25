@@ -1124,7 +1124,11 @@ def export_node(state, obj):
 
 
 def export_joint(state, bone):
-    matrix = state['settings']['nodes_global_matrix'] * bone.matrix_local
+    axis_mat = mathutils.Matrix.Identity(4)
+    if state['settings']['nodes_global_matrix_apply']:
+        axis_mat = state['settings']['nodes_global_matrix']
+
+    matrix = axis_mat * bone.matrix_local
     if bone.parent:
         matrix = bone.parent.matrix_local.inverted() * bone.matrix_local
 
@@ -1458,6 +1462,10 @@ def export_animations(state, actions):
 
         channels = {}
         decompose = state['decompose_fn']
+        axis_mat = mathutils.Matrix.Identity(4)
+        if state['settings']['nodes_global_matrix_apply']:
+            axis_mat = state['settings']['nodes_global_matrix']
+
 
         sce = bpy.context.scene
         prev_frame = sce.frame_current
@@ -1515,7 +1523,7 @@ def export_animations(state, actions):
                 if pbone.parent:
                     mat = pbone.parent.matrix.inverted() * pbone.matrix
                 else:
-                    mat = state['settings']['nodes_global_matrix'] * pbone.matrix
+                    mat = axis_mat * pbone.matrix
 
                 loc, rot, scale = _decompose(mat)
 
