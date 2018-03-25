@@ -103,6 +103,7 @@ def bpy_material_default(mocker):
     material.name = 'Material'
 
     material.pbr_export_settings = mocker.MagicMock()
+    material.pbr_export_settings.alpha_mode = 'OPAQUE'
     material.pbr_export_settings.base_color_factor = [
         0.64000004529953,
         0.64000004529953,
@@ -119,6 +120,8 @@ def bpy_material_default(mocker):
 @pytest.fixture
 def gltf_material_default():
     return {
+        'alphaMode': 'OPAQUE',
+        'doubleSided': False,
         'emissiveFactor': [
             0.0,
             0.0,
