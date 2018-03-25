@@ -72,11 +72,14 @@ Embed shader data into the glTF file instead of as a separate file.
 
 ### Animations
 #### Armatures
-* **All Eligible** Export all actions that can be used by an object
-* **Active** Export the active action per object
+* **All Eligible** Export all actions that can be used by an armature
+* **Active** Export the active action per armature
 #### Objects
-* **All Eligible** Export all actions that can be used by an object
-* **Active** Export the active action per object
+* **All Eligible** Export all actions that can be used by a non-armature object
+* **Active** Export the active action per non-armature object
+#### Shape Keys
+* **All Eligible** Export all shape key actions that can be used by an object
+* **Active** Export the active shape key action per object
 
 ### Images
 #### Storage
