@@ -1118,7 +1118,6 @@ def export_node(state, obj):
         node['scale']
     ) = decompose(obj.matrix_local)
 
-
     return node
 
 
@@ -2002,6 +2001,7 @@ def export_gltf(scene_delta, settings=None):
     if apply_global_matrix:
         global_mat = settings['nodes_global_matrix']
         global_scale_mat = mathutils.Matrix([[abs(j) for j in i] for i in global_mat])
+
         def decompose_apply(matrix):
             loc, rot, scale = matrix.decompose()
 
