@@ -931,7 +931,17 @@ def export_skins(state):
 
         arm = obj.find_armature()
 
-        bind_shape_mat = arm.matrix_world.inverted() * obj.matrix_world
+        axis_mat = mathutils.Matrix.Identity(4)
+        if state['settings']['nodes_global_matrix_apply']:
+            axis_mat = state['settings']['nodes_global_matrix']
+
+        bind_shape_mat = (
+            axis_mat
+            * arm.matrix_world.inverted()
+            * obj.matrix_world
+            * axis_mat.inverted()
+        )
+
         bone_groups = [group for group in obj.vertex_groups if group.name in arm.data.bones]
 
         gltf_skin = {
@@ -963,7 +973,7 @@ def export_skins(state):
 
         for i, group in enumerate(bone_groups):
             bone = arm.data.bones[group.name]
-            mat = togl(bone.matrix_local.inverted() * bind_shape_mat)
+            mat = togl((axis_mat * bone.matrix_local).inverted() * bind_shape_mat)
             for j in range(16):
                 idata[(i * 16) + j] = mat[j]
 
