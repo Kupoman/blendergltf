@@ -1045,18 +1045,14 @@ def export_node(state, obj):
         node['children'].append(Reference('objects', child.name, node['children'], i))
         state['references'].append(node['children'][-1])
 
-    (
-        node['translation'],
-        node['rotation'],
-        node['scale']
-    ) = state['decompose_fn'](obj.matrix_local)
-
     extras = _get_custom_properties(obj)
     extras.update({
         prop.name: prop.value for prop in obj.game.properties.values()
     })
     if extras:
         node['extras'] = extras
+
+    decompose = state['decompose_fn']
 
     if obj.parent and obj.parent_bone:
         parent_bone = obj.parent.data.bones[obj.parent_bone]
@@ -1066,6 +1062,7 @@ def export_node(state, obj):
         state['bone_children'][bone_name].append(obj.name)
 
     if obj.type == 'MESH':
+        decompose = state['decompose_mesh_fn']
         mesh = state['mod_meshes_obj'].get(obj.name, obj.data)
         mesh_name = mesh.name
         mesh = state['mod_meshes'].get(mesh.name, mesh)
@@ -1099,6 +1096,7 @@ def export_node(state, obj):
         node['children'][-1].source = node['children']
         node['children'][-1].prop = len(node['children']) - 1
     elif obj.type == 'ARMATURE':
+        decompose = state['decompose_mesh_fn']
         for i, bone in enumerate(obj.data.bones):
             state['input']['bones'].append(SimpleID(_get_bone_name(bone), bone))
         if 'children' not in node:
@@ -1113,6 +1111,13 @@ def export_node(state, obj):
         for bone in root_refs:
             state['references'].append(bone)
         node['children'].extend(root_refs)
+
+    (
+        node['translation'],
+        node['rotation'],
+        node['scale']
+    ) = decompose(obj.matrix_local)
+
 
     return node
 
@@ -1895,6 +1900,7 @@ def export_gltf(scene_delta, settings=None):
         'references': [],
         'files': {},
         'decompose_fn': _decompose,
+        'decompose_mesh_fn': _decompose,
     }
     state['input'].update({key: list(value) for key, value in scene_delta.items()})
 
@@ -2002,6 +2008,20 @@ def export_gltf(scene_delta, settings=None):
             loc.rotate(global_mat)
             loc = loc.to_tuple()
 
+            rot.rotate(global_mat)
+            rot = (rot.x, rot.y, rot.z, rot.w)
+
+            scale.rotate(global_scale_mat)
+            scale = scale.to_tuple()
+
+            return loc, rot, scale
+
+        def decompose_mesh_apply(matrix):
+            loc, rot, scale = matrix.decompose()
+
+            loc.rotate(global_mat)
+            loc = loc.to_tuple()
+
             rot = mathutils.Vector(list(rot.to_euler()))
             rot.rotate(global_mat)
             rot = mathutils.Euler(rot, 'XYZ').to_quaternion()
@@ -2012,6 +2032,7 @@ def export_gltf(scene_delta, settings=None):
 
             return loc, rot, scale
         state['decompose_fn'] = decompose_apply
+        state['decompose_mesh_fn'] = decompose_mesh_apply
 
         transformed_meshes = [mesh.copy() for mesh in mesh_list]
         for mesh in transformed_meshes:
