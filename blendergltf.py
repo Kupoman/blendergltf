@@ -1108,9 +1108,9 @@ def export_node(state, obj):
 
 
 def export_joint(state, bone):
-    matrix = bone.matrix_local
+    matrix = state['settings']['nodes_global_matrix'] * bone.matrix_local
     if bone.parent:
-        matrix = bone.parent.matrix_local.inverted() * matrix
+        matrix = bone.parent.matrix_local.inverted() * bone.matrix_local
 
     bone_name = _get_bone_name(bone)
 
@@ -1144,7 +1144,7 @@ def export_joint(state, bone):
         gltf_joint['translation'],
         gltf_joint['rotation'],
         gltf_joint['scale']
-    ) = state['decompose_fn'](matrix)
+    ) = _decompose(matrix)
 
     return gltf_joint
 
