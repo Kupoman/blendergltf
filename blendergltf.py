@@ -1509,9 +1509,9 @@ def export_animations(state, actions):
                 if pbone.parent:
                     mat = pbone.parent.matrix.inverted() * pbone.matrix
                 else:
-                    mat = pbone.matrix
+                    mat = state['settings']['nodes_global_matrix'] * pbone.matrix
 
-                loc, rot, scale = decompose(mat)
+                loc, rot, scale = _decompose(mat)
 
                 if pbone.name not in has_location:
                     loc = None
