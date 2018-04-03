@@ -511,7 +511,10 @@ def menu_func_export(self, _):
 
 
 def register():
-    bpy.utils.register_module(__name__)
+    bpy.utils.register_class(ExtPropertyGroup)
+    bpy.utils.register_class(ExportGLTF)
+    bpy.utils.register_class(PbrExportPanel)
+    bpy.utils.register_class(PbrSettings)
 
     bpy.types.Material.pbr_export_settings = bpy.props.PointerProperty(type=PbrSettings)
 
@@ -519,6 +522,11 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
-
     bpy.types.INFO_MT_file_export.remove(menu_func_export)
+
+    del bpy.types.Material.pbr_export_settings
+
+    bpy.utils.unregister_class(PbrSettings)
+    bpy.utils.unregister_class(PbrExportPanel)
+    bpy.utils.unregister_class(ExportGLTF)
+    bpy.utils.unregister_class(ExtPropertyGroup)
