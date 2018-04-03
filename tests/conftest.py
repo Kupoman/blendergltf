@@ -13,13 +13,13 @@ def blendergltf(mocker):
     sys.modules['idprop'] = mocker.MagicMock()
     sys.modules['mathutils'] = mocker.MagicMock()
 
-    import blendergltf as _blendergltf
+    import blendergltf.blendergltf as _blendergltf
     return _blendergltf
 
 
 @pytest.fixture
 def state():
-    from blendergltf import DEFAULT_SETTINGS as settings
+    from blendergltf.blendergltf import DEFAULT_SETTINGS as settings
 
     _state = {
         'version': Version(settings['asset_version']),

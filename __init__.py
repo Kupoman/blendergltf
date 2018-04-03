@@ -18,10 +18,10 @@ from bpy_extras.io_utils import (
     axis_conversion,
 )
 
-from .blendergltf import export_gltf
-from .filters import visible_only, selected_only, used_only
-from . import extension_exporters
-from .pbr_utils import PbrExportPanel, PbrSettings
+from .blendergltf.blendergltf import export_gltf
+from .blendergltf.filters import visible_only, selected_only, used_only
+from .blendergltf import extensions
+from .blendergltf.pbr_utils import PbrExportPanel, PbrSettings
 
 
 bl_info = {
@@ -43,9 +43,9 @@ bl_info = {
 
 if "bpy" in locals():
     importlib.reload(locals()['blendergltf'])
-    importlib.reload(locals()['filters'])
-    importlib.reload(locals()['extension_exporters'])
-    importlib.reload(locals()['pbr_utils'])
+    importlib.reload(locals()['blendergltf'].filters)
+    importlib.reload(locals()['blendergltf'].extensions)
+    importlib.reload(locals()['blendergltf'].pbr_utils)
 
 
 GLTFOrientationHelper = orientation_helper_factory(
@@ -104,7 +104,7 @@ class ExportGLTF(bpy.types.Operator, ExportHelper, GLTFOrientationHelper):
     check_extension = True
 
     ext_exporters = sorted(
-        [exporter() for exporter in extension_exporters.__all__],
+        [exporter() for exporter in extensions.__all__],
         key=lambda ext: ext.ext_meta['name']
     )
     extension_props = CollectionProperty(
