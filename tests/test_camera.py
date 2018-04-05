@@ -20,8 +20,8 @@ def test_camera_ortho(blendergltf, state, bpy_camera_default):
 
 
 def test_camera_custom_props(blendergltf, state, bpy_camera_default):
-    # pylint: disable=protected-access
-    blendergltf._get_custom_properties.return_value = {'foo': 'bar'}
+    bpy_camera_default.items.return_value = [['foo', 'bar']]
+
     output = blendergltf.export_camera(state, bpy_camera_default)
     assert output['extras'] == {'foo': 'bar'}
 
