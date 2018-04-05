@@ -8,15 +8,12 @@ import pytest
 
 @pytest.fixture
 def blendergltf(mocker):
-    # pylint: disable=protected-access
     import sys
     sys.modules['bpy'] = mocker.MagicMock()
     sys.modules['idprop'] = mocker.MagicMock()
     sys.modules['mathutils'] = mocker.MagicMock()
 
     import blendergltf as _blendergltf
-    mocker.patch.object(_blendergltf, '_get_custom_properties')
-    _blendergltf._get_custom_properties.return_value = {}
     return _blendergltf
 
 

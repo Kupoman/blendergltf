@@ -11,7 +11,6 @@ def test_scene_default(blendergltf, state, bpy_scene_default, gltf_scene_default
 
 
 def test_scene_custom_props(blendergltf, state, bpy_scene_default):
-    # pylint: disable=protected-access
-    blendergltf._get_custom_properties.return_value = {'foo': 'bar'}
+    bpy_scene_default.items.return_value = [['foo', 'bar']]
     output = blendergltf.export_scene(state, bpy_scene_default)
     assert ('foo', 'bar') in output['extras'].items()
