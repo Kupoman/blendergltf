@@ -1307,7 +1307,7 @@ def export_image(state, image):
             # convert to png and save
             gltf['uri'] = '.'.join([image.name, 'png'])
             data = image_to_data_uri(image)
-        path = gltf['uri']
+        path = os.path.join(state['settings']['gltf_output_dir'], gltf['uri'])
 
     elif storage_setting == 'COPY':
         with open(bpy.path.abspath(image.filepath), 'rb') as fin:
