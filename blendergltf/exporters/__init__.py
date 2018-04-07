@@ -9,4 +9,5 @@ from .common import (
 
 from .camera import CameraExporter
 from .image import ImageExporter
+from .material import MaterialExporter
 from .node import NodeExporter
