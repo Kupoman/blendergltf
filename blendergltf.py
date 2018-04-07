@@ -2099,7 +2099,7 @@ def export_gltf(scene_delta, settings=None):
     gltf = {
         'asset': {
             'version': settings['asset_version'],
-            'generator': 'blendergltf v1.1.0',
+            'generator': 'blendergltf v1.2.0',
             'copyright': settings['asset_copyright'],
         }
     }

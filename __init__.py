@@ -28,7 +28,7 @@ bl_info = {
     "name": "glTF format",
     "author": "Daniel Stokes and GitHub contributors",
     # When updating version, also update the generator string in blendergltf.py
-    "version": (1, 1, 0),
+    "version": (1, 2, 0),
     "blender": (2, 76, 0),
     "location": "File > Import-Export",
     "description": "Export glTF",
