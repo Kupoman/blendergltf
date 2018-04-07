@@ -7,7 +7,6 @@ import json
 import math
 import os
 import struct
-import zlib
 
 import bpy
 import mathutils
@@ -15,6 +14,7 @@ import mathutils
 from .exporters import (
     BaseExporter,
     CameraExporter,
+    ImageExporter,
 )
 
 
@@ -1193,115 +1193,8 @@ def export_buffers(state):
     return gltf
 
 
-def image_to_data_uri(image):
-    width = image.size[0]
-    height = image.size[1]
-    buf = bytearray([int(p * 255) for p in image.pixels])
-
-    # reverse the vertical line order and add null bytes at the start
-    width_byte_4 = width * 4
-    raw_data = b''.join(b'\x00' + buf[span:span + width_byte_4]
-                        for span in range((height - 1) * width_byte_4, -1, - width_byte_4))
-
-    def png_pack(png_tag, data):
-        chunk_head = png_tag + data
-        return (struct.pack("!I", len(data)) +
-                chunk_head +
-                struct.pack("!I", 0xFFFFFFFF & zlib.crc32(chunk_head)))
-
-    png_bytes = b''.join([
-        b'\x89PNG\r\n\x1a\n',
-        png_pack(b'IHDR', struct.pack("!2I5B", width, height, 8, 6, 0, 0, 0)),
-        png_pack(b'IDAT', zlib.compress(raw_data, 9)),
-        png_pack(b'IEND', b'')])
-
-    return png_bytes
-
-
-def check_image(image):
-    errors = []
-    if image.size[0] == 0:
-        errors.append('x dimension is 0')
-    if image.size[1] == 0:
-        errors.append('y dimension is 0')
-    if image.type != 'IMAGE':
-        errors.append('not an image')
-
-    if errors:
-        err_list = '\n\t'.join(errors)
-        print(
-            'Unable to export image {} due to the following errors:\n\t{}'
-            .format(image.name, err_list)
-        )
-        return False
-
-    return True
-
-
-EXT_MAP = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
-
-
 def export_image(state, image):
-    path = ''
-    data = None
-
-    gltf = {'name': image.name}
-
-    storage_setting = state['settings']['images_data_storage']
-    image_packed = image.packed_file is not None
-    if image_packed and storage_setting in ['COPY', 'REFERENCE']:
-        if image.file_format in EXT_MAP:
-            # save the file to the output directory
-            gltf['uri'] = '.'.join([image.name, EXT_MAP[image.file_format]])
-            temp = image.filepath
-            image.filepath = os.path.join(state['settings']['gltf_output_dir'], gltf['uri'])
-            image.save()
-            with open(bpy.path.abspath(image.filepath), 'rb') as fin:
-                data = fin.read()
-            image.filepath = temp
-        else:
-            # convert to png and save
-            gltf['uri'] = '.'.join([image.name, 'png'])
-            data = image_to_data_uri(image)
-        path = os.path.join(state['settings']['gltf_output_dir'], gltf['uri'])
-
-    elif storage_setting == 'COPY':
-        with open(bpy.path.abspath(image.filepath), 'rb') as fin:
-            data = fin.read()
-        gltf['uri'] = bpy.path.basename(image.filepath)
-        path = os.path.join(state['settings']['gltf_output_dir'], gltf['uri'])
-    elif storage_setting == 'REFERENCE':
-        gltf['uri'] = image.filepath.replace('//', '')
-    elif storage_setting == 'EMBED':
-        png_bytes = image_to_data_uri(image)
-        gltf['mimeType'] = 'image/png'
-        if state['settings']['gltf_export_binary']:
-            buf = Buffer(image.name)
-            view_key = buf.add_view(len(png_bytes), 0, None)
-            view = buf.buffer_views[view_key]
-            view['data'] = png_bytes
-
-            pad = 4 - len(png_bytes) % 4
-            if pad not in [0, 4]:
-                buf.add_view(pad, 0, None)
-
-            gltf['bufferView'] = Reference('bufferViews', view_key, gltf, 'bufferView')
-            state['references'].append(gltf['bufferView'])
-
-            state['buffers'].append(buf)
-            state['input']['buffers'].append(SimpleID('buffer_' + image.name))
-        else:
-            gltf['uri'] = 'data:image/png;base64,' + base64.b64encode(png_bytes).decode()
-    else:
-        print(
-            'Encountered unknown option ({}) for images_data_storage setting'
-            .format(storage_setting)
-        )
-
-    if path:
-        state['files'][path] = data
-
-    return gltf
+    return ImageExporter.export(state, image)
 
 
 def check_texture(texture):
@@ -2027,10 +1920,7 @@ def export_gltf(scene_delta, settings=None):
     # If check function can return False, make sure a default function is provided
     exporters = [
         CameraExporter,
-        exporter(
-            'images', 'images', export_image, check_image,
-            lambda x: {'name': x.name, 'uri': ''}
-        ),
+        ImageExporter,
         exporter('nodes', 'objects', export_node, lambda x: True, None),
         # Make sure meshes come after nodes to detect which meshes are skinned
         exporter('materials', 'materials', export_material, lambda x: True, None),
