@@ -11,6 +11,10 @@ As interest has grown in glTF, the glTF exporting code of the Blender Real Time 
 
 Versions 1.0 and 2.0 of the glTF format are supported. For currently supported extensions, check out the [extension settings](#extensions).
 
+**NOTE**: Version 1.2.0 of blendergltf is deprecating support for glTF 1.0.
+The next release of blendergltf will likely remove support for glTF 1.0 entirely.
+See [issue #135](https://github.com/Kupoman/blendergltf/issues/135) for more information and discussion.
+
 ## Installation
 
 1. Download the [blendergltf ZIP file from GitHub](https://github.com/Kupoman/blendergltf/archive/master.zip).
