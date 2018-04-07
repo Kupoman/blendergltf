@@ -1,4 +1,3 @@
-import collections
 from distutils.version import StrictVersion as Version
 import functools
 import itertools
@@ -20,6 +19,7 @@ from .exporters import (
     MeshExporter,
     NodeExporter,
     SceneExporter,
+    TextureExporter,
 )
 
 
@@ -52,27 +52,6 @@ DEFAULT_SETTINGS = {
     'hacks_streaming': False,
 }
 
-
-# Texture formats
-GL_ALPHA = 6406
-GL_RGB = 6407
-GL_RGBA = 6408
-GL_LUMINANCE = 6409
-GL_LUMINANCE_ALPHA = 6410
-
-# Texture filtering
-GL_NEAREST = 9728
-GL_LINEAR = 9729
-GL_LINEAR_MIPMAP_LINEAR = 9987
-
-# Texture wrapping
-GL_CLAMP_TO_EDGE = 33071
-GL_MIRRORED_REPEAT = 33648
-GL_REPEAT = 10497
-
-# sRGB texture formats (not actually part of WebGL 1.0 or glTF 1.0)
-GL_SRGB = 0x8C40
-GL_SRGB_ALPHA = 0x8C42
 
 PROFILE_MAP = {
     'WEB': {'api': 'WebGL', 'version': '1.0'},
@@ -255,95 +234,8 @@ def export_image(state, image):
     return ImageExporter.export(state, image)
 
 
-def check_texture(texture):
-    if not isinstance(texture, bpy.types.ImageTexture):
-        return False
-
-    errors = []
-    if texture.image is None:
-        errors.append('has no image reference')
-    elif texture.image.channels not in [3, 4]:
-        errors.append(
-            'points to {}-channel image (must be 3 or 4)'
-            .format(texture.image.channels)
-        )
-
-    if errors:
-        err_list = '\n\t'.join(errors)
-        print(
-            'Unable to export texture {} due to the following errors:\n\t{}'
-            .format(texture.name, err_list)
-        )
-        return False
-
-    return True
-
-
 def export_texture(state, texture):
-    # Generate sampler for this texture
-    gltf_sampler = {
-        'name': texture.name,
-    }
-
-    # Handle wrapS and wrapT
-    if texture.extension in ('REPEAT', 'CHECKER', 'EXTEND'):
-        if texture.use_mirror_x:
-            gltf_sampler['wrapS'] = GL_MIRRORED_REPEAT
-        else:
-            gltf_sampler['wrapS'] = GL_REPEAT
-
-        if texture.use_mirror_y:
-            gltf_sampler['wrapT'] = GL_MIRRORED_REPEAT
-        else:
-            gltf_sampler['wrapT'] = GL_REPEAT
-    elif texture.extension in ('CLIP', 'CLIP_CUBE'):
-        gltf_sampler['wrapS'] = GL_CLAMP_TO_EDGE
-        gltf_sampler['wrapT'] = GL_CLAMP_TO_EDGE
-    else:
-        print('Warning: Unknown texture extension option:', texture.extension)
-
-    # Handle minFilter and magFilter
-    if texture.use_mipmap:
-        gltf_sampler['minFilter'] = GL_LINEAR_MIPMAP_LINEAR
-        gltf_sampler['magFilter'] = GL_LINEAR
-    else:
-        gltf_sampler['minFilter'] = GL_NEAREST
-        gltf_sampler['magFilter'] = GL_NEAREST
-
-    gltf_texture = {
-        'name': texture.name,
-    }
-
-    state['input']['samplers'].append(SimpleID(texture.name))
-    state['samplers'].append(gltf_sampler)
-
-    gltf_texture['sampler'] = Reference('samplers', texture.name, gltf_texture, 'sampler')
-    state['references'].append(gltf_texture['sampler'])
-
-    gltf_texture['source'] = Reference('images', texture.image.name, gltf_texture, 'source')
-    state['references'].append(gltf_texture['source'])
-
-    tformat = None
-    channels = texture.image.channels
-    image_is_srgb = texture.image.colorspace_settings.name == 'sRGB'
-    use_srgb = state['settings']['images_allow_srgb'] and image_is_srgb
-
-    if state['version'] < Version('2.0'):
-        if channels == 3:
-            if use_srgb:
-                tformat = GL_SRGB
-            else:
-                tformat = GL_RGB
-        elif channels == 4:
-            if use_srgb:
-                tformat = GL_SRGB_ALPHA
-            else:
-                tformat = GL_RGBA
-
-        gltf_texture['format'] = gltf_texture['internalFormat'] = tformat
-
-    return gltf_texture
-
+    return TextureExporter.export(state, texture)
 
 def _can_object_use_action(obj, action):
     for fcurve in action.fcurves:
@@ -967,29 +859,16 @@ def export_gltf(scene_delta, settings=None):
     for i, armature in enumerate(bpy.data.armatures):
         armature.pose_position = saved_pose_positions[i]
 
-    exporter = collections.namedtuple('exporter', [
-        'gltf_key',
-        'blender_key',
-        'export',
-        'check',
-        'default',
-    ])
-
-    # If check function can return False, make sure a default function is provided
     exporters = [
         CameraExporter,
         ImageExporter,
         NodeExporter,
-        # Make sure meshes come after nodes to detect which meshes are skinned
         MaterialExporter,
+        # Make sure meshes come after nodes to detect which meshes are skinned
         MeshExporter,
         SceneExporter,
-        exporter(
-            'textures', 'textures', export_texture, check_texture,
-            lambda x: {'name': x.name}
-        ),
+        TextureExporter,
     ]
-
     state['output'] = {
         exporter.gltf_key: [
             exporter.export(state, data)

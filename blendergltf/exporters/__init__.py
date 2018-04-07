@@ -13,3 +13,4 @@ from .material import MaterialExporter
 from .mesh import MeshExporter
 from .node import NodeExporter
 from .scene import SceneExporter
+from .texture import TextureExporter
