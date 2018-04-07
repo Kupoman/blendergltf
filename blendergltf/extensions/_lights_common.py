@@ -1,6 +1,7 @@
 from distutils.version import StrictVersion as Version
 
-from ..blendergltf import Reference, _get_custom_properties
+from ..blendergltf import Reference
+from ..exporters import BaseExporter
 
 
 def export_light(light):
@@ -63,7 +64,7 @@ def export_light(light):
 
     gltf_light['name'] = light.name
 
-    extras = _get_custom_properties(light)
+    extras = BaseExporter.get_custom_properties(light)
     if extras:
         gltf_light['extras'] = extras
 

@@ -12,6 +12,11 @@ import zlib
 import bpy
 import mathutils
 
+from .exporters import (
+    BaseExporter,
+    CameraExporter,
+)
+
 
 __all__ = ['export_gltf']
 
@@ -436,61 +441,12 @@ def _decompose(matrix):
     return loc, rot, scale
 
 
-_IGNORED_CUSTOM_PROPS = [
-    '_RNA_UI',
-    'cycles',
-    'cycles_visibility',
-]
-
-
-def _get_custom_properties(data):
-    def is_serializable(value):
-        try:
-            json.dumps(value)
-            return True
-        except TypeError:
-            return False
-
-    return {
-        k: v.to_list() if hasattr(v, 'to_list') else v for k, v in data.items()
-        if k not in _IGNORED_CUSTOM_PROPS and is_serializable(v)
-    }
-
-
 def _get_bone_name(bone):
     return '{}_{}'.format(bone.id_data.name, bone.name)
 
 
 def export_camera(state, camera):
-    camera_gltf = {}
-    if camera.type == 'ORTHO':
-        xmag = 0.5 * camera.ortho_scale
-        ymag = xmag * state['aspect_ratio']
-        camera_gltf = {
-            'orthographic': {
-                'xmag': ymag,
-                'ymag': xmag,
-                'zfar': camera.clip_end,
-                'znear': camera.clip_start,
-            },
-            'type': 'orthographic',
-        }
-    else:
-        angle_y = camera.angle_y if camera.angle_y != 0.0 else 1e-6
-        camera_gltf = {
-            'perspective': {
-                'aspectRatio': camera.angle_x / angle_y,
-                'yfov': angle_y,
-                'zfar': camera.clip_end,
-                'znear': camera.clip_start,
-            },
-            'type': 'perspective',
-        }
-    camera_gltf['name'] = camera.name
-    extras = _get_custom_properties(camera)
-    if extras:
-        camera_gltf['extras'] = extras
-    return camera_gltf
+    return CameraExporter.export(state, camera)
 
 
 def export_material(state, material):
@@ -792,7 +748,7 @@ def export_mesh(state, mesh):
         'primitives': [],
     }
 
-    extras = _get_custom_properties(mesh)
+    extras = BaseExporter.get_custom_properties(mesh)
     if extras:
         gltf_mesh['extras'] = extras
 
@@ -1047,7 +1003,7 @@ def export_node(state, obj):
         node['children'].append(Reference('objects', child.name, node['children'], i))
         state['references'].append(node['children'][-1])
 
-    extras = _get_custom_properties(obj)
+    extras = BaseExporter.get_custom_properties(obj)
     extras.update({
         prop.name: prop.value for prop in obj.game.properties.values()
     })
@@ -1187,9 +1143,9 @@ def export_scene(state, scene):
         )
         state['references'].append(result['extras']['active_camera'])
 
-    extras = _get_custom_properties(scene)
+    extras = BaseExporter.get_custom_properties(scene)
     if extras:
-        result['extras'].update(_get_custom_properties(scene))
+        result['extras'].update(BaseExporter.get_custom_properties(scene))
 
     result['nodes'] = [
         Reference('objects', ob.name, None, None)
@@ -2063,14 +2019,14 @@ def export_gltf(scene_delta, settings=None):
     exporter = collections.namedtuple('exporter', [
         'gltf_key',
         'blender_key',
-        'export_func',
-        'check_func',
-        'default_func',
+        'export',
+        'check',
+        'default',
     ])
 
-    # If check function can return False, make sure a default_func is provided
+    # If check function can return False, make sure a default function is provided
     exporters = [
-        exporter('cameras', 'cameras', export_camera, lambda x: True, None),
+        CameraExporter,
         exporter(
             'images', 'images', export_image, check_image,
             lambda x: {'name': x.name, 'uri': ''}
@@ -2088,9 +2044,9 @@ def export_gltf(scene_delta, settings=None):
 
     state['output'] = {
         exporter.gltf_key: [
-            exporter.export_func(state, data)
-            if exporter.check_func(data)
-            else exporter.default_func(data)
+            exporter.export(state, data)
+            if exporter.check(state, data)
+            else exporter.default(state, data)
             for data in state['input'].get(exporter.blender_key, [])
         ] for exporter in exporters
     }
