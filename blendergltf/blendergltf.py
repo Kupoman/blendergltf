@@ -14,12 +14,12 @@ from .exporters import (
     SimpleID,
     get_bone_name,
 
-    BaseExporter,
     CameraExporter,
     ImageExporter,
     MaterialExporter,
     MeshExporter,
     NodeExporter,
+    SceneExporter,
 )
 
 
@@ -228,51 +228,7 @@ def export_joint(state, bone):
 
 
 def export_scene(state, scene):
-    result = {
-        'extras': {
-            'background_color': scene.world.horizon_color[:] if scene.world else [0.05]*3,
-            'frames_per_second': scene.render.fps,
-        },
-        'name': scene.name,
-    }
-
-    if scene.camera and scene.camera.data in state['input']['cameras']:
-        result['extras']['active_camera'] = Reference(
-            'cameras',
-            scene.camera.name,
-            result['extras'],
-            'active_camera'
-        )
-        state['references'].append(result['extras']['active_camera'])
-
-    extras = BaseExporter.get_custom_properties(scene)
-    if extras:
-        result['extras'].update(BaseExporter.get_custom_properties(scene))
-
-    result['nodes'] = [
-        Reference('objects', ob.name, None, None)
-        for ob in scene.objects
-        if ob in state['input']['objects'] and ob.parent is None and ob.is_visible(scene)
-    ]
-    for i, ref in enumerate(result['nodes']):
-        ref.source = result['nodes']
-        ref.prop = i
-    state['references'].extend(result['nodes'])
-
-    hidden_nodes = [
-        Reference('objects', ob.name, None, None)
-        for ob in scene.objects
-        if ob in state['input']['objects'] and not ob.is_visible(scene)
-    ]
-
-    if hidden_nodes:
-        result['extras']['hidden_nodes'] = hidden_nodes
-        for i, ref in enumerate(hidden_nodes):
-            ref.source = result['extras']['hidden_nodes']
-            ref.prop = i
-        state['references'].extend(result['extras']['hidden_nodes'])
-
-    return result
+    return SceneExporter.export(state, scene)
 
 
 def export_buffers(state):
@@ -1027,7 +983,7 @@ def export_gltf(scene_delta, settings=None):
         # Make sure meshes come after nodes to detect which meshes are skinned
         MaterialExporter,
         MeshExporter,
-        exporter('scenes', 'scenes', export_scene, lambda x: True, None),
+        SceneExporter,
         exporter(
             'textures', 'textures', export_texture, check_texture,
             lambda x: {'name': x.name}
