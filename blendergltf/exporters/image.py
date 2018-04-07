@@ -6,8 +6,7 @@ import zlib
 import bpy
 
 from .base import BaseExporter
-
-from ..blendergltf import (
+from .common import (
     Buffer,
     Reference,
     SimpleID,

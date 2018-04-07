@@ -1,20 +1,23 @@
-import base64
 import collections
 from distutils.version import StrictVersion as Version
 import functools
 import itertools
 import json
-import math
-import os
 import struct
 
 import bpy
 import mathutils
 
 from .exporters import (
+    Buffer,
+    Reference,
+    SimpleID,
+    get_bone_name,
+
     BaseExporter,
     CameraExporter,
     ImageExporter,
+    NodeExporter,
 )
 
 
@@ -77,26 +80,6 @@ PROFILE_MAP = {
 }
 
 
-class Reference:
-    __slots__ = (
-        "blender_type",
-        "blender_name",
-        "source",
-        "prop",
-        "value",
-    )
-
-    def __init__(self, blender_type, blender_name, source, prop):
-        self.blender_type = blender_type
-        self.blender_name = blender_name
-        self.source = source
-        self.prop = prop
-        self.value = None
-
-    def __str__(self):
-        return json.dumps([self.blender_type, self.blender_name, self.value])
-
-
 class Vertex:
     __slots__ = (
         "co",
@@ -155,279 +138,6 @@ class Vertex:
         return equals
 
 
-class SimpleID:
-    def __init__(self, name, data=None):
-        self.name = name
-        self.data = data
-
-
-class Buffer:
-    ARRAY_BUFFER = 34962
-    ELEMENT_ARRAY_BUFFER = 34963
-
-    BYTE = 5120
-    UNSIGNED_BYTE = 5121
-    SHORT = 5122
-    UNSIGNED_SHORT = 5123
-    INT = 5124
-    UNSIGNED_INT = 5125
-
-    FLOAT = 5126
-
-    MAT4 = 'MAT4'
-    VEC4 = 'VEC4'
-    VEC3 = 'VEC3'
-    VEC2 = 'VEC2'
-    SCALAR = 'SCALAR'
-
-    class Accessor:
-        __slots__ = (
-            "name",
-            "buffer",
-            "buffer_view",
-            "byte_offset",
-            "byte_stride",
-            "component_type",
-            "count",
-            "min",
-            "max",
-            "data_type",
-            "type_size",
-            "_ctype",
-            "_ctype_size",
-            "_buffer_data",
-            )
-
-        def __init__(self,
-                     name,
-                     buffer,
-                     buffer_view,
-                     byte_offset,
-                     byte_stride,
-                     component_type,
-                     count,
-                     data_type):
-            self.name = name
-            self.buffer = buffer
-            self.buffer_view = buffer_view
-            self.byte_offset = byte_offset
-            self.byte_stride = byte_stride
-            self.component_type = component_type
-            self.count = count
-            self.min = [math.inf for i in range(16)]
-            self.max = [-math.inf for i in range(16)]
-            self.data_type = data_type
-
-            if self.data_type == Buffer.MAT4:
-                self.type_size = 16
-            elif self.data_type == Buffer.VEC4:
-                self.type_size = 4
-            elif self.data_type == Buffer.VEC3:
-                self.type_size = 3
-            elif self.data_type == Buffer.VEC2:
-                self.type_size = 2
-            else:
-                self.type_size = 1
-
-            if component_type == Buffer.BYTE:
-                self._ctype = '<b'
-            elif component_type == Buffer.UNSIGNED_BYTE:
-                self._ctype = '<B'
-            elif component_type == Buffer.SHORT:
-                self._ctype = '<h'
-            elif component_type == Buffer.UNSIGNED_SHORT:
-                self._ctype = '<H'
-            elif component_type == Buffer.INT:
-                self._ctype = '<i'
-            elif component_type == Buffer.UNSIGNED_INT:
-                self._ctype = '<I'
-            elif component_type == Buffer.FLOAT:
-                self._ctype = '<f'
-            else:
-                raise ValueError("Bad component type")
-
-            self._ctype_size = struct.calcsize(self._ctype)
-            self._buffer_data = self.buffer.get_buffer_data(self.buffer_view)
-
-        def __len__(self):
-            return self.count
-
-        def __getitem__(self, idx):
-            if not isinstance(idx, int):
-                raise TypeError("Expected an integer index")
-
-            ptr = (
-                (
-                    (idx % self.type_size)
-                    * self._ctype_size + idx // self.type_size * self.byte_stride
-                ) + self.byte_offset
-            )
-
-            return struct.unpack_from(self._ctype, self._buffer_data, ptr)[0]
-
-        def __setitem__(self, idx, value):
-            if not isinstance(idx, int):
-                raise TypeError("Expected an integer index")
-
-            i = idx % self.type_size
-            self.min[i] = value if value < self.min[i] else self.min[i]
-            self.max[i] = value if value > self.max[i] else self.max[i]
-
-            ptr = (
-                (i * self._ctype_size + idx // self.type_size * self.byte_stride)
-                + self.byte_offset
-            )
-
-            struct.pack_into(self._ctype, self._buffer_data, ptr, value)
-
-    __slots__ = (
-        "name",
-        "bytelength",
-        "buffer_views",
-        "accessors",
-        )
-
-    def __init__(self, name):
-        self.name = 'buffer_{}'.format(name)
-        self.bytelength = 0
-        self.buffer_views = collections.OrderedDict()
-        self.accessors = {}
-
-    def export_buffer(self, state):
-        data = bytearray()
-        for view in self.buffer_views.values():
-            data.extend(view['data'])
-
-        if state['settings']['buffers_embed_data'] and not state['settings']['gltf_export_binary']:
-            uri = 'data:application/octet-stream;base64,' + base64.b64encode(data).decode('ascii')
-        else:
-            uri = bpy.path.clean_name(self.name) + '.bin'
-            path = os.path.join(state['settings']['gltf_output_dir'], uri)
-            state['files'][path] = data
-
-        gltf = {
-            'byteLength': self.bytelength,
-            'name': self.name,
-        }
-
-        embedded_binary = (
-            state['settings']['buffers_embed_data']
-            and state['settings']['gltf_export_binary']
-        )
-        if not embedded_binary:
-            gltf['uri'] = uri
-
-        if state['version'] < Version('2.0'):
-            gltf['type'] = 'arraybuffer'
-
-        return gltf
-
-    def add_view(self, bytelength, bytestride, target):
-        buffer_name = 'bufferView_{}_{}'.format(self.name, len(self.buffer_views))
-        self.buffer_views[buffer_name] = {
-            'data': bytearray(bytelength),
-            'target': target,
-            'bytelength': bytelength,
-            'byteoffset': self.bytelength,
-            'bytestride': bytestride,
-        }
-        self.bytelength += bytelength
-        return buffer_name
-
-    def export_views(self, state):
-        gltf_views = []
-
-        for key, value in self.buffer_views.items():
-            gltf = {
-                'byteLength': value['bytelength'],
-                'byteOffset': value['byteoffset'],
-                'name': key,
-            }
-
-            if state['version'] >= Version('2.0') and value['bytestride'] > 0:
-                gltf['byteStride'] = value['bytestride']
-
-            gltf['buffer'] = Reference('buffers', self.name, gltf, 'buffer')
-            state['references'].append(gltf['buffer'])
-
-            if value['target'] is not None:
-                gltf['target'] = value['target']
-
-            gltf_views.append(gltf)
-
-            state['input']['bufferViews'].append(SimpleID(key))
-
-        return gltf_views
-
-    def get_buffer_data(self, buffer_view):
-        return self.buffer_views[buffer_view]['data']
-
-    def add_accessor(self,
-                     buffer_view,
-                     byte_offset,
-                     byte_stride,
-                     component_type,
-                     count,
-                     data_type):
-        accessor_name = 'accessor_{}_{}'.format(self.name, len(self.accessors))
-        self.accessors[accessor_name] = self.Accessor(
-            accessor_name,
-            self,
-            buffer_view,
-            byte_offset,
-            byte_stride,
-            component_type,
-            count,
-            data_type
-        )
-        return self.accessors[accessor_name]
-
-    def export_accessors(self, state):
-        gltf_accessors = []
-
-        for key, value in self.accessors.items():
-            # Do not export an empty accessor
-            if value.count == 0:
-                continue
-
-            gltf = {
-                'byteOffset': value.byte_offset,
-                'componentType': value.component_type,
-                'count': value.count,
-                'min': value.min[:value.type_size],
-                'max': value.max[:value.type_size],
-                'type': value.data_type,
-                'name': value.name,
-            }
-
-            if state['version'] < Version('2.0'):
-                gltf['byteStride'] = value.byte_stride
-
-            gltf['bufferView'] = Reference('bufferViews', value.buffer_view, gltf, 'bufferView')
-            state['references'].append(gltf['bufferView'])
-
-            gltf_accessors.append(gltf)
-
-            state['input']['accessors'].append(SimpleID(key))
-
-        return gltf_accessors
-
-    def combine(self, other, state):
-        # Handle the simple stuff
-        combined = Buffer(state['settings']['gltf_name'])
-        combined.bytelength = self.bytelength + other.bytelength
-        combined.accessors = {**self.accessors, **other.accessors}
-
-        # Need to update byte offsets in buffer views
-        combined.buffer_views = self.buffer_views.copy()
-        other_views = other.buffer_views.copy()
-        for key in other_views.keys():
-            other_views[key]['byteoffset'] += self.bytelength
-        combined.buffer_views.update(other_views)
-
-        return combined
-
-
 def togl(matrix):
     return [i for col in matrix.col for i in col]
 
@@ -439,10 +149,6 @@ def _decompose(matrix):
     scale = scale.to_tuple()
 
     return loc, rot, scale
-
-
-def _get_bone_name(bone):
-    return '{}_{}'.format(bone.id_data.name, bone.name)
 
 
 def export_camera(state, camera):
@@ -906,7 +612,7 @@ def export_skins(state):
             'name': obj.name,
         }
         gltf_skin[joints_key] = [
-            Reference('objects', _get_bone_name(arm.data.bones[group.name]), None, None)
+            Reference('objects', get_bone_name(arm.data.bones[group.name]), None, None)
             for group in bone_groups
         ]
         for i, ref in enumerate(gltf_skin[joints_key]):
@@ -917,7 +623,7 @@ def export_skins(state):
         if state['version'] < Version('2.0'):
             gltf_skin['bindShapeMatrix'] = togl(mathutils.Matrix.Identity(4))
         else:
-            bone_names = [_get_bone_name(b) for b in arm.data.bones if b.parent is None]
+            bone_names = [get_bone_name(b) for b in arm.data.bones if b.parent is None]
             if len(bone_names) > 1:
                 print('Warning: Armature {} has no root node'.format(arm.data.name))
             gltf_skin['skeleton'] = Reference('objects', bone_names[0], gltf_skin, 'skeleton')
@@ -952,131 +658,8 @@ def export_skins(state):
     return [export_skin(obj) for obj in state['skinned_meshes'].values()]
 
 
-def export_dupli_group(state, dupli_group):
-    group_sid = SimpleID('dupli_group_{}.{}'.format(dupli_group.name, len(state['dupli_nodes'])))
-    state['input']['dupli_ids'].append(group_sid)
-
-    group_node = {
-        'name': group_sid.name,
-    }
-    state['dupli_nodes'].append(group_node)
-
-    dupli_nodes = [group_node]
-    children = []
-
-    for dupli_obj in dupli_group.objects:
-        obj_node = export_node(state, dupli_obj)
-        state['dupli_nodes'].append(obj_node)
-
-        obj_sid = SimpleID('dupli_node_{}.{}'.format(dupli_obj.name, len(state['dupli_nodes'])))
-        state['input']['dupli_ids'].append(obj_sid)
-
-        obj_node['name'] = obj_sid.name
-        if dupli_obj.dupli_group is None and 'children' in obj_node:
-            del obj_node['children']
-
-        obj_ref = Reference('objects', obj_sid.name, children, len(children))
-        children.append(obj_ref)
-        state['references'].append(obj_ref)
-
-        dupli_nodes.append(obj_node)
-
-    group_node['children'] = children
-
-    group_ref = Reference('objects', group_sid.name, None, None)
-    state['references'].append(group_ref)
-    return group_ref
-
-
 def export_node(state, obj):
-    node = {
-        'name': obj.name,
-    }
-
-    obj_children = [
-        child for child in obj.children
-        if child in state['input']['objects'] and not child.parent_bone
-    ]
-    if obj_children:
-        node['children'] = []
-    for i, child in enumerate(obj_children):
-        node['children'].append(Reference('objects', child.name, node['children'], i))
-        state['references'].append(node['children'][-1])
-
-    extras = BaseExporter.get_custom_properties(obj)
-    extras.update({
-        prop.name: prop.value for prop in obj.game.properties.values()
-    })
-    if extras:
-        node['extras'] = extras
-
-    decompose = state['decompose_fn']
-
-    if obj.parent and obj.parent_bone:
-        parent_bone = obj.parent.data.bones[obj.parent_bone]
-        bone_name = _get_bone_name(parent_bone)
-        if bone_name not in state['bone_children']:
-            state['bone_children'][bone_name] = []
-        state['bone_children'][bone_name].append(obj.name)
-
-    if obj.type == 'MESH':
-        decompose = state['decompose_mesh_fn']
-        mesh = state['mod_meshes_obj'].get(obj.name, obj.data)
-        mesh_name = mesh.name
-        mesh = state['mod_meshes'].get(mesh.name, mesh)
-        if state['version'] < Version('2.0'):
-            node['meshes'] = []
-            node['meshes'].append(Reference('meshes', mesh_name, node['meshes'], 0))
-            state['references'].append(node['meshes'][0])
-        else:
-            node['mesh'] = Reference('meshes', mesh_name, node, 'mesh')
-            state['references'].append(node['mesh'])
-        armature = obj.find_armature()
-        if armature:
-            state['skinned_meshes'][mesh_name] = obj
-            node['skin'] = Reference('skins', obj.name, node, 'skin')
-            state['references'].append(node['skin'])
-            if state['version'] < Version('2.0'):
-                bone_names = [_get_bone_name(b) for b in armature.data.bones if b.parent is None]
-                node['skeletons'] = []
-                node['skeletons'].extend([
-                    Reference('objects', bone, node['skeletons'], i)
-                    for i, bone in enumerate(bone_names)
-                ])
-                for ref in node['skeletons']:
-                    state['references'].append(ref)
-    elif obj.type == 'CAMERA':
-        node['camera'] = Reference('cameras', obj.data.name, node, 'camera')
-        state['references'].append(node['camera'])
-    elif obj.type == 'EMPTY' and obj.dupli_group is not None:
-        node['children'] = node.get('children', [])
-        node['children'].append(export_dupli_group(state, obj.dupli_group))
-        node['children'][-1].source = node['children']
-        node['children'][-1].prop = len(node['children']) - 1
-    elif obj.type == 'ARMATURE':
-        decompose = state['decompose_mesh_fn']
-        for i, bone in enumerate(obj.data.bones):
-            state['input']['bones'].append(SimpleID(_get_bone_name(bone), bone))
-        if 'children' not in node:
-            node['children'] = []
-        offset = len(node['children'])
-        root_bones = [bone for bone in obj.data.bones if bone.parent is None]
-        root_refs = [
-            Reference('objects', _get_bone_name(b), node['children'], i + offset)
-            for i, b in enumerate(root_bones)
-        ]
-
-        for bone in root_refs:
-            state['references'].append(bone)
-        node['children'].extend(root_refs)
-
-    (
-        node['translation'],
-        node['rotation'],
-        node['scale']
-    ) = decompose(obj.matrix_local)
-
-    return node
+    return NodeExporter.export(state, obj)
 
 
 def export_joint(state, bone):
@@ -1088,7 +671,7 @@ def export_joint(state, bone):
     if bone.parent:
         matrix = bone.parent.matrix_local.inverted() * bone.matrix_local
 
-    bone_name = _get_bone_name(bone)
+    bone_name = get_bone_name(bone)
 
     gltf_joint = {
         'name': bone_name,
@@ -1103,7 +686,7 @@ def export_joint(state, bone):
         state['references'].append(gltf_joint['jointName'])
     if bone.children:
         gltf_joint['children'] = [
-            Reference('objects', _get_bone_name(child), None, None) for child in bone.children
+            Reference('objects', get_bone_name(child), None, None) for child in bone.children
         ]
     if bone_name in state['bone_children']:
         bone_children = [
@@ -1443,7 +1026,7 @@ def export_animations(state, actions):
             is_bone = False
             if targetid != obj.name:
                 is_bone = True
-                targetid = _get_bone_name(bpy.data.armatures[obj.data.name].bones[targetid])
+                targetid = get_bone_name(bpy.data.armatures[obj.data.name].bones[targetid])
 
             for path in paths:
                 sampler_name = '{}_{}_{}_sampler'.format(action_name, targetid, path)
@@ -1921,7 +1504,7 @@ def export_gltf(scene_delta, settings=None):
     exporters = [
         CameraExporter,
         ImageExporter,
-        exporter('nodes', 'objects', export_node, lambda x: True, None),
+        NodeExporter,
         # Make sure meshes come after nodes to detect which meshes are skinned
         exporter('materials', 'materials', export_material, lambda x: True, None),
         exporter('meshes', 'meshes', export_mesh, lambda x: True, None),
