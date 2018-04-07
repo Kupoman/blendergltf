@@ -1,4 +1,4 @@
 language: python
 python:
     - "3.5"
-script: pylint -r n *.py extension_exporters/*.py && pycodestyle && python -m pytest
+script: pylint -r n blendergltf && pycodestyle && python -m pytest
