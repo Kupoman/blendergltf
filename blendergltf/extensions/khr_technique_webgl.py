@@ -251,6 +251,7 @@ def to_web(data):
     vs_to_web(data)
     fs_to_web(data)
 
+
 class KhrTechniqueWebgl:
     ext_meta = {
         'name': 'KHR_technique_webgl',
