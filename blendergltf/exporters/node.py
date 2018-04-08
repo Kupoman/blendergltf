@@ -59,7 +59,7 @@ class NodeExporter(BaseExporter):
                 state['references'].append(node['mesh'])
             armature = blender_data.find_armature()
             if armature:
-                state['skinned_meshes'][mesh_name] = blender_data
+                state['input']['skins'].append(blender_data)
                 node['skin'] = Reference('skins', blender_data.name, node, 'skin')
                 state['references'].append(node['skin'])
                 if state['version'] < Version('2.0'):

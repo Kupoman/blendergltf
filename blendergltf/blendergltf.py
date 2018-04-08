@@ -19,6 +19,7 @@ from .exporters import (
     MeshExporter,
     NodeExporter,
     SceneExporter,
+    SkinExporter,
     TextureExporter,
 )
 
@@ -86,74 +87,8 @@ def export_mesh(state, mesh):
 
 def export_skins(state):
     def export_skin(obj):
-        if state['version'] < Version('2.0'):
-            joints_key = 'jointNames'
-        else:
-            joints_key = 'joints'
-
-        arm = obj.find_armature()
-
-        axis_mat = mathutils.Matrix.Identity(4)
-        if state['settings']['nodes_global_matrix_apply']:
-            axis_mat = state['settings']['nodes_global_matrix']
-
-        bind_shape_mat = (
-            axis_mat
-            * arm.matrix_world.inverted()
-            * obj.matrix_world
-            * axis_mat.inverted()
-        )
-
-        bone_groups = [group for group in obj.vertex_groups if group.name in arm.data.bones]
-
-        gltf_skin = {
-            'name': obj.name,
-        }
-        gltf_skin[joints_key] = [
-            Reference('objects', get_bone_name(arm.data.bones[group.name]), None, None)
-            for group in bone_groups
-        ]
-        for i, ref in enumerate(gltf_skin[joints_key]):
-            ref.source = gltf_skin[joints_key]
-            ref.prop = i
-            state['references'].append(ref)
-
-        if state['version'] < Version('2.0'):
-            gltf_skin['bindShapeMatrix'] = togl(mathutils.Matrix.Identity(4))
-        else:
-            bone_names = [get_bone_name(b) for b in arm.data.bones if b.parent is None]
-            if len(bone_names) > 1:
-                print('Warning: Armature {} has no root node'.format(arm.data.name))
-            gltf_skin['skeleton'] = Reference('objects', bone_names[0], gltf_skin, 'skeleton')
-            state['references'].append(gltf_skin['skeleton'])
-
-        element_size = 16 * 4
-        num_elements = len(bone_groups)
-        buf = Buffer('IBM_{}_skin'.format(obj.name))
-        buf_view = buf.add_view(element_size * num_elements, element_size, None)
-        idata = buf.add_accessor(buf_view, 0, element_size, Buffer.FLOAT, num_elements, Buffer.MAT4)
-
-        for i, group in enumerate(bone_groups):
-            bone = arm.data.bones[group.name]
-            mat = togl((axis_mat * bone.matrix_local).inverted() * bind_shape_mat)
-            for j in range(16):
-                idata[(i * 16) + j] = mat[j]
-
-        gltf_skin['inverseBindMatrices'] = Reference(
-            'accessors',
-            idata.name,
-            gltf_skin,
-            'inverseBindMatrices'
-        )
-        state['references'].append(gltf_skin['inverseBindMatrices'])
-        state['buffers'].append(buf)
-        state['input']['buffers'].append(SimpleID(buf.name))
-
-        state['input']['skins'].append(SimpleID(obj.name))
-
-        return gltf_skin
-
-    return [export_skin(obj) for obj in state['skinned_meshes'].values()]
+        return SkinExporter.export(state, obj)
+    return [export_skin(obj) for obj in state['input']['skins']]
 
 
 def export_node(state, obj):
@@ -684,7 +619,6 @@ def export_gltf(scene_delta, settings=None):
         'aspect_ratio': res_x / res_y,
         'mod_meshes': {},
         'shape_keys': {},
-        'skinned_meshes': {},
         'dupli_nodes': [],
         'bone_children': {},
         'extensions_used': [],
@@ -867,6 +801,7 @@ def export_gltf(scene_delta, settings=None):
         # Make sure meshes come after nodes to detect which meshes are skinned
         MeshExporter,
         SceneExporter,
+        SkinExporter,
         TextureExporter,
     ]
     state['output'] = {
@@ -894,7 +829,6 @@ def export_gltf(scene_delta, settings=None):
 
     # Export animations
     state['output']['animations'] = export_animations(state, state['input'].get('actions', []))
-    state['output']['skins'] = export_skins(state)
     state['output']['nodes'].extend([
         export_joint(state, sid.data) for sid in state['input']['bones']
     ])

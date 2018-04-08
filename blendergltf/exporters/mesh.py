@@ -216,7 +216,7 @@ class MeshExporter(BaseExporter):
 
     @classmethod
     def export_attributes(cls, state, mesh, mesh_name, vert_list, base_vert_list):
-        is_skinned = mesh_name in state['skinned_meshes']
+        is_skinned = mesh_name in [skin.data.name for skin in state['input']['skins']]
 
         color_type = Buffer.VEC3
         color_size = 3
