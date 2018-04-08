@@ -109,7 +109,7 @@ Enable the [KHR_lights](https://github.com/andreasplesch/glTF/blob/ec6f61d73bcd5
 Enable the [KHR_materials_common](https://github.com/KhronosGroup/glTF/tree/master/extensions/Khronos/KHR_materials_common) extension to export Blinn Phong materials.
 
 #### KHR_materials_unlit (Draft)
-Enable the [KHR_materials_common](https://github.com/KhronosGroup/glTF/pull/1163) extension to export simplified unlit materials.
+Enable the [KHR_materials_unlit](https://github.com/KhronosGroup/glTF/pull/1163) extension to export simplified unlit materials.
 
 ### Output
 #### Copyright
