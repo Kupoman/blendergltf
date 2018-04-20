@@ -5,25 +5,29 @@ import pytest
 
 # pylint: disable=redefined-outer-name
 
+class ImageTexture:
+    pass
 
-@pytest.fixture
-def blendergltf(mocker):
+def update_sys(mocker):
     import sys
-    sys.modules['bpy'] = mocker.MagicMock()
+
+    bpy = mocker.MagicMock()
+    bpy.types.ImageTexture = ImageTexture
+
+    sys.modules['bpy'] = bpy
     sys.modules['idprop'] = mocker.MagicMock()
     sys.modules['mathutils'] = mocker.MagicMock()
 
+@pytest.fixture
+def blendergltf(mocker):
+    update_sys(mocker)
     import blendergltf.blendergltf as _blendergltf
     return _blendergltf
 
 
 @pytest.fixture
 def exporters(mocker):
-    import sys
-    sys.modules['bpy'] = mocker.MagicMock()
-    sys.modules['idprop'] = mocker.MagicMock()
-    sys.modules['mathutils'] = mocker.MagicMock()
-
+    update_sys(mocker)
     import blendergltf.exporters as exporters
     return exporters
 
@@ -110,6 +114,7 @@ def bpy_image_default(mocker):
 
     image.name = 'Image'
     image.type = 'IMAGE'
+    image.channels = 4
     image.packed_file = None
     image.pixels = [0.0, 0.0, 0.0, 1.0]
 
@@ -197,4 +202,41 @@ def gltf_scene_default():
         },
         "name": "Scene",
         "nodes": []
+    }
+
+
+@pytest.fixture
+def bpy_texture_default(bpy_image_default, mocker):
+    texture = mocker.MagicMock()
+    texture.__class__ = ImageTexture
+
+    texture.name = 'Texture'
+
+    texture.extension = 'REPEAT'
+    texture.use_mipmap = False
+    texture.use_mirror_x = False
+    texture.use_mirror_y = False
+
+    texture.image = bpy_image_default
+
+    return texture
+
+
+@pytest.fixture
+def gltf_sampler_default():
+    return {
+        'name': 'Texture',
+        'wrapS': 10497,
+        'wrapT': 10497,
+        'minFilter': 9728,
+        'magFilter': 9728
+    }
+
+
+@pytest.fixture
+def gltf_texture_default():
+    return {
+        'name': 'Texture',
+        'sampler': 'Texture',
+        'source': 'Image',
     }

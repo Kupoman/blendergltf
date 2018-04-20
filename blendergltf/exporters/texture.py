@@ -37,11 +37,10 @@ class TextureExporter(BaseExporter):
 
     @classmethod
     def check(cls, state, blender_data):
-        if not isinstance(blender_data, bpy.types.ImageTexture):
-            return False
-
         errors = []
-        if blender_data.image is None:
+        if not isinstance(blender_data, bpy.types.ImageTexture):
+            errors.append('is not an ImageTexture')
+        elif blender_data.image is None:
             errors.append('has no image reference')
         elif blender_data.image.channels not in [3, 4]:
             errors.append(
@@ -59,9 +58,9 @@ class TextureExporter(BaseExporter):
 
         return True
 
+
     @classmethod
-    def export(cls, state, blender_data):
-        # Generate sampler for this texture
+    def export_sampler(cls, blender_data):
         gltf_sampler = {
             'name': blender_data.name,
         }
@@ -91,10 +90,16 @@ class TextureExporter(BaseExporter):
             gltf_sampler['minFilter'] = GL_NEAREST
             gltf_sampler['magFilter'] = GL_NEAREST
 
+        return gltf_sampler
+
+
+    @classmethod
+    def export(cls, state, blender_data):
         gltf_texture = {
             'name': blender_data.name,
         }
 
+        gltf_sampler = cls.export_sampler(blender_data)
         state['input']['samplers'].append(SimpleID(blender_data.name))
         state['samplers'].append(gltf_sampler)
 
@@ -109,12 +114,12 @@ class TextureExporter(BaseExporter):
         )
         state['references'].append(gltf_texture['source'])
 
-        tformat = None
-        channels = blender_data.image.channels
-        image_is_srgb = blender_data.image.colorspace_settings.name == 'sRGB'
-        use_srgb = state['settings']['images_allow_srgb'] and image_is_srgb
-
         if state['version'] < Version('2.0'):
+            tformat = None
+            channels = blender_data.image.channels
+            image_is_srgb = blender_data.image.colorspace_settings.name == 'sRGB'
+            use_srgb = state['settings']['images_allow_srgb'] and image_is_srgb
+
             if channels == 3:
                 if use_srgb:
                     tformat = GL_SRGB
