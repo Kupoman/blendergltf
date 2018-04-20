@@ -1485,7 +1485,7 @@ def export_animations(state, actions):
         for group in action.groups:
             for channel in group.channels:
                 data_path = channel.data_path
-                if 'pose.bones' in data_path:
+                if obj.pose and 'pose.bones' in data_path:
                     target_name = data_path.split('"')[1]
                     transform = data_path.split('.')[-1]
                     pose_bones.add(obj.pose.bones[target_name])
