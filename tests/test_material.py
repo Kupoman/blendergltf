@@ -67,3 +67,13 @@ def test_material_textured(mocker, blendergltf, state, bpy_material_default, glt
         ref.source[ref.prop] = ref.blender_name
 
     assert output == gltf_material_default
+
+
+def test_material_alpha_mask(blendergltf, state, bpy_material_default, gltf_material_default):
+    bpy_material_default.pbr_export_settings.alpha_mode = 'MASK'
+
+    gltf_material_default['alphaMode'] = 'MASK'
+    gltf_material_default['alphaCutoff'] = bpy_material_default.pbr_export_settings.alpha_cutoff
+
+    output = blendergltf.export_material(state, bpy_material_default)
+    assert output == gltf_material_default

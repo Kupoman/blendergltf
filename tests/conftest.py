@@ -101,6 +101,7 @@ def bpy_material_default(mocker):
 
     material.pbr_export_settings = mocker.MagicMock()
     material.pbr_export_settings.alpha_mode = 'OPAQUE'
+    material.pbr_export_settings.alpha_cutoff = 0.5
     material.pbr_export_settings.base_color_factor = [
         0.64000004529953,
         0.64000004529953,
