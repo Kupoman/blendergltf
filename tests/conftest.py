@@ -105,6 +105,25 @@ def gltf_camera_default():
 
 
 @pytest.fixture
+def bpy_image_default(mocker):
+    image = mocker.MagicMock()
+
+    image.name = 'Image'
+    image.type = 'IMAGE'
+    image.packed_file = None
+    image.pixels = [0.0, 0.0, 0.0, 1.0]
+
+    return image
+
+
+@pytest.fixture
+def gltf_image_default():
+    return {
+        'name': 'Image',
+    }
+
+
+@pytest.fixture
 def bpy_material_default(mocker):
     material = mocker.MagicMock()
 

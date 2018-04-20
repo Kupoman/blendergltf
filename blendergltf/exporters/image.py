@@ -16,31 +16,6 @@ from .common import (
 EXT_MAP = {'BMP': 'bmp', 'JPEG': 'jpg', 'PNG': 'png', 'TARGA': 'tga'}
 
 
-def image_to_data_uri(image):
-    width = image.size[0]
-    height = image.size[1]
-    buf = bytearray([int(p * 255) for p in image.pixels])
-
-    # reverse the vertical line order and add null bytes at the start
-    width_byte_4 = width * 4
-    raw_data = b''.join(b'\x00' + buf[span:span + width_byte_4]
-                        for span in range((height - 1) * width_byte_4, -1, - width_byte_4))
-
-    def png_pack(png_tag, data):
-        chunk_head = png_tag + data
-        return (struct.pack("!I", len(data)) +
-                chunk_head +
-                struct.pack("!I", 0xFFFFFFFF & zlib.crc32(chunk_head)))
-
-    png_bytes = b''.join([
-        b'\x89PNG\r\n\x1a\n',
-        png_pack(b'IHDR', struct.pack("!2I5B", width, height, 8, 6, 0, 0, 0)),
-        png_pack(b'IDAT', zlib.compress(raw_data, 9)),
-        png_pack(b'IEND', b'')])
-
-    return png_bytes
-
-
 class ImageExporter(BaseExporter):
     gltf_key = 'images'
     blender_key = 'images'
@@ -53,7 +28,7 @@ class ImageExporter(BaseExporter):
         if blender_data.size[1] == 0:
             errors.append('y dimension is 0')
         if blender_data.type != 'IMAGE':
-            errors.append('not an image')
+            errors.append('not an image {}'.format(blender_data.type))
 
         if errors:
             err_list = '\n\t'.join(errors)
@@ -71,6 +46,35 @@ class ImageExporter(BaseExporter):
             'name': blender_data.name,
             'uri': ''
         }
+
+
+    @classmethod
+    def image_to_data_uri(cls, image):
+        width = image.size[0]
+        height = image.size[1]
+        buf = bytearray([int(p * 255) for p in image.pixels])
+
+        # reverse the vertical line order and add null bytes at the start
+        width_byte_4 = width * 4
+        raw_data = b''.join(b'\x00' + buf[span:span + width_byte_4]
+                            for span in range((height - 1) * width_byte_4, -1, - width_byte_4))
+
+        def png_pack(png_tag, data):
+            chunk_head = png_tag + data
+            return (struct.pack("!I", len(data)) +
+                    chunk_head +
+                    struct.pack("!I", 0xFFFFFFFF & zlib.crc32(chunk_head)))
+
+        png_bytes = b''.join([
+            b'\x89PNG\r\n\x1a\n',
+            png_pack(b'IHDR', struct.pack("!2I5B", width, height, 8, 6, 0, 0, 0)),
+            png_pack(b'IDAT', zlib.compress(raw_data, 9)),
+            png_pack(b'IEND', b'')])
+
+        print(png_bytes)
+        return png_bytes
+
+
 
     @classmethod
     def export(cls, state, blender_data):
@@ -97,7 +101,7 @@ class ImageExporter(BaseExporter):
             else:
                 # convert to png and save
                 gltf['uri'] = '.'.join([blender_data.name, 'png'])
-                data = image_to_data_uri(blender_data)
+                data = cls.image_to_data_uri(blender_data)
             path = os.path.join(state['settings']['gltf_output_dir'], gltf['uri'])
 
         elif storage_setting == 'COPY':
@@ -108,7 +112,7 @@ class ImageExporter(BaseExporter):
         elif storage_setting == 'REFERENCE':
             gltf['uri'] = blender_data.filepath.replace('//', '')
         elif storage_setting == 'EMBED':
-            png_bytes = image_to_data_uri(blender_data)
+            png_bytes = cls.image_to_data_uri(blender_data)
             gltf['mimeType'] = 'image/png'
             if state['settings']['gltf_export_binary']:
                 buf = Buffer(blender_data.name)
