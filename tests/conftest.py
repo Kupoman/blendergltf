@@ -18,6 +18,17 @@ def blendergltf(mocker):
 
 
 @pytest.fixture
+def exporters(mocker):
+    import sys
+    sys.modules['bpy'] = mocker.MagicMock()
+    sys.modules['idprop'] = mocker.MagicMock()
+    sys.modules['mathutils'] = mocker.MagicMock()
+
+    import blendergltf.exporters as exporters
+    return exporters
+
+
+@pytest.fixture
 def state():
     from blendergltf.blendergltf import DEFAULT_SETTINGS as settings
 
