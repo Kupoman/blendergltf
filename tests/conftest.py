@@ -8,6 +8,7 @@ import pytest
 class ImageTexture:
     pass
 
+
 def update_sys(mocker):
     import sys
 
@@ -17,6 +18,7 @@ def update_sys(mocker):
     sys.modules['bpy'] = bpy
     sys.modules['idprop'] = mocker.MagicMock()
     sys.modules['mathutils'] = mocker.MagicMock()
+
 
 @pytest.fixture
 def blendergltf(mocker):

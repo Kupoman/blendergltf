@@ -47,7 +47,6 @@ class ImageExporter(BaseExporter):
             'uri': ''
         }
 
-
     @classmethod
     def image_to_data_uri(cls, image):
         width = image.size[0]
@@ -73,8 +72,6 @@ class ImageExporter(BaseExporter):
 
         print(png_bytes)
         return png_bytes
-
-
 
     @classmethod
     def export(cls, state, blender_data):

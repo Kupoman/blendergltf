@@ -58,7 +58,6 @@ class TextureExporter(BaseExporter):
 
         return True
 
-
     @classmethod
     def export_sampler(cls, blender_data):
         gltf_sampler = {
@@ -91,7 +90,6 @@ class TextureExporter(BaseExporter):
             gltf_sampler['magFilter'] = GL_NEAREST
 
         return gltf_sampler
-
 
     @classmethod
     def export(cls, state, blender_data):
