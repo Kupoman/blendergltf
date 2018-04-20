@@ -23,10 +23,18 @@ class BaseExporter:
 
     @classmethod
     def get_custom_properties(cls, blender_data):
-        return {
-            k: v.to_list() if hasattr(v, 'to_list') else v for k, v in blender_data.items()
-            if k not in _IGNORED_CUSTOM_PROPS and _is_serializable(v)
+        custom_props = {
+            key: value.to_list() if hasattr(value, 'to_list') else value
+            for key, value in blender_data.items()
+            if key not in _IGNORED_CUSTOM_PROPS
         }
+
+        custom_props = {
+            key: value for key, value in custom_props.items()
+            if _is_serializable(value)
+        }
+
+        return custom_props
 
     @classmethod
     def check(cls, state, blender_data):
