@@ -16,7 +16,7 @@ _IGNORED_CUSTOM_PROPS = [
 ]
 
 
-#pylint: disable=unused-argument
+# pylint: disable=unused-argument
 class BaseExporter:
     gltf_key = ''
     blender_key = ''

@@ -1,5 +1,6 @@
 from .base import BaseExporter
 
+
 class CameraExporter(BaseExporter):
     gltf_key = 'cameras'
     blender_key = 'cameras'
