@@ -1,5 +1,21 @@
 def test_scene_default(blendergltf, state, bpy_scene_default, gltf_scene_default):
-    state['input']['cameras'].append(bpy_scene_default.camera.name)
+    output = blendergltf.export_scene(state, bpy_scene_default)
+    assert output == gltf_scene_default
+
+
+def test_scene_camera(
+        blendergltf,
+        state,
+        bpy_scene_default,
+        gltf_scene_default,
+        bpy_camera_default
+):
+    bpy_scene_default.camera = bpy_camera_default
+    bpy_scene_default.camera.data = bpy_camera_default.name
+
+    gltf_scene_default['extras']['active_camera'] = bpy_camera_default.name
+
+    state['input']['cameras'].append(bpy_camera_default.name)
     output = blendergltf.export_scene(state, bpy_scene_default)
 
     ref_names = [ref.blender_name for ref in state['references']]

@@ -140,7 +140,7 @@ def gltf_material_default():
 
 
 @pytest.fixture
-def bpy_scene_default(mocker, bpy_camera_default):
+def bpy_scene_default(mocker):
     scene = mocker.MagicMock()
 
     scene.name = 'Scene'
@@ -151,9 +151,6 @@ def bpy_scene_default(mocker, bpy_camera_default):
     scene.render = mocker.MagicMock()
     scene.render.fps = 24
 
-    scene.camera = bpy_camera_default
-    scene.camera.data = scene.camera.name
-
     return scene
 
 
@@ -161,7 +158,6 @@ def bpy_scene_default(mocker, bpy_camera_default):
 def gltf_scene_default():
     return {
         "extras": {
-            "active_camera": 'Camera',
             "background_color": [
                 0.05087608844041824,
                 0.05087608844041824,
