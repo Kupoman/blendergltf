@@ -119,6 +119,7 @@ def bpy_image_default(mocker):
     image.channels = 4
     image.packed_file = None
     image.pixels = [0.0, 0.0, 0.0, 1.0]
+    image.filepath = '../filepath.png'
 
     return image
 

@@ -1,6 +1,32 @@
-def test_image_export(exporters, state, bpy_image_default, gltf_image_default):
-    state['settings']['images_data_storage'] = 'bad'
+def test_image_export_reference(exporters, state, bpy_image_default, gltf_image_default):
+    state['settings']['images_data_storage'] = 'REFERENCE'
+    gltf_image_default['uri'] = '../filepath.png'
     output = exporters.ImageExporter.export(state, bpy_image_default)
+    assert output == gltf_image_default
+
+
+def test_image_export_embed(exporters, state, bpy_image_default, gltf_image_default):
+    state['settings']['images_data_storage'] = 'EMBED'
+    gltf_image_default['uri'] = (
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACElEQVR42gMAAAAAAW'
+        '/dyZEAAAAASUVORK5CYII='
+    )
+    gltf_image_default['mimeType'] = 'image/png'
+    output = exporters.ImageExporter.export(state, bpy_image_default)
+    assert output == gltf_image_default
+
+
+def test_image_export_embed_glb(exporters, state, bpy_image_default, gltf_image_default):
+    state['settings']['images_data_storage'] = 'EMBED'
+    state['settings']['gltf_export_binary'] = True
+
+    gltf_image_default['mimeType'] = 'image/png'
+    gltf_image_default['bufferView'] = 'bufferView_buffer_Image_0'
+    output = exporters.ImageExporter.export(state, bpy_image_default)
+
+    for ref in state['references']:
+        ref.source[ref.prop] = ref.blender_name
+
     assert output == gltf_image_default
 
 
