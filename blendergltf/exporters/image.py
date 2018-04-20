@@ -70,7 +70,6 @@ class ImageExporter(BaseExporter):
             png_pack(b'IDAT', zlib.compress(raw_data, 9)),
             png_pack(b'IEND', b'')])
 
-        print(png_bytes)
         return png_bytes
 
     @classmethod
