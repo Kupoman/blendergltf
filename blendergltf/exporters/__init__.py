@@ -7,6 +7,7 @@ from .common import (
     get_bone_name,
 )
 
+from .animation import AnimationExporter
 from .camera import CameraExporter
 from .image import ImageExporter
 from .material import MaterialExporter

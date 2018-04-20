@@ -13,6 +13,14 @@ def get_bone_name(bone):
     return '{}_{}'.format(bone.id_data.name, bone.name)
 
 
+class AnimationPair:
+    def __init__(self, target, action, is_shape_key=False):
+        self.target = target
+        self.action = action
+        self.name = '{}_{}'.format(target.name, action.name)
+        self.is_shape_key = is_shape_key
+
+
 class Reference:
     __slots__ = (
         "blender_type",
