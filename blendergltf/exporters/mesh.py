@@ -87,33 +87,17 @@ class MeshExporter(BaseExporter):
         if extras:
             gltf_mesh['extras'] = extras
 
-        blender_data.calc_normals_split()
-        blender_data.calc_tessface()
-
         shape_keys = state['shape_keys'].get(mesh_name, [])
 
-        # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
-        if shape_keys:
-            vert_list = [Vertex(blender_data, loop) for loop in blender_data.loops]
-        else:
-            vert_list = {Vertex(blender_data, loop): 0 for loop in blender_data.loops}.keys()
-
         # Process mesh data and gather attributes
-        buf, gltf_attrs = cls.export_attributes(state, blender_data, mesh_name, vert_list, None)
+        gltf_attrs, buf, vert_list = cls.export_attributes(state, blender_data, mesh_name, None)
 
         # Process shape keys
-        targets = []
-        for shape_key_mesh in [key[1] for key in shape_keys]:
-            shape_key_mesh.calc_normals_split()
-            shape_key_mesh.calc_tessface()
-            shape_verts = [Vertex(shape_key_mesh, loop) for loop in shape_key_mesh.loops]
-            targets.append(cls.export_attributes(
-                state,
-                shape_key_mesh,
-                shape_key_mesh.name,
-                shape_verts,
-                vert_list
-            )[1])
+        targets = [
+            cls.export_attributes(state, key_mesh, key_mesh.name, vert_list)[0]
+            for key_mesh in [key[1] for key in shape_keys]
+        ]
+
         if shape_keys:
             gltf_mesh['weights'] = [key[0] for key in shape_keys]
 
@@ -215,8 +199,17 @@ class MeshExporter(BaseExporter):
         return gltf_mesh
 
     @classmethod
-    def export_attributes(cls, state, mesh, mesh_name, vert_list, base_vert_list):
+    def export_attributes(cls, state, mesh, mesh_name, base_vert_list):
         is_skinned = mesh_name in [skin.data.name for skin in state['input']['skins']]
+
+        mesh.calc_normals_split()
+        mesh.calc_tessface()
+
+        # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
+        if base_vert_list:
+            vert_list = [Vertex(mesh, loop) for loop in mesh.loops]
+        else:
+            vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
 
         color_type = Buffer.VEC3
         color_size = 3
@@ -415,4 +408,4 @@ class MeshExporter(BaseExporter):
             state['buffers'].append(skin_buf)
             state['input']['buffers'].append(SimpleID(skin_buf.name))
 
-        return buf, gltf_attrs
+        return gltf_attrs, buf, vert_list
