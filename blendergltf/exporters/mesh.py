@@ -150,53 +150,55 @@ class MeshExporter(BaseExporter):
             # Use the integer index extension
             if OES_ELEMENT_INDEX_UINT not in state['gl_extensions_used']:
                 state['gl_extensions_used'].append(OES_ELEMENT_INDEX_UINT)
+            itype = Buffer.UNSIGNED_INT
+        else:
+            itype = Buffer.UNSIGNED_SHORT
 
-        for mat, prim in prims.items():
-            # For each primitive set add an index buffer and accessor.
-
-            if not prim:
-                # This material has not verts, do not make a 0 length buffer
-                continue
-
-            # If we got this far use integers if we have to, if this is not
-            # desirable we would have bailed out by now.
-            if max_vert_index > 65535:
-                itype = Buffer.UNSIGNED_INT
-                istride = 4
-            else:
-                itype = Buffer.UNSIGNED_SHORT
-                istride = 2
-
-            # Pad index buffer if necessary to maintain a size that is a multiple of 4
-            view_length = istride * len(prim)
-            view_length = view_length + (4 - view_length % 4)
-
-            index_view = buf.add_view(view_length, 0, Buffer.ELEMENT_ARRAY_BUFFER)
-            idata = buf.add_accessor(index_view, 0, istride, itype, len(prim),
-                                     Buffer.SCALAR)
-
-            for i, index in enumerate(prim):
-                idata[i] = index
-
-            gltf_prim = {
-                'attributes': gltf_attrs,
-                'mode': 4,
-            }
-
-            gltf_prim['indices'] = Reference('accessors', idata.name, gltf_prim, 'indices')
-            state['references'].append(gltf_prim['indices'])
-
-            if targets:
-                gltf_prim['targets'] = targets
-
-            # Add the material reference after checking that it is valid
-            if mat:
-                gltf_prim['material'] = Reference('materials', mat, gltf_prim, 'material')
-                state['references'].append(gltf_prim['material'])
-
-            gltf_mesh['primitives'].append(gltf_prim)
+        gltf_mesh['primitives'] = [
+            cls.export_primitive(state, buf, mat, indices, itype, gltf_attrs, targets)
+            for mat, indices in prims.items() if indices
+        ]
 
         return gltf_mesh
+
+    @classmethod
+    def export_primitive(cls, state, buf, material, indices, index_type, attributes, targets):
+        index_stride = 4 if index_type == Buffer.UNSIGNED_INT else 2
+
+        # Pad index buffer if necessary to maintain a size that is a multiple of 4
+        view_length = index_stride * len(indices)
+        view_length = view_length + (4 - view_length % 4)
+
+        index_view = buf.add_view(view_length, 0, Buffer.ELEMENT_ARRAY_BUFFER)
+        idata = buf.add_accessor(
+            index_view,
+            0,
+            index_stride,
+            index_type,
+            len(indices),
+            Buffer.SCALAR
+        )
+
+        for i, index in enumerate(indices):
+            idata[i] = index
+
+        gltf_prim = {
+            'attributes': attributes,
+            'mode': 4,
+        }
+
+        gltf_prim['indices'] = Reference('accessors', idata.name, gltf_prim, 'indices')
+        state['references'].append(gltf_prim['indices'])
+
+        if targets:
+            gltf_prim['targets'] = targets
+
+        # Add the material reference after checking that it is valid
+        if material:
+            gltf_prim['material'] = Reference('materials', material, gltf_prim, 'material')
+            state['references'].append(gltf_prim['material'])
+
+        return gltf_prim
 
     @classmethod
     def export_attributes(cls, state, mesh, mesh_name, base_vert_list):
