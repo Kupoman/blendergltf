@@ -38,6 +38,13 @@ def exporters(mocker):
 def state():
     from blendergltf.blendergltf import DEFAULT_SETTINGS as settings
 
+    def _decompose(_):
+        return (
+            (0.0, 0.0, 0.0),
+            (0.0, 0.0, 0.0, 1.0),
+            (1.0, 1.0, 1.0),
+        )
+
     _state = {
         'version': Version(settings['asset_version']),
         'settings': settings,
@@ -47,6 +54,7 @@ def state():
         'shape_keys': {},
         'skinned_meshes': {},
         'dupli_nodes': [],
+        'bone_children': {},
         'extensions_used': [],
         'gl_extensions_used': [],
         'buffers': [],
@@ -76,6 +84,8 @@ def state():
         },
         'references': [],
         'files': {},
+        'decompose_fn': _decompose,
+        'decompose_mesh_fn': _decompose,
     }
 
     return _state
@@ -174,6 +184,29 @@ def gltf_material_default():
             'metallicFactor': 0.0,
             'roughnessFactor': 1.0
         }
+    }
+
+
+@pytest.fixture
+def bpy_object_default(mocker):
+    obj = mocker.MagicMock()
+
+    obj.name = 'Object'
+    obj.parent = None
+    obj.type = 'EMPTY'
+    obj.children = []
+    obj.dupli_group = None
+
+    return obj
+
+
+@pytest.fixture
+def gltf_node_default():
+    return {
+        'name': 'Object',
+        'translation': (0.0, 0.0, 0.0),
+        'rotation': (0.0, 0.0, 0.0, 1.0),
+        'scale': (1.0, 1.0, 1.0),
     }
 
 
