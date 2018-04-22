@@ -188,6 +188,23 @@ def gltf_material_default():
 
 
 @pytest.fixture
+def bpy_mesh_default(mocker):
+    mesh = mocker.MagicMock()
+
+    mesh.name = 'Mesh'
+
+    return mesh
+
+
+@pytest.fixture
+def gltf_mesh_default():
+    return {
+        'name': 'Mesh',
+        'primitives': [],
+    }
+
+
+@pytest.fixture
 def bpy_object_default(mocker):
     obj = mocker.MagicMock()
 
