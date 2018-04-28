@@ -1,24 +1,24 @@
 from distutils.version import StrictVersion as Version
 
 
-def test_material_default(blendergltf, state, bpy_material_default, gltf_material_default):
-    output = blendergltf.export_material(state, bpy_material_default)
+def test_material_default(exporters, state, bpy_material_default, gltf_material_default):
+    output = exporters.MaterialExporter.export(state, bpy_material_default)
     assert output == gltf_material_default
 
 
-def test_material_1_0(blendergltf, state, bpy_material_default):
+def test_material_1_0(exporters, state, bpy_material_default):
     state['version'] = Version('1.0')
-    output = blendergltf.export_material(state, bpy_material_default)
+    output = exporters.MaterialExporter.export(state, bpy_material_default)
     assert output == {'name': 'Material'}
 
 
-def test_material_no_pbr(blendergltf, state, bpy_material_default):
+def test_material_no_pbr(exporters, state, bpy_material_default):
     del bpy_material_default.pbr_export_settings
-    output = blendergltf.export_material(state, bpy_material_default)
+    output = exporters.MaterialExporter.export(state, bpy_material_default)
     assert output == {'name': 'Material'}
 
 
-def test_material_textured(mocker, blendergltf, state, bpy_material_default, gltf_material_default):
+def test_material_textured(mocker, exporters, state, bpy_material_default, gltf_material_default):
     pbr = bpy_material_default.pbr_export_settings
     pbr.base_color_texture = 'base_color'
     pbr.base_color_text_index = 0
@@ -58,7 +58,7 @@ def test_material_textured(mocker, blendergltf, state, bpy_material_default, glt
         texture = mocker.MagicMock()
         texture.name = name
         state['input']['textures'].append(texture)
-    output = blendergltf.export_material(state, bpy_material_default)
+    output = exporters.MaterialExporter.export(state, bpy_material_default)
 
     ref_names = [ref.blender_name for ref in state['references']]
     assert set(ref_names) == set(texture_names)
@@ -69,11 +69,11 @@ def test_material_textured(mocker, blendergltf, state, bpy_material_default, glt
     assert output == gltf_material_default
 
 
-def test_material_alpha_mask(blendergltf, state, bpy_material_default, gltf_material_default):
+def test_material_alpha_mask(exporters, state, bpy_material_default, gltf_material_default):
     bpy_material_default.pbr_export_settings.alpha_mode = 'MASK'
 
     gltf_material_default['alphaMode'] = 'MASK'
     gltf_material_default['alphaCutoff'] = bpy_material_default.pbr_export_settings.alpha_cutoff
 
-    output = blendergltf.export_material(state, bpy_material_default)
+    output = exporters.MaterialExporter.export(state, bpy_material_default)
     assert output == gltf_material_default

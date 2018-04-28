@@ -74,28 +74,6 @@ def _decompose(matrix):
     return loc, rot, scale
 
 
-def export_camera(state, camera):
-    return CameraExporter.export(state, camera)
-
-
-def export_material(state, material):
-    return MaterialExporter.export(state, material)
-
-
-def export_mesh(state, mesh):
-    return MeshExporter.export(state, mesh)
-
-
-def export_skins(state):
-    def export_skin(obj):
-        return SkinExporter.export(state, obj)
-    return [export_skin(obj) for obj in state['input']['skins']]
-
-
-def export_node(state, obj):
-    return NodeExporter.export(state, obj)
-
-
 def export_joint(state, bone):
     axis_mat = mathutils.Matrix.Identity(4)
     if state['settings']['nodes_global_matrix_apply']:
@@ -142,10 +120,6 @@ def export_joint(state, bone):
     return gltf_joint
 
 
-def export_scene(state, scene):
-    return SceneExporter.export(state, scene)
-
-
 def export_buffers(state):
     if state['settings']['buffers_combine_data']:
         buffers = [functools.reduce(
@@ -164,14 +138,6 @@ def export_buffers(state):
     gltf['accessors'] = list(itertools.chain(*[buf.export_accessors(state) for buf in buffers]))
 
     return gltf
-
-
-def export_image(state, image):
-    return ImageExporter.export(state, image)
-
-
-def export_texture(state, texture):
-    return TextureExporter.export(state, texture)
 
 
 def insert_root_nodes(state, root_matrix):
