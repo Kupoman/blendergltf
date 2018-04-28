@@ -180,7 +180,7 @@ def build_int_refmap(input_data):
     return refmap
 
 
-def export_gltf(scene_delta, settings=None):
+def initialize_state(settings=None):
     # Fill in any missing settings with defaults
     if not settings:
         settings = {}
@@ -225,6 +225,12 @@ def export_gltf(scene_delta, settings=None):
         'decompose_fn': _decompose,
         'decompose_mesh_fn': _decompose,
     }
+
+    return state
+
+
+def export_gltf(scene_delta, settings=None):
+    state = initialize_state(settings)
     state['input'].update({key: list(value) for key, value in scene_delta.items()})
 
     # Filter out empty meshes
@@ -238,7 +244,7 @@ def export_gltf(scene_delta, settings=None):
 
     # Make sure any temporary meshes do not have animation data baked in
     default_scene = bpy.context.scene
-    if not settings['hacks_streaming']:
+    if not state['settings']['hacks_streaming']:
         saved_pose_positions = [armature.pose_position for armature in bpy.data.armatures]
         for armature in bpy.data.armatures:
             armature.pose_position = 'REST'
@@ -269,7 +275,7 @@ def export_gltf(scene_delta, settings=None):
             # Mute modifiers if necessary
             muted_modifiers = []
             original_modifier_states = []
-            if not settings['meshes_apply_modifiers']:
+            if not state['settings']['meshes_apply_modifiers']:
                 muted_modifiers = itertools.chain.from_iterable(
                     [obj.modifiers for obj in mesh_users]
                 )
@@ -300,7 +306,7 @@ def export_gltf(scene_delta, settings=None):
             # Unmute modifiers
             for modifier, state in zip(muted_modifiers, original_modifier_states):
                 modifier.show_viewport = state
-        elif settings['meshes_apply_modifiers']:
+        elif state['settings']['meshes_apply_modifiers']:
             mod_users = [ob for ob in mod_obs if ob.data == mesh]
 
             # Only convert meshes with modifiers, otherwise each non-modifier
@@ -319,11 +325,11 @@ def export_gltf(scene_delta, settings=None):
     state['input']['meshes'] = mesh_list
 
     apply_global_matrix = (
-        settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4)
-        and settings['nodes_global_matrix_apply']
+        state['settings']['nodes_global_matrix'] != mathutils.Matrix.Identity(4)
+        and state['settings']['nodes_global_matrix_apply']
     )
     if apply_global_matrix:
-        global_mat = settings['nodes_global_matrix']
+        global_mat = state['settings']['nodes_global_matrix']
         global_scale_mat = mathutils.Matrix([[abs(j) for j in i] for i in global_mat])
 
         def decompose_apply(matrix):
@@ -398,13 +404,13 @@ def export_gltf(scene_delta, settings=None):
     # Export top level data
     gltf = {
         'asset': {
-            'version': settings['asset_version'],
+            'version': state['settings']['asset_version'],
             'generator': 'blendergltf v1.2.0',
-            'copyright': settings['asset_copyright'],
+            'copyright': state['settings']['asset_copyright'],
         }
     }
     if state['version'] < Version('2.0'):
-        gltf['asset']['profile'] = PROFILE_MAP[settings['asset_profile']]
+        gltf['asset']['profile'] = PROFILE_MAP[state['settings']['asset_profile']]
 
     # Export samplers
     state['output']['samplers'] = state['samplers']
@@ -435,16 +441,16 @@ def export_gltf(scene_delta, settings=None):
 
     # Export extensions
     state['refmap'] = build_int_refmap(state['input'])
-    for ext_exporter in settings['extension_exporters']:
+    for ext_exporter in state['settings']['extension_exporters']:
         ext_exporter.export(state)
 
     # Insert root nodes if axis conversion is needed
     root_node_needed = (
-        settings['nodes_global_matrix'] != mathutils.Matrix.Identity(4)
-        and not settings['nodes_global_matrix_apply']
+        state['settings']['nodes_global_matrix'] != mathutils.Matrix.Identity(4)
+        and not state['settings']['nodes_global_matrix_apply']
     )
     if root_node_needed:
-        insert_root_nodes(state, togl(settings['nodes_global_matrix']))
+        insert_root_nodes(state, togl(state['settings']['nodes_global_matrix']))
 
     if state['buffers']:
         state['output'].update(export_buffers(state))
@@ -469,7 +475,7 @@ def export_gltf(scene_delta, settings=None):
 
     # Gather refmap inputs
     reference_inputs = state['input']
-    if settings['hacks_streaming']:
+    if state['settings']['hacks_streaming']:
         reference_inputs.update({
             'actions': list(bpy.data.actions),
             'cameras': list(bpy.data.cameras),
@@ -510,7 +516,7 @@ def export_gltf(scene_delta, settings=None):
         bpy.data.meshes.remove(mesh)
 
     # Transform gltf data to binary
-    if settings['gltf_export_binary']:
+    if state['settings']['gltf_export_binary']:
         json_data = json.dumps(gltf, sort_keys=True, check_circular=False).encode()
         json_length = len(json_data)
         json_pad = (' ' * (4 - json_length % 4)).encode()

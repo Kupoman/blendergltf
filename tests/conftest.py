@@ -35,8 +35,20 @@ def exporters(mocker):
 
 
 @pytest.fixture
-def state():
-    from blendergltf.blendergltf import DEFAULT_SETTINGS as settings
+def state(blendergltf):
+    scene_delta = {
+        'actions': [],
+        'cameras': [],
+        'lamps': [],
+        'images': [],
+        'materials': [],
+        'meshes': [],
+        'objects': [],
+        'scenes': [],
+        'textures': [],
+    }
+
+    _state = blendergltf.initialize_state()
 
     def _decompose(_):
         return (
@@ -45,48 +57,11 @@ def state():
             (1.0, 1.0, 1.0),
         )
 
-    _state = {
-        'version': Version(settings['asset_version']),
-        'settings': settings,
-        'animation_dt': 1.0 / 24.0,
-        'aspect_ratio': 1920 / 1080,
-        'mod_meshes': {},
-        'shape_keys': {},
-        'skinned_meshes': {},
-        'dupli_nodes': [],
-        'bone_children': {},
-        'extensions_used': [],
-        'gl_extensions_used': [],
-        'buffers': [],
-        'samplers': [],
-        'input': {
-            'buffers': [],
-            'accessors': [],
-            'bufferViews': [],
-            'bones': [],
-            'anim_samplers': [],
-            'samplers': [],
-            'skins': [],
-            'dupli_ids': [],
-
-            'actions': [],
-            'cameras': [],
-            'lamps': [],
-            'images': [],
-            'materials': [],
-            'meshes': [],
-            'objects': [],
-            'scenes': [],
-            'textures': [],
-        },
-        'output': {
-            'extensions': [],
-        },
-        'references': [],
-        'files': {},
-        'decompose_fn': _decompose,
-        'decompose_mesh_fn': _decompose,
-    }
+    _state['input'].update({key: list(value) for key, value in scene_delta.items()})
+    _state['animation_dt'] = 1 / 24
+    _state['aspect_ratio'] = 1920 / 1080
+    _state['decompose_fn'] = _decompose
+    _state['decompose_mesh_fn'] = _decompose
 
     return _state
 
