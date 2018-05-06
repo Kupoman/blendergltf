@@ -203,12 +203,13 @@ class MeshExporter(BaseExporter):
     @classmethod
     def export_attributes(cls, state, mesh, mesh_name, base_vert_list):
         is_skinned = mesh_name in [skin.data.name for skin in state['input']['skins']]
+        is_morph_base = len(state['shape_keys'].get(mesh_name, [])) != 0
 
         mesh.calc_normals_split()
         mesh.calc_tessface()
 
         # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
-        if base_vert_list:
+        if is_morph_base or base_vert_list:
             vert_list = [Vertex(mesh, loop) for loop in mesh.loops]
         else:
             vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
