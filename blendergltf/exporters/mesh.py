@@ -202,7 +202,7 @@ class MeshExporter(BaseExporter):
 
     @classmethod
     def export_attributes(cls, state, mesh, mesh_name, base_vert_list):
-        is_skinned = mesh_name in [skin.data.name for skin in state['input']['skins']]
+        is_skinned = mesh_name in state['skinned_meshes']
         is_morph_base = len(state['shape_keys'].get(mesh_name, [])) != 0
 
         mesh.calc_normals_split()

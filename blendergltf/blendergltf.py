@@ -200,6 +200,7 @@ def initialize_state(settings=None):
         'shape_keys': {},
         'dupli_nodes': [],
         'bone_children': {},
+        'skinned_meshes': set(),
         'extensions_used': [],
         'gl_extensions_used': [],
         'buffers': [],
