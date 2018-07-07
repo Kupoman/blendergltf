@@ -1,6 +1,6 @@
 test-style:
 	pylint -r n blendergltf
-	pycodestyle blendergltf __init__.py
+	pycodestyle blendergltf __init__.py --max-line-length=100
 
 test-unit:
 	python -m pytest tests/unit
