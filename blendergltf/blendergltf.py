@@ -86,7 +86,7 @@ def export_joint(state, bone):
     bone_name = get_bone_name(bone)
 
     gltf_joint = {
-        'name': bone_name,
+        'name': bone.name,
     }
     if state['version'] < Version('2.0'):
         gltf_joint['jointName'] = Reference(

@@ -339,7 +339,7 @@ class AnimationExporter(BaseExporter):
                 state['references'].append(accessor_ref)
 
         gltf_action = {
-            'name': action_name,
+            'name': blender_data.action.name,
             'channels': gltf_channels,
             'samplers': gltf_samplers,
         }
@@ -428,7 +428,7 @@ class AnimationExporter(BaseExporter):
         state['references'].append(sampler['output'])
 
         gltf_action = {
-            'name': action_name,
+            'name': blender_data.action.name,
             'channels': [channel],
             'samplers': [sampler],
         }
