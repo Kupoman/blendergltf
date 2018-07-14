@@ -12,40 +12,62 @@ class AttributeData:
 
 class PositionsData:
     def __init__(self, mesh):
-        self.iterator = (v.co for v in mesh.vertices)
+        self.mesh = mesh
+        self.iterator = (v.co for v in self.mesh.vertices)
+
+    def __len__(self):
+        return len(self.mesh.vertices)
 
 
 class NormalsData:
     def __init__(self, mesh):
         mesh.calc_normals()
-        self.iterator = (v.normal for v in mesh.vertices)
+        self.mesh = mesh
+        self.iterator = (v.normal for v in self.mesh.vertices)
+
+    def __len__(self):
+        return len(self.mesh.vertices)
 
 
 class ColorsData:
     def __init__(self, colors):
         self.layer = colors
-        self.iterator = (c.color for c in colors.data)
+        self.iterator = (c.color for c in self.layer.data)
+
+    def __len__(self):
+        return len(self.layer.data)
 
 
 class UvsData:
     def __init__(self, uv_layer):
         self.layer = uv_layer
-        self.iterator = (l.uv for l in uv_layer.data)
+        self.iterator = (l.uv for l in self.layer.data)
+
+    def __len__(self):
+        return len(self.layer.data)
 
 
 class IndicesData:
     def __init__(self, mesh, material_index):
+        self.mesh = mesh
+        self._faces = [f for f in mesh.polygons if f.material_index == material_index]
+        self._len = self._count_polys()
         self.material = mesh.materials[material_index]
-        self.iterator = self._create_iter(mesh, material_index)
+        self.iterator = self._create_iter()
 
-    def _create_iter(self, mesh, material_index):
-        faces = [f for f in mesh.polygons if f.material_index == material_index]
-        for face in faces:
+    def __len__(self):
+        return self._len
+
+    def _count_polys(self):
+        return sum([max(len(f.vertices) - 2, 1) for f in self._faces])
+
+    def _create_iter(self):
+        for face in self._faces:
             vertices = face.vertices
             if len(vertices) < 3:
                 continue
             elif len(vertices) > 3:
-                coords = [mesh.vertices[i].co for i in vertices]
+                coords = [self.mesh.vertices[i].co for i in vertices]
                 triangles = mathutils.geometry.tessellate_polygon((coords,))
                 for triangle in triangles:
                     yield [vertices[i] for i in triangle]
