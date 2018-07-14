@@ -1,12 +1,9 @@
 import mathutils.geometry
 
 
-def extract_indices(mesh):
-    faces = mesh.polygons
-
+def _process_faces(mesh, faces):
     for face in faces:
         vertices = face.vertices
-        print(face.material_index)
         if len(vertices) < 3:
             continue
         elif len(vertices) > 3:
@@ -16,6 +13,16 @@ def extract_indices(mesh):
                 yield [vertices[i] for i in triangle]
         else:
             yield list(vertices)
+
+
+def extract_indices(mesh):
+    faces = mesh.polygons
+    index_collections = []
+    for i, _ in enumerate(mesh.materials):
+        material_faces = [f for f in faces if f.material_index == i]
+        collection = _process_faces(mesh, material_faces)
+        index_collections.append(collection)
+    return index_collections
 
 
 def extract_positions(mesh):
