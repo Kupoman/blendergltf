@@ -24,6 +24,7 @@ class TestMeshUtils(unittest.TestCase):
         mesh = bpy.data.meshes['Quad']
         attrs = utils.mesh.extract_attributes(mesh)
         self.assertEqual(len(attrs.triangle_sets[0]), 2)
+        self.assertEqual(len(attrs.polygon_sets[0]), 1)
         self.assertEqual(len(attrs.positions), 4)
         self.assertEqual(len(attrs.normals), 4)
         self.assertEqual(len(attrs.color_layers[0]), 4)
@@ -33,6 +34,7 @@ class TestMeshUtils(unittest.TestCase):
         mesh = bpy.data.meshes['Ngon']
         attrs = utils.mesh.extract_attributes(mesh)
         self.assertEqual(len(attrs.triangle_sets[0]), 3)
+        self.assertEqual(len(attrs.polygon_sets[0]), 1)
         self.assertEqual(len(attrs.positions), 5)
 
     def test_material_splitting(self):
@@ -41,6 +43,9 @@ class TestMeshUtils(unittest.TestCase):
         self.assertEqual(len(attrs.triangle_sets), 2)
         self.assertEqual(len(attrs.triangle_sets[0]), 1)
         self.assertEqual(len(attrs.triangle_sets[1]), 1)
+        self.assertEqual(len(attrs.polygon_sets), 2)
+        self.assertEqual(len(attrs.polygon_sets[0]), 1)
+        self.assertEqual(len(attrs.polygon_sets[1]), 1)
 
 
 if __name__ == '__main__':
