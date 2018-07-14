@@ -1,5 +1,7 @@
 from distutils.version import StrictVersion as Version
 
+import mathutils
+
 from .base import BaseExporter
 from .common import (
     Buffer,
@@ -129,6 +131,7 @@ class MeshExporter(BaseExporter):
 
             # Find the (vertex) index associated with each loop in the polygon.
             indices = [vert_dict[i].index for i in poly.loop_indices]
+            coords = [mathutils.Vector(vert_dict[i].co) for i in poly.loop_indices]
 
             # Used to determine whether a mesh must be split.
             max_vert_index = max(max_vert_index, max(indices))
@@ -138,8 +141,9 @@ class MeshExporter(BaseExporter):
                 prim += indices
             elif len(indices) > 3:
                 # Triangulation necessary
-                for i in range(len(indices) - 2):
-                    prim += (indices[-1], indices[i], indices[i + 1])
+                triangles = mathutils.geometry.tessellate_polygon((coords,))
+                for triangle in triangles:
+                    prim += [indices[i] for i in triangle[::-1]]
             else:
                 # Bad polygon
                 raise RuntimeError(
