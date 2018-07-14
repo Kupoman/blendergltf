@@ -5,9 +5,9 @@ class AttributeData:
     def __init__(self, mesh):
         self.positions = PositionsData(mesh)
         self.normals = NormalsData(mesh)
-        self.colors = [ColorsData(c) for c in mesh.vertex_colors]
-        self.uvs = [UvsData(l) for l in mesh.uv_layers]
-        self.indices = [IndicesData(mesh, i) for i, _ in enumerate(mesh.materials)]
+        self.color_layers = [ColorsData(c) for c in mesh.vertex_colors]
+        self.uv_layers = [UvsData(l) for l in mesh.uv_layers]
+        self.triangle_sets = [IndicesData(mesh, i) for i, _ in enumerate(mesh.materials)]
 
 
 class PositionsData:
