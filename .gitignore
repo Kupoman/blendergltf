@@ -64,3 +64,4 @@ target/
 # Editor files
 *~
 *.swp
+*.blend?
