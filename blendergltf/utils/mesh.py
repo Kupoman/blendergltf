@@ -1,59 +1,57 @@
 import mathutils.geometry
 
 
-def _process_faces(mesh, faces):
-    for face in faces:
-        vertices = face.vertices
-        if len(vertices) < 3:
-            continue
-        elif len(vertices) > 3:
-            coords = [mesh.vertices[i].co for i in vertices]
-            triangles = mathutils.geometry.tessellate_polygon((coords,))
-            for triangle in triangles:
-                yield [vertices[i] for i in triangle]
-        else:
-            yield list(vertices)
+class AttributeData:
+    def __init__(self, mesh):
+        self.positions = PositionsData(mesh)
+        self.normals = NormalsData(mesh)
+        self.colors = [ColorsData(c) for c in mesh.vertex_colors]
+        self.uvs = [UvsData(l) for l in mesh.uv_layers]
+        self.indices = [IndicesData(mesh, i) for i, _ in enumerate(mesh.materials)]
 
 
-def extract_indices(mesh):
-    faces = mesh.polygons
-    index_collections = []
-    for i, _ in enumerate(mesh.materials):
-        material_faces = [f for f in faces if f.material_index == i]
-        collection = _process_faces(mesh, material_faces)
-        index_collections.append(collection)
-    return index_collections
+class PositionsData:
+    def __init__(self, mesh):
+        self.iterator = (v.co for v in mesh.vertices)
 
 
-def extract_positions(mesh):
-    return (v.co for v in mesh.vertices)
+class NormalsData:
+    def __init__(self, mesh):
+        mesh.calc_normals()
+        self.iterator = (v.normal for v in mesh.vertices)
 
 
-def extract_normals(mesh):
-    mesh.calc_normals()
-    return (v.normal for v in mesh.vertices)
+class ColorsData:
+    def __init__(self, colors):
+        self.layer = colors
+        self.iterator = (c.color for c in colors.data)
 
 
-def extract_colors(mesh):
-    colors = []
-    for color_layer in mesh.vertex_colors:
-        colors.append((c.color for c in color_layer.data))
-    return colors
+class UvsData:
+    def __init__(self, uv_layer):
+        self.layer = uv_layer
+        self.iterator = (l.uv for l in uv_layer.data)
 
 
-def extract_uvs(mesh):
-    uvs = []
-    for uv_layer in mesh.uv_layers:
-        uvs.append((l.uv for l in uv_layer.data))
-    return uvs
+class IndicesData:
+    def __init__(self, mesh, material_index):
+        self.material = mesh.materials[material_index]
+        self.iterator = self._create_iter(mesh, material_index)
+
+    def _create_iter(self, mesh, material_index):
+        faces = [f for f in mesh.polygons if f.material_index == material_index]
+        for face in faces:
+            vertices = face.vertices
+            if len(vertices) < 3:
+                continue
+            elif len(vertices) > 3:
+                coords = [mesh.vertices[i].co for i in vertices]
+                triangles = mathutils.geometry.tessellate_polygon((coords,))
+                for triangle in triangles:
+                    yield [vertices[i] for i in triangle]
+            else:
+                yield list(vertices)
 
 
 def extract_attributes(mesh):
-    attributes = {
-        'indices': extract_indices(mesh),
-        'positions': extract_positions(mesh),
-        'normals': extract_normals(mesh),
-        'colors': extract_colors(mesh),
-        'uvs': extract_uvs(mesh),
-    }
-    return attributes
+    return AttributeData(mesh)
