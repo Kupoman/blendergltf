@@ -7,9 +7,15 @@ test-style:
 test-unit:
 	python -m pytest tests/unit
 
+test-integration:
+	python tests/integration/integration.py check
+
+test-integration-update:
+	python tests/integration/integration.py update
+
 test-blender-mesh-utils:
 	blender \
-		tests/blender/meshes.blend \
+		tests/integration/sources/meshes.blend \
 		--background \
 		-noaudio  \
 		--python tests/blender/test_mesh_utils.py \
@@ -17,5 +23,5 @@ test-blender-mesh-utils:
 		--verbose
 
 test-blender: test-blender-mesh-utils
-.PHONY: test-style test-unit test-blender test-all
+.PHONY: test-style test-unit test-integration test-integration-update test-blender test-all
 .DEFAULT: test-all
