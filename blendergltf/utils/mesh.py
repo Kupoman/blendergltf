@@ -13,41 +13,36 @@ class AttributeData:
         self.polygon_sets = [IndicesData(mesh, i) for i, _ in enumerate(mesh.materials)]
 
 
-class PositionsData:
-    def __init__(self, mesh):
-        self.mesh = mesh
-        self.iterator = (v.co for v in self.mesh.vertices)
+class CollectionData:
+    def __init__(self, source, map_function):
+        self.source = source
+        self.iterator = (map_function(i) for i in source)
 
     def __len__(self):
-        return len(self.mesh.vertices)
+        return len(self.source)
 
 
-class NormalsData:
+class PositionsData(CollectionData):
+    def __init__(self, mesh):
+        super().__init__(mesh.vertices, lambda v: v.co)
+
+
+class NormalsData(CollectionData):
     def __init__(self, mesh):
         mesh.calc_normals()
-        self.mesh = mesh
-        self.iterator = (v.normal for v in self.mesh.vertices)
-
-    def __len__(self):
-        return len(self.mesh.vertices)
+        super().__init__(mesh.vertices, lambda v: v.normal)
 
 
-class ColorsData:
+class ColorsData(CollectionData):
     def __init__(self, colors):
+        super().__init__(colors.data, lambda data: data.color)
         self.layer = colors
-        self.iterator = (c.color for c in self.layer.data)
-
-    def __len__(self):
-        return len(self.layer.data)
 
 
-class UvsData:
+class UvsData(CollectionData):
     def __init__(self, uv_layer):
+        super().__init__(uv_layer.data, lambda data: data.uv)
         self.layer = uv_layer
-        self.iterator = (l.uv for l in self.layer.data)
-
-    def __len__(self):
-        return len(self.layer.data)
 
 
 class IndicesData:
