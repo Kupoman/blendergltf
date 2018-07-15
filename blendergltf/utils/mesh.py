@@ -5,6 +5,7 @@ class AttributeData:
     def __init__(self, mesh):
         self.positions = PositionsData(mesh)
         self.normals = NormalsData(mesh)
+        self.group = GroupsData(mesh)
         self.color_layers = [ColorsData(c) for c in mesh.vertex_colors]
         self.uv_layers = [UvsData(l) for l in mesh.uv_layers]
         self.triangle_sets = [
@@ -27,6 +28,11 @@ class PositionsData(CollectionData):
         super().__init__(mesh.vertices, lambda v: v.co)
 
 
+class GroupsData(CollectionData):
+    def __init__(self, mesh):
+        super().__init__(mesh.vertices, lambda v: v.groups)
+
+
 class NormalsData(CollectionData):
     def __init__(self, mesh):
         mesh.calc_normals()
@@ -34,6 +40,7 @@ class NormalsData(CollectionData):
 
 
 class ColorsData(CollectionData):
+    #TODO: Address color space
     def __init__(self, colors):
         super().__init__(colors.data, lambda data: data.color)
         self.layer = colors
