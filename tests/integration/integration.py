@@ -10,12 +10,16 @@ BASE_DIR = os.path.dirname(__file__)
 SOURCE_DIR = os.path.join(BASE_DIR, 'sources')
 EXPECT_DIR = os.path.join(BASE_DIR, 'expect')
 OUT_DIR = os.path.join(BASE_DIR, 'test-out')
+CONFIGS = [
+    [],
+    ['interleaved']
+]
 
 def export_files(out_dir):
     sources = os.listdir(SOURCE_DIR)
     for source in sources:
         in_name = os.path.join(SOURCE_DIR, source)
-        subprocess.run([
+        command = [
             'blender',
             in_name,
             '--background',
@@ -24,7 +28,9 @@ def export_files(out_dir):
             os.path.join(BASE_DIR, 'export.py'),
             '--',
             out_dir,
-        ])
+        ]
+        for config in CONFIGS:
+            subprocess.run(command + config)
 
 
 def update():

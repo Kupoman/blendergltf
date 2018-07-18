@@ -1,0 +1,602 @@
+{
+    "accessors": [
+        {
+            "bufferView": 0,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 5,
+            "max": [
+                1.0,
+                0.0,
+                2.0
+            ],
+            "min": [
+                -1.0,
+                0.0,
+                -1.0
+            ],
+            "name": "accessor_buffer_Ngon_0",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 0,
+            "byteOffset": 12,
+            "componentType": 5126,
+            "count": 5,
+            "max": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "min": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "name": "accessor_buffer_Ngon_1",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 1,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 9,
+            "max": [
+                4
+            ],
+            "min": [
+                0
+            ],
+            "name": "accessor_buffer_Ngon_2",
+            "type": "SCALAR"
+        },
+        {
+            "bufferView": 2,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 4,
+            "max": [
+                1.0,
+                0.0,
+                1.0
+            ],
+            "min": [
+                -1.0,
+                0.0,
+                -1.0
+            ],
+            "name": "accessor_buffer_Quad_0",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 2,
+            "byteOffset": 12,
+            "componentType": 5126,
+            "count": 4,
+            "max": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "min": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "name": "accessor_buffer_Quad_1",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 2,
+            "byteOffset": 24,
+            "componentType": 5126,
+            "count": 4,
+            "max": [
+                0.9999000430107117,
+                0.9999000199895818
+            ],
+            "min": [
+                9.998001041822135e-05,
+                9.995698928833008e-05
+            ],
+            "name": "accessor_buffer_Quad_2",
+            "type": "VEC2"
+        },
+        {
+            "bufferView": 2,
+            "byteOffset": 32,
+            "componentType": 5126,
+            "count": 4,
+            "max": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "min": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "name": "accessor_buffer_Quad_3",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 3,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 6,
+            "max": [
+                3
+            ],
+            "min": [
+                0
+            ],
+            "name": "accessor_buffer_Quad_4",
+            "type": "SCALAR"
+        },
+        {
+            "bufferView": 4,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 3,
+            "max": [
+                1.0,
+                0.0,
+                1.0
+            ],
+            "min": [
+                -1.0,
+                0.0,
+                -1.0
+            ],
+            "name": "accessor_buffer_Triangle_0",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 4,
+            "byteOffset": 12,
+            "componentType": 5126,
+            "count": 3,
+            "max": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "min": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "name": "accessor_buffer_Triangle_1",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 4,
+            "byteOffset": 24,
+            "componentType": 5126,
+            "count": 3,
+            "max": [
+                1.0,
+                1.0
+            ],
+            "min": [
+                0.0,
+                0.0
+            ],
+            "name": "accessor_buffer_Triangle_2",
+            "type": "VEC2"
+        },
+        {
+            "bufferView": 4,
+            "byteOffset": 32,
+            "componentType": 5126,
+            "count": 3,
+            "max": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "min": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "name": "accessor_buffer_Triangle_3",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 5,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 3,
+            "max": [
+                2
+            ],
+            "min": [
+                0
+            ],
+            "name": "accessor_buffer_Triangle_4",
+            "type": "SCALAR"
+        },
+        {
+            "bufferView": 6,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 4,
+            "max": [
+                1.0,
+                0.0,
+                1.0
+            ],
+            "min": [
+                -1.0,
+                0.0,
+                -1.0
+            ],
+            "name": "accessor_buffer_TwoMaterials_0",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 6,
+            "byteOffset": 12,
+            "componentType": 5126,
+            "count": 4,
+            "max": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "min": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "name": "accessor_buffer_TwoMaterials_1",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 7,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 3,
+            "max": [
+                2
+            ],
+            "min": [
+                0
+            ],
+            "name": "accessor_buffer_TwoMaterials_2",
+            "type": "SCALAR"
+        },
+        {
+            "bufferView": 8,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 3,
+            "max": [
+                3
+            ],
+            "min": [
+                0
+            ],
+            "name": "accessor_buffer_TwoMaterials_3",
+            "type": "SCALAR"
+        }
+    ],
+    "asset": {
+        "copyright": "",
+        "generator": "blendergltf v1.2.0",
+        "version": "2.0"
+    },
+    "bufferViews": [
+        {
+            "buffer": 0,
+            "byteLength": 120,
+            "byteOffset": 0,
+            "byteStride": 24,
+            "name": "bufferView_buffer_Ngon_0",
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteLength": 20,
+            "byteOffset": 120,
+            "name": "bufferView_buffer_Ngon_1",
+            "target": 34963
+        },
+        {
+            "buffer": 0,
+            "byteLength": 176,
+            "byteOffset": 140,
+            "byteStride": 44,
+            "name": "bufferView_buffer_Quad_0",
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteLength": 16,
+            "byteOffset": 316,
+            "name": "bufferView_buffer_Quad_1",
+            "target": 34963
+        },
+        {
+            "buffer": 0,
+            "byteLength": 132,
+            "byteOffset": 332,
+            "byteStride": 44,
+            "name": "bufferView_buffer_Triangle_0",
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteLength": 8,
+            "byteOffset": 464,
+            "name": "bufferView_buffer_Triangle_1",
+            "target": 34963
+        },
+        {
+            "buffer": 0,
+            "byteLength": 96,
+            "byteOffset": 472,
+            "byteStride": 24,
+            "name": "bufferView_buffer_TwoMaterials_0",
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteLength": 8,
+            "byteOffset": 568,
+            "name": "bufferView_buffer_TwoMaterials_1",
+            "target": 34963
+        },
+        {
+            "buffer": 0,
+            "byteLength": 8,
+            "byteOffset": 576,
+            "name": "bufferView_buffer_TwoMaterials_2",
+            "target": 34963
+        }
+    ],
+    "buffers": [
+        {
+            "byteLength": 584,
+            "name": "buffer_meshes_interleaved",
+            "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIA/AAAAAAAAgD8AAAAAAAAAAAAAAAAAAABAAAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAABAAAAAEABAABAAIABAACAAMAAAAAAIA/AAAAAAAAgL8AAAAAAACAPwAAAABazNE4c/l/PwAAgD8AAIA/AACAPwAAgL8AAAAAAACAvwAAAAAAAIA/AAAAAHP5fz9z+X8/AACAPwAAgD8AAIA/AACAvwAAAAAAAIA/AAAAAAAAgD8AAAAAc/l/PwCg0TgAAIA/AACAPwAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAAABcrNE4AKDROAAAgD8AAIA/AACAPwMAAAABAAMAAQACAAAAAAAAAIA/AAAAAAAAgL8AAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgL8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AACAPwAAgD8AAAEAAgAAAAAAgL8AAAAAAACAvwAAAAAAAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIA/AAAAAAAAgL8AAAAAAACAPwAAAAAAAIA/AAAAAAAAAQACAAAAAAADAAEAAAA="
+        }
+    ],
+    "materials": [
+        {
+            "alphaMode": "OPAQUE",
+            "doubleSided": false,
+            "emissiveFactor": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "name": "Material",
+            "pbrMetallicRoughness": {
+                "baseColorFactor": [
+                    0.64000004529953,
+                    0.64000004529953,
+                    0.64000004529953,
+                    1.0
+                ],
+                "metallicFactor": 0.0,
+                "roughnessFactor": 1.0
+            }
+        },
+        {
+            "alphaMode": "OPAQUE",
+            "doubleSided": false,
+            "emissiveFactor": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "name": "Material.001",
+            "pbrMetallicRoughness": {
+                "baseColorFactor": [
+                    0.800000011920929,
+                    0.0,
+                    0.0,
+                    1.0
+                ],
+                "metallicFactor": 0.0,
+                "roughnessFactor": 1.0
+            }
+        }
+    ],
+    "meshes": [
+        {
+            "name": "Ngon",
+            "primitives": [
+                {
+                    "attributes": {
+                        "NORMAL": 1,
+                        "POSITION": 0
+                    },
+                    "indices": 2,
+                    "material": 0,
+                    "mode": 4
+                }
+            ]
+        },
+        {
+            "name": "Quad",
+            "primitives": [
+                {
+                    "attributes": {
+                        "COLOR_0": 6,
+                        "NORMAL": 4,
+                        "POSITION": 3,
+                        "TEXCOORD_0": 5
+                    },
+                    "indices": 7,
+                    "material": 0,
+                    "mode": 4
+                }
+            ]
+        },
+        {
+            "name": "Triangle",
+            "primitives": [
+                {
+                    "attributes": {
+                        "COLOR_0": 11,
+                        "NORMAL": 9,
+                        "POSITION": 8,
+                        "TEXCOORD_0": 10
+                    },
+                    "indices": 12,
+                    "material": 0,
+                    "mode": 4
+                }
+            ]
+        },
+        {
+            "name": "TwoMaterials",
+            "primitives": [
+                {
+                    "attributes": {
+                        "NORMAL": 14,
+                        "POSITION": 13
+                    },
+                    "indices": 15,
+                    "material": 0,
+                    "mode": 4
+                },
+                {
+                    "attributes": {
+                        "NORMAL": 14,
+                        "POSITION": 13
+                    },
+                    "indices": 16,
+                    "material": 1,
+                    "mode": 4
+                }
+            ]
+        }
+    ],
+    "nodes": [
+        {
+            "mesh": 0,
+            "name": "Ngon",
+            "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                2.0,
+                0.0,
+                2.0
+            ]
+        },
+        {
+            "mesh": 1,
+            "name": "Quad",
+            "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                -2.0,
+                0.0,
+                2.0
+            ]
+        },
+        {
+            "name": "Sun",
+            "rotation": [
+                0.0,
+                0.7071068286895752,
+                0.7071068286895752,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "mesh": 2,
+            "name": "Triangle",
+            "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                2.0,
+                0.0,
+                -2.0
+            ]
+        },
+        {
+            "mesh": 3,
+            "name": "TwoMaterials",
+            "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                -2.0,
+                0.0,
+                -2.0
+            ]
+        }
+    ],
+    "scene": 0,
+    "scenes": [
+        {
+            "extras": {
+                "background_color": [
+                    0.05087608844041824,
+                    0.05087608844041824,
+                    0.05087608844041824
+                ],
+                "frames_per_second": 24
+            },
+            "name": "Scene",
+            "nodes": [
+                2,
+                4,
+                0,
+                1,
+                3
+            ]
+        }
+    ]
+}
