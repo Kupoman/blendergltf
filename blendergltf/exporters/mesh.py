@@ -12,6 +12,14 @@ from .common import (
 
 OES_ELEMENT_INDEX_UINT = 'OES_element_index_uint'
 
+class OffsetTracker:
+    def __init__(self):
+        self.value = 0
+    def get(self):
+        return self.value
+    def add(self, value):
+        self.value += value
+
 
 class Vertex:
     __slots__ = (
@@ -237,97 +245,58 @@ class MeshExporter(BaseExporter):
 
     @classmethod
     def export_attributes(cls, state, buf, mesh_name, base_vert_list, vert_list):
+        gltf_attrs = {}
         is_skinned = mesh_name in state['skinned_meshes']
 
-        color_type = Buffer.VEC3
-        color_size = 3
-        if state['settings']['meshes_vertex_color_alpha']:
-            color_type = Buffer.VEC4
-            color_size = 4
-
+        color_size = 4 if state['settings']['meshes_vertex_color_alpha'] else 3
         num_uv_layers = len(vert_list[0].uvs)
         num_col_layers = len(vert_list[0].colors)
         vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * color_size) * 4
-
         num_verts = len(vert_list)
+
+        offset = OffsetTracker()
+        def create_attr_accessor(name, component_count, view=None):
+            if not view:
+                stride = 4 * component_count
+                buffer = Buffer(mesh_name + '_' + name)
+                state['buffers'].append(buffer)
+                state['input']['buffers'].append(SimpleID(buffer.name))
+                view = buffer.add_view(stride * num_verts, stride, Buffer.ARRAY_BUFFER)
+                interleaved = False
+            else:
+                buffer = buf
+                stride = vertex_size
+                interleaved = True
+
+            data_type = [Buffer.SCALAR, Buffer.VEC2, Buffer.VEC3, Buffer.VEC4][component_count - 1]
+            _offset = offset.get()
+            acc = buffer.add_accessor(view, _offset, stride, Buffer.FLOAT, num_verts, data_type)
+            if interleaved:
+                offset.add(4 * component_count)
+            return acc
 
         if state['settings']['meshes_interleave_vertex_data']:
             view = buf.add_view(vertex_size * num_verts, vertex_size, Buffer.ARRAY_BUFFER)
-            vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            if not base_vert_list:
-                tdata = [
-                    buf.add_accessor(
-                        view,
-                        24 + 8 * i,
-                        vertex_size,
-                        Buffer.FLOAT,
-                        num_verts,
-                        Buffer.VEC2
-                    )
-                    for i in range(num_uv_layers)
-                ]
-                cdata = [
-                    buf.add_accessor(
-                        view,
-                        24 + 8 * num_uv_layers + 12 * i,
-                        vertex_size,
-                        Buffer.FLOAT,
-                        num_verts,
-                        color_type
-                    )
-                    for i in range(num_col_layers)
-                ]
         else:
-            prop_buffer = Buffer(mesh_name + '_POSITION')
-            state['buffers'].append(prop_buffer)
-            state['input']['buffers'].append(SimpleID(prop_buffer.name))
-            prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
-            vdata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+            view = None
 
-            prop_buffer = Buffer(mesh_name + '_NORMAL')
-            state['buffers'].append(prop_buffer)
-            state['input']['buffers'].append(SimpleID(prop_buffer.name))
-            prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
-            ndata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        def add_attribute(name, component_size):
+            acc = create_attr_accessor(name, component_size, view)
+            gltf_attrs[name] = Reference('accessors', acc.name, gltf_attrs, name)
+            state['references'].append(gltf_attrs[name])
+            return acc
 
-            if not base_vert_list:
-                tdata = []
-                for uv_layer in range(num_uv_layers):
-                    prop_buffer = Buffer('{}_TEXCOORD_{}'.format(mesh_name, uv_layer))
-                    state['buffers'].append(prop_buffer)
-                    state['input']['buffers'].append(SimpleID(prop_buffer.name))
-                    prop_view = prop_buffer.add_view(8 * num_verts, 8, Buffer.ARRAY_BUFFER)
-                    tdata.append(
-                        prop_buffer.add_accessor(
-                            prop_view,
-                            0,
-                            8,
-                            Buffer.FLOAT,
-                            num_verts,
-                            Buffer.VEC2
-                        )
-                    )
-                cdata = []
-                for col_layer in range(num_col_layers):
-                    prop_buffer = Buffer('{}_COLOR_{}'.format(mesh_name, col_layer))
-                    state['buffers'].append(prop_buffer)
-                    state['input']['buffers'].append(SimpleID(prop_buffer.name))
-                    prop_view = prop_buffer.add_view(
-                        4 * color_size * num_verts,
-                        4 * color_size,
-                        Buffer.ARRAY_BUFFER
-                    )
-                    cdata.append(
-                        prop_buffer.add_accessor(
-                            prop_view,
-                            0,
-                            color_size * 4,
-                            Buffer.FLOAT,
-                            num_verts,
-                            color_type
-                        )
-                    )
+        vdata = add_attribute('POSITION', 3)
+        ndata = add_attribute('NORMAL', 3)
+        if not base_vert_list:
+            tdata = [
+                add_attribute('TEXCOORD_' + str(i), 2)
+                for i in range(num_uv_layers)
+            ]
+            cdata = [
+                add_attribute('COLOR_' + str(i), color_size)
+                for i in range(num_col_layers)
+            ]
 
         # Copy vertex data
         if base_vert_list:
@@ -363,24 +332,6 @@ class MeshExporter(BaseExporter):
 
                     if state['settings']['meshes_vertex_color_alpha']:
                         cdata[j][i * color_size + 3] = 1.0
-
-        # Handle attribute references
-        gltf_attrs = {}
-        gltf_attrs['POSITION'] = Reference('accessors', vdata.name, gltf_attrs, 'POSITION')
-        state['references'].append(gltf_attrs['POSITION'])
-
-        gltf_attrs['NORMAL'] = Reference('accessors', ndata.name, gltf_attrs, 'NORMAL')
-        state['references'].append(gltf_attrs['NORMAL'])
-
-        if not base_vert_list:
-            for i, accessor in enumerate(tdata):
-                attr_name = 'TEXCOORD_' + str(i)
-                gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
-                state['references'].append(gltf_attrs[attr_name])
-            for i, accessor in enumerate(cdata):
-                attr_name = 'COLOR_' + str(i)
-                gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
-                state['references'].append(gltf_attrs[attr_name])
 
         state['buffers'].append(buf)
         state['input']['buffers'].append(SimpleID(buf.name))
