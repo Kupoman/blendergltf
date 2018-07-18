@@ -281,92 +281,6 @@
             ],
             "name": "accessor_buffer_TwoMaterials_1",
             "type": "SCALAR"
-        },
-        {
-            "bufferView": 17,
-            "byteOffset": 0,
-            "componentType": 5126,
-            "count": 24,
-            "max": [
-                1.0,
-                1.0,
-                1.0
-            ],
-            "min": [
-                -1.0,
-                -1.0,
-                -1.0
-            ],
-            "name": "accessor_buffer_ShapeKey.001_POSITION_0",
-            "type": "VEC3"
-        },
-        {
-            "bufferView": 18,
-            "byteOffset": 0,
-            "componentType": 5126,
-            "count": 24,
-            "max": [
-                1.0,
-                1.0,
-                1.0
-            ],
-            "min": [
-                -1.0,
-                -1.0,
-                -1.0
-            ],
-            "name": "accessor_buffer_ShapeKey.001_NORMAL_0",
-            "type": "VEC3"
-        },
-        {
-            "bufferView": 19,
-            "byteOffset": 0,
-            "componentType": 5123,
-            "count": 36,
-            "max": [
-                23
-            ],
-            "min": [
-                0
-            ],
-            "name": "accessor_buffer_ShapeKey.001_0",
-            "type": "SCALAR"
-        },
-        {
-            "bufferView": 20,
-            "byteOffset": 0,
-            "componentType": 5126,
-            "count": 24,
-            "max": [
-                0.0,
-                1.0,
-                0.0
-            ],
-            "min": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "name": "accessor_buffer_ShapeKey.002_POSITION_0",
-            "type": "VEC3"
-        },
-        {
-            "bufferView": 21,
-            "byteOffset": 0,
-            "componentType": 5126,
-            "count": 24,
-            "max": [
-                0.2357022762298584,
-                0.0,
-                0.0
-            ],
-            "min": [
-                0.0,
-                -0.057190895080566406,
-                -0.2357022762298584
-            ],
-            "name": "accessor_buffer_ShapeKey.002_NORMAL_0",
-            "type": "VEC3"
         }
     ],
     "asset": {
@@ -505,52 +419,13 @@
             "byteOffset": 576,
             "name": "bufferView_buffer_TwoMaterials_1",
             "target": 34963
-        },
-        {
-            "buffer": 0,
-            "byteLength": 288,
-            "byteOffset": 584,
-            "byteStride": 12,
-            "name": "bufferView_buffer_ShapeKey.001_POSITION_0",
-            "target": 34962
-        },
-        {
-            "buffer": 0,
-            "byteLength": 288,
-            "byteOffset": 872,
-            "byteStride": 12,
-            "name": "bufferView_buffer_ShapeKey.001_NORMAL_0",
-            "target": 34962
-        },
-        {
-            "buffer": 0,
-            "byteLength": 76,
-            "byteOffset": 1160,
-            "name": "bufferView_buffer_ShapeKey.001_0",
-            "target": 34963
-        },
-        {
-            "buffer": 0,
-            "byteLength": 288,
-            "byteOffset": 1236,
-            "byteStride": 12,
-            "name": "bufferView_buffer_ShapeKey.002_POSITION_0",
-            "target": 34962
-        },
-        {
-            "buffer": 0,
-            "byteLength": 288,
-            "byteOffset": 1524,
-            "byteStride": 12,
-            "name": "bufferView_buffer_ShapeKey.002_NORMAL_0",
-            "target": 34962
         }
     ],
     "buffers": [
         {
-            "byteLength": 1812,
+            "byteLength": 584,
             "name": "buffer_meshes",
-            "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAIC/AACAvwAAAAAAAIC/AACAvwAAAAAAAIA/AAAAAAAAAAAAAABAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAABAAAAAEABAABAAIABAACAAMAAAAAAIA/AAAAAAAAgL8AAIC/AAAAAAAAgL8AAIC/AAAAAAAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAABazNE4c/l/P3P5fz9z+X8/c/l/PwCg0ThcrNE4AKDROAAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwMAAAABAAMAAQACAAAAAAAAAIA/AAAAAAAAgL8AAIC/AAAAAAAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAAEAAgAAAAAAgL8AAAAAAACAvwAAgD8AAAAAAACAPwAAgD8AAAAAAACAvwAAgL8AAAAAAACAPwAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAQACAAAAAAADAAEAAAAAAIA/AACAvwAAgL8AAIA/AACAPwAAgL8AAIA/AACAPwAAgD8AAIA/AACAvwAAgD8AAIA/AACAvwAAgD8AAIA/AACAPwAAgD8AAIC/AACAPwAAgD8AAIC/AACAvwAAgD8AAIC/AACAvwAAgD8AAIC/AACAPwAAgD8AAIC/AACAPwAAgL8AAIC/AACAvwAAgL8AAIC/AACAvwAAgL8AAIC/AACAPwAAgL8AAIA/AACAPwAAgL8AAIA/AACAvwAAgL8AAIA/AACAvwAAgD8AAIC/AACAvwAAgD8AAIC/AACAvwAAgL8AAIA/AACAvwAAgL8AAIC/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgL8AAIC/AACAPwAAgL8AAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAADAAAAAQADAAEAAgAHAAQABQAHAAUABgALAAgACQALAAkACgAPAAwADQAPAA0ADgATABAAEQATABEAEgAXABQAFQAXABUAFgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8FtxPgBBar3wW3G+8FtxPgBBar3wW3G+8FtxPgBBar3wW3G+8FtxPgBBar3wW3G+"
+            "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAIC/AACAvwAAAAAAAIC/AACAvwAAAAAAAIA/AAAAAAAAAAAAAABAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAABAAAAAEABAABAAIABAACAAMAAAAAAIA/AAAAAAAAgL8AAIC/AAAAAAAAgL8AAIC/AAAAAAAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAABazNE4c/l/P3P5fz9z+X8/c/l/PwCg0ThcrNE4AKDROAAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwMAAAABAAMAAQACAAAAAAAAAIA/AAAAAAAAgL8AAIC/AAAAAAAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAAEAAgAAAAAAgL8AAAAAAACAvwAAgD8AAAAAAACAPwAAgD8AAAAAAACAvwAAgL8AAAAAAACAPwAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAQACAAAAAAADAAEAAAA="
         }
     ],
     "materials": [
@@ -664,28 +539,6 @@
                     "mode": 4
                 }
             ]
-        },
-        {
-            "name": "ShapeKey.001",
-            "primitives": [
-                {
-                    "attributes": {
-                        "NORMAL": 18,
-                        "POSITION": 17
-                    },
-                    "indices": 19,
-                    "mode": 4,
-                    "targets": [
-                        {
-                            "NORMAL": 21,
-                            "POSITION": 20
-                        }
-                    ]
-                }
-            ],
-            "weights": [
-                0.4047619104385376
-            ]
         }
     ],
     "nodes": [
@@ -704,9 +557,9 @@
                 1.0
             ],
             "translation": [
+                2.0,
                 0.0,
-                0.0,
-                0.0
+                2.0
             ]
         },
         {
@@ -724,19 +577,18 @@
                 1.0
             ],
             "translation": [
+                -2.0,
                 0.0,
-                0.0,
-                0.0
+                2.0
             ]
         },
         {
-            "mesh": 4,
-            "name": "ShapeKey",
+            "name": "Sun",
             "rotation": [
                 0.0,
-                0.0,
-                0.0,
-                1.0
+                0.7071068286895752,
+                0.7071068286895752,
+                0.0
             ],
             "scale": [
                 1.0,
@@ -764,9 +616,9 @@
                 1.0
             ],
             "translation": [
+                2.0,
                 0.0,
-                0.0,
-                0.0
+                -2.0
             ]
         },
         {
@@ -784,9 +636,9 @@
                 1.0
             ],
             "translation": [
+                -2.0,
                 0.0,
-                0.0,
-                0.0
+                -2.0
             ]
         }
     ],
