@@ -75,6 +75,19 @@ def requires_int_indices(vert_list):
     return len(vert_list) > 65535
 
 
+def get_vert_list(mesh, has_shape_keys):
+    mesh.calc_normals_split()
+    mesh.calc_tessface()
+
+    # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
+    if has_shape_keys:
+        vert_list = [Vertex(mesh, loop) for loop in mesh.loops]
+    else:
+        vert_list = list({Vertex(mesh, loop): 0 for loop in mesh.loops}.keys())
+
+    return vert_list
+
+
 class MeshExporter(BaseExporter):
     gltf_key = 'meshes'
     blender_key = 'meshes'
@@ -95,13 +108,26 @@ class MeshExporter(BaseExporter):
 
         shape_keys = state['shape_keys'].get(mesh_name, [])
 
+        vert_lists = [get_vert_list(blender_data, len(shape_keys) > 0)]
+        vert_lists += [
+            get_vert_list(key_mesh, True)
+            for key_mesh in [key[1] for key in shape_keys]
+        ]
+
         # Process mesh data and gather attributes
-        gltf_attrs, buf, vert_list = cls.export_attributes(state, blender_data, mesh_name, None)
+        buffer = Buffer(mesh_name)
+        gltf_attrs = cls.export_attributes(state, buffer, mesh_name, None, vert_lists[0])
 
         # Process shape keys
         targets = [
-            cls.export_attributes(state, key_mesh, key_mesh.name, vert_list)[0]
-            for key_mesh in [key[1] for key in shape_keys]
+            cls.export_attributes(
+                state,
+                Buffer(key_mesh.name),
+                key_mesh.name,
+                vert_lists[0],
+                vert_lists[i + 1]
+            )
+            for i, key_mesh in enumerate([key[1] for key in shape_keys])
         ]
 
         if shape_keys:
@@ -117,7 +143,7 @@ class MeshExporter(BaseExporter):
 
         # Index data
         # Map loop indices to vertices
-        vert_dict = {i: vertex for vertex in vert_list for i in vertex.loop_indices}
+        vert_dict = {i: vertex for vertex in vert_lists[0] for i in vertex.loop_indices}
 
         for poly in blender_data.polygons:
             # Find the primitive that this polygon ought to belong to (by
@@ -150,7 +176,7 @@ class MeshExporter(BaseExporter):
                     "Invalid polygon with {} vertices.".format(len(indices))
                 )
 
-        if requires_int_indices(vert_list):
+        if requires_int_indices(vert_lists[0]):
             # Use the integer index extension
             if OES_ELEMENT_INDEX_UINT not in state['gl_extensions_used']:
                 state['gl_extensions_used'].append(OES_ELEMENT_INDEX_UINT)
@@ -159,7 +185,7 @@ class MeshExporter(BaseExporter):
             itype = Buffer.UNSIGNED_SHORT
 
         gltf_mesh['primitives'] = [
-            cls.export_primitive(state, buf, mat, indices, itype, gltf_attrs, targets)
+            cls.export_primitive(state, buffer, mat, indices, itype, gltf_attrs, targets)
             for mat, indices in prims.items() if indices
         ]
 
@@ -205,18 +231,8 @@ class MeshExporter(BaseExporter):
         return gltf_prim
 
     @classmethod
-    def export_attributes(cls, state, mesh, mesh_name, base_vert_list):
+    def export_attributes(cls, state, buf, mesh_name, base_vert_list, vert_list):
         is_skinned = mesh_name in state['skinned_meshes']
-        is_morph_base = len(state['shape_keys'].get(mesh_name, [])) != 0
-
-        mesh.calc_normals_split()
-        mesh.calc_tessface()
-
-        # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
-        if is_morph_base or base_vert_list:
-            vert_list = [Vertex(mesh, loop) for loop in mesh.loops]
-        else:
-            vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
 
         color_type = Buffer.VEC3
         color_size = 3
@@ -224,11 +240,9 @@ class MeshExporter(BaseExporter):
             color_type = Buffer.VEC4
             color_size = 4
 
-        num_uv_layers = len(mesh.uv_layers)
-        num_col_layers = len(mesh.vertex_colors)
+        num_uv_layers = len(vert_list[0].uvs)
+        num_col_layers = len(vert_list[0].colors)
         vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * color_size) * 4
-
-        buf = Buffer(mesh_name)
 
         num_verts = len(vert_list)
 
@@ -415,4 +429,4 @@ class MeshExporter(BaseExporter):
             state['buffers'].append(skin_buf)
             state['input']['buffers'].append(SimpleID(skin_buf.name))
 
-        return gltf_attrs, buf, vert_list
+        return gltf_attrs
