@@ -88,6 +88,52 @@ def get_vert_list(mesh, has_shape_keys):
     return vert_list
 
 
+def gather_primitives(state, mesh, vert_lists):
+    # For each material, make an empty primitive set.
+    # This dictionary maps material names to list of indices that form the
+    # part of the mesh that the material should be applied to.
+    mesh_materials = [ma for ma in mesh.materials if ma in state['input']['materials']]
+    prims = {ma.name if ma else '': [] for ma in mesh_materials}
+    if not prims:
+        prims = {'': []}
+
+    # Index data
+    # Map loop indices to vertices
+    vert_dict = {i: vertex for vertex in vert_lists[0] for i in vertex.loop_indices}
+
+    for poly in mesh.polygons:
+        # Find the primitive that this polygon ought to belong to (by
+        # material).
+        if not mesh_materials:
+            prim = prims['']
+        else:
+            try:
+                mat = mesh_materials[poly.material_index]
+            except IndexError:
+                # Polygon has a bad material index, so skip it
+                continue
+            prim = prims[mat.name if mat else '']
+
+        # Find the (vertex) index associated with each loop in the polygon.
+        indices = [vert_dict[i].index for i in poly.loop_indices]
+        coords = [mathutils.Vector(vert_dict[i].co) for i in poly.loop_indices]
+
+        if len(indices) == 3:
+            # No triangulation necessary
+            prim += indices
+        elif len(indices) > 3:
+            # Triangulation necessary
+            triangles = mathutils.geometry.tessellate_polygon((coords,))
+            for triangle in triangles:
+                prim += [indices[i] for i in triangle[::-1]]
+        else:
+            # Bad polygon
+            raise RuntimeError(
+                "Invalid polygon with {} vertices.".format(len(indices))
+            )
+    return prims
+
+
 class MeshExporter(BaseExporter):
     gltf_key = 'meshes'
     blender_key = 'meshes'
@@ -133,48 +179,7 @@ class MeshExporter(BaseExporter):
         if shape_keys:
             gltf_mesh['weights'] = [key[0] for key in shape_keys]
 
-        # For each material, make an empty primitive set.
-        # This dictionary maps material names to list of indices that form the
-        # part of the mesh that the material should be applied to.
-        mesh_materials = [ma for ma in blender_data.materials if ma in state['input']['materials']]
-        prims = {ma.name if ma else '': [] for ma in mesh_materials}
-        if not prims:
-            prims = {'': []}
-
-        # Index data
-        # Map loop indices to vertices
-        vert_dict = {i: vertex for vertex in vert_lists[0] for i in vertex.loop_indices}
-
-        for poly in blender_data.polygons:
-            # Find the primitive that this polygon ought to belong to (by
-            # material).
-            if not mesh_materials:
-                prim = prims['']
-            else:
-                try:
-                    mat = mesh_materials[poly.material_index]
-                except IndexError:
-                    # Polygon has a bad material index, so skip it
-                    continue
-                prim = prims[mat.name if mat else '']
-
-            # Find the (vertex) index associated with each loop in the polygon.
-            indices = [vert_dict[i].index for i in poly.loop_indices]
-            coords = [mathutils.Vector(vert_dict[i].co) for i in poly.loop_indices]
-
-            if len(indices) == 3:
-                # No triangulation necessary
-                prim += indices
-            elif len(indices) > 3:
-                # Triangulation necessary
-                triangles = mathutils.geometry.tessellate_polygon((coords,))
-                for triangle in triangles:
-                    prim += [indices[i] for i in triangle[::-1]]
-            else:
-                # Bad polygon
-                raise RuntimeError(
-                    "Invalid polygon with {} vertices.".format(len(indices))
-                )
+        prims = gather_primitives(state, blender_data, vert_lists)
 
         if requires_int_indices(vert_lists[0]):
             # Use the integer index extension
