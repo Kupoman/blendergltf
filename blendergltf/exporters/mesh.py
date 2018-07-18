@@ -71,6 +71,10 @@ class Vertex:
         return equals
 
 
+def requires_int_indices(vert_list):
+    return len(vert_list) > 65535
+
+
 class MeshExporter(BaseExporter):
     gltf_key = 'meshes'
     blender_key = 'meshes'
@@ -115,7 +119,6 @@ class MeshExporter(BaseExporter):
         # Map loop indices to vertices
         vert_dict = {i: vertex for vertex in vert_list for i in vertex.loop_indices}
 
-        max_vert_index = 0
         for poly in blender_data.polygons:
             # Find the primitive that this polygon ought to belong to (by
             # material).
@@ -133,9 +136,6 @@ class MeshExporter(BaseExporter):
             indices = [vert_dict[i].index for i in poly.loop_indices]
             coords = [mathutils.Vector(vert_dict[i].co) for i in poly.loop_indices]
 
-            # Used to determine whether a mesh must be split.
-            max_vert_index = max(max_vert_index, max(indices))
-
             if len(indices) == 3:
                 # No triangulation necessary
                 prim += indices
@@ -150,7 +150,7 @@ class MeshExporter(BaseExporter):
                     "Invalid polygon with {} vertices.".format(len(indices))
                 )
 
-        if max_vert_index > 65535:
+        if requires_int_indices(vert_list):
             # Use the integer index extension
             if OES_ELEMENT_INDEX_UINT not in state['gl_extensions_used']:
                 state['gl_extensions_used'].append(OES_ELEMENT_INDEX_UINT)
