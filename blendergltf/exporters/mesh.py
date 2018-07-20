@@ -142,6 +142,13 @@ def gather_primitives(state, mesh, vert_lists):
     return prims
 
 
+def fill_data(acc, iterator):
+    for i, data in enumerate(iterator):
+        size = len(data)
+        for j, element in enumerate(data):
+            acc[(i * size + j)] = element
+
+
 class MeshExporter(BaseExporter):
     gltf_key = 'meshes'
     blender_key = 'meshes'
@@ -300,38 +307,29 @@ class MeshExporter(BaseExporter):
 
         # Copy vertex data
         if base_vert_list:
-            vert_iter = [(i, v[0], v[1]) for i, v in enumerate(zip(vert_list, base_vert_list))]
-            for i, vtx, base_vtx in vert_iter:
-                co = [a - b for a, b in zip(vtx.co, base_vtx.co)]
-                normal = [a - b for a, b in zip(vtx.normal, base_vtx.normal)]
-                for j in range(3):
-                    vdata[(i * 3) + j] = co[j]
-                    ndata[(i * 3) + j] = normal[j]
-
+            fill_data(vdata, (
+                [a - b for a, b in zip(v.co, b.co)]
+                for v, b in zip(vert_list, base_vert_list)
+            ))
+            fill_data(ndata, (
+                [a - b for a, b in zip(v.normal, b.normal)]
+                for v, b in zip(vert_list, base_vert_list)
+            ))
         else:
+            fill_data(vdata, (v.co for v in vert_list))
+            fill_data(ndata, (v.normal for v in vert_list))
+            for i, accessor in enumerate(cdata):
+                if state['settings']['meshes_vertex_color_alpha']:
+                    fill_data(accessor, (v.colors[i] + [1.0] for v in vert_list))
+                else:
+                    fill_data(accessor, (v.colors[i] for v in vert_list))
+            for i, accessor in enumerate(tdata):
+                if state['settings']['asset_profile'] == 'WEB':
+                    fill_data(accessor, ((v.uvs[i][0], 1.0 - v.uvs[i][1]) for v in vert_list))
+                else:
+                    fill_data(accessor, (v.uvs[i] for v in vert_list))
             for i, vtx in enumerate(vert_list):
                 vtx.index = i
-                co = vtx.co
-                normal = vtx.normal
-
-                for j in range(3):
-                    vdata[(i * 3) + j] = co[j]
-                    ndata[(i * 3) + j] = normal[j]
-
-                for j, uv in enumerate(vtx.uvs):
-                    tdata[j][i * 2] = uv[0]
-                    if state['settings']['asset_profile'] == 'WEB':
-                        tdata[j][i * 2 + 1] = 1.0 - uv[1]
-                    else:
-                        tdata[j][i * 2 + 1] = uv[1]
-
-                for j, col in enumerate(vtx.colors):
-                    cdata[j][i * color_size] = col[0]
-                    cdata[j][i * color_size + 1] = col[1]
-                    cdata[j][i * color_size + 2] = col[2]
-
-                    if state['settings']['meshes_vertex_color_alpha']:
-                        cdata[j][i * color_size + 3] = 1.0
 
         state['buffers'].append(buf)
         state['input']['buffers'].append(SimpleID(buf.name))
