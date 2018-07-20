@@ -54,6 +54,9 @@ class TestMeshUtils(unittest.TestCase):
         self.assertEqual(len(attrs.polygon_sets[0]), 1)
         self.assertEqual(len(attrs.polygon_sets[1]), 1)
 
+    def test_no_materials(self):
+        attrs = extract_from_mesh('NoMaterial')
+        self.assertEqual(len(attrs.triangle_sets), 1)
 
 if __name__ == '__main__':
     import sys
