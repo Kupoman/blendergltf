@@ -13,6 +13,7 @@ def export(out_dir, options):
         filepath=gltf_file_name,
         buffers_embed_data=True,
         meshes_interleave_vertex_data='interleaved' in options,
+        images_data_storage='EMBED'
     )
 
 
