@@ -16,7 +16,7 @@ CONFIGS = [
 ]
 
 def export_files(out_dir):
-    sources = os.listdir(SOURCE_DIR)
+    sources = [f for f in os.listdir(SOURCE_DIR) if f != 'textures']
     for source in sources:
         in_name = os.path.join(SOURCE_DIR, source)
         command = [
