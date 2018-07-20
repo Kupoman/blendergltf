@@ -12,11 +12,14 @@ from .common import (
 
 OES_ELEMENT_INDEX_UINT = 'OES_element_index_uint'
 
+
 class OffsetTracker:
     def __init__(self):
         self.value = 0
+
     def get(self):
         return self.value
+
     def add(self, value):
         self.value += value
 
@@ -269,6 +272,7 @@ class MeshExporter(BaseExporter):
             view = None
 
         offset = OffsetTracker()
+
         def create_attr_accessor(name, component_type, component_count):
             if not view:
                 stride = 4 * component_count
