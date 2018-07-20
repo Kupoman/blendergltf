@@ -259,36 +259,39 @@ class MeshExporter(BaseExporter):
         num_uv_layers = len(vert_list[0].uvs)
         num_col_layers = len(vert_list[0].colors)
         vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * color_size) * 4
+        if is_skinned:
+            vertex_size += (4 + 4) * 4
         num_verts = len(vert_list)
-
-        offset = OffsetTracker()
-        def create_attr_accessor(name, component_count, view=None):
-            if not view:
-                stride = 4 * component_count
-                buffer = Buffer(mesh_name + '_' + name)
-                state['buffers'].append(buffer)
-                state['input']['buffers'].append(SimpleID(buffer.name))
-                view = buffer.add_view(stride * num_verts, stride, Buffer.ARRAY_BUFFER)
-                interleaved = False
-            else:
-                buffer = buf
-                stride = vertex_size
-                interleaved = True
-
-            data_type = [Buffer.SCALAR, Buffer.VEC2, Buffer.VEC3, Buffer.VEC4][component_count - 1]
-            _offset = offset.get()
-            acc = buffer.add_accessor(view, _offset, stride, Buffer.FLOAT, num_verts, data_type)
-            if interleaved:
-                offset.add(4 * component_count)
-            return acc
 
         if state['settings']['meshes_interleave_vertex_data']:
             view = buf.add_view(vertex_size * num_verts, vertex_size, Buffer.ARRAY_BUFFER)
         else:
             view = None
 
-        def add_attribute(name, component_size):
-            acc = create_attr_accessor(name, component_size, view)
+        offset = OffsetTracker()
+        def create_attr_accessor(name, component_type, component_count):
+            if not view:
+                stride = 4 * component_count
+                buffer = Buffer(mesh_name + '_' + name)
+                state['buffers'].append(buffer)
+                state['input']['buffers'].append(SimpleID(buffer.name))
+                _view = buffer.add_view(stride * num_verts, stride, Buffer.ARRAY_BUFFER)
+                interleaved = False
+            else:
+                _view = view
+                buffer = buf
+                stride = vertex_size
+                interleaved = True
+
+            data_type = [Buffer.SCALAR, Buffer.VEC2, Buffer.VEC3, Buffer.VEC4][component_count - 1]
+            _offset = offset.get()
+            acc = buffer.add_accessor(_view, _offset, stride, component_type, num_verts, data_type)
+            if interleaved:
+                offset.add(4 * component_count)
+            return acc
+
+        def add_attribute(name, component_size, component_type=Buffer.FLOAT):
+            acc = create_attr_accessor(name, component_type, component_size)
             gltf_attrs[name] = Reference('accessors', acc.name, gltf_attrs, name)
             state['references'].append(gltf_attrs[name])
             return acc
@@ -335,39 +338,6 @@ class MeshExporter(BaseExporter):
         state['input']['buffers'].append(SimpleID(buf.name))
 
         if is_skinned:
-            skin_buf = Buffer('{}_skin'.format(mesh_name))
-
-            skin_vertex_size = (4 + 4) * 4
-            skin_view = skin_buf.add_view(
-                skin_vertex_size * num_verts,
-                skin_vertex_size,
-                Buffer.ARRAY_BUFFER
-            )
-            jdata = skin_buf.add_accessor(
-                skin_view,
-                0,
-                skin_vertex_size,
-                Buffer.UNSIGNED_BYTE,
-                num_verts,
-                Buffer.VEC4
-            )
-            wdata = skin_buf.add_accessor(
-                skin_view,
-                16,
-                skin_vertex_size,
-                Buffer.FLOAT,
-                num_verts,
-                Buffer.VEC4
-            )
-
-            for i, vtx in enumerate(vert_list):
-                joints = vtx.joint_indexes
-                weights = vtx.weights
-
-                for j in range(4):
-                    jdata[(i * 4) + j] = joints[j]
-                    wdata[(i * 4) + j] = weights[j]
-
             if state['version'] < Version('2.0'):
                 joint_key = 'JOINT'
                 weight_key = 'WEIGHT'
@@ -375,12 +345,9 @@ class MeshExporter(BaseExporter):
                 joint_key = 'JOINTS_0'
                 weight_key = 'WEIGHTS_0'
 
-            gltf_attrs[joint_key] = Reference('accessors', jdata.name, gltf_attrs, joint_key)
-            state['references'].append(gltf_attrs[joint_key])
-            gltf_attrs[weight_key] = Reference('accessors', wdata.name, gltf_attrs, weight_key)
-            state['references'].append(gltf_attrs[weight_key])
-
-            state['buffers'].append(skin_buf)
-            state['input']['buffers'].append(SimpleID(skin_buf.name))
+            jdata = add_attribute(joint_key, 4, Buffer.UNSIGNED_BYTE)
+            fill_data(jdata, (v.joint_indexes for v in vert_list))
+            wdata = add_attribute(weight_key, 4)
+            fill_data(wdata, (v.weights for v in vert_list))
 
         return gltf_attrs
