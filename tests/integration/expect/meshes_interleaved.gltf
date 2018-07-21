@@ -355,78 +355,98 @@
             "target": 34963
         },
         {
-            "buffer": 0,
+            "buffer": 1,
             "byteLength": 576,
-            "byteOffset": 140,
+            "byteOffset": 0,
             "byteStride": 24,
             "name": "bufferView_buffer_NoMaterial_0",
             "target": 34962
         },
         {
-            "buffer": 0,
+            "buffer": 1,
             "byteLength": 76,
-            "byteOffset": 716,
+            "byteOffset": 576,
             "name": "bufferView_buffer_NoMaterial_1",
             "target": 34963
         },
         {
-            "buffer": 0,
+            "buffer": 2,
             "byteLength": 176,
-            "byteOffset": 792,
+            "byteOffset": 0,
             "byteStride": 44,
             "name": "bufferView_buffer_Quad_0",
             "target": 34962
         },
         {
-            "buffer": 0,
+            "buffer": 2,
             "byteLength": 16,
-            "byteOffset": 968,
+            "byteOffset": 176,
             "name": "bufferView_buffer_Quad_1",
             "target": 34963
         },
         {
-            "buffer": 0,
+            "buffer": 3,
             "byteLength": 132,
-            "byteOffset": 984,
+            "byteOffset": 0,
             "byteStride": 44,
             "name": "bufferView_buffer_Triangle_0",
             "target": 34962
         },
         {
-            "buffer": 0,
+            "buffer": 3,
             "byteLength": 8,
-            "byteOffset": 1116,
+            "byteOffset": 132,
             "name": "bufferView_buffer_Triangle_1",
             "target": 34963
         },
         {
-            "buffer": 0,
+            "buffer": 4,
             "byteLength": 96,
-            "byteOffset": 1124,
+            "byteOffset": 0,
             "byteStride": 24,
             "name": "bufferView_buffer_TwoMaterials_0",
             "target": 34962
         },
         {
-            "buffer": 0,
+            "buffer": 4,
             "byteLength": 8,
-            "byteOffset": 1220,
+            "byteOffset": 96,
             "name": "bufferView_buffer_TwoMaterials_1",
             "target": 34963
         },
         {
-            "buffer": 0,
+            "buffer": 4,
             "byteLength": 8,
-            "byteOffset": 1228,
+            "byteOffset": 104,
             "name": "bufferView_buffer_TwoMaterials_2",
             "target": 34963
         }
     ],
     "buffers": [
         {
-            "byteLength": 1236,
-            "name": "buffer_meshes_interleaved",
-            "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIA/AAAAAAAAgD8AAAAAAAAAAAAAAAAAAABAAAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAABAAAAAEABAABAAIABAACAAMAAAAAAIA/AACAvwAAgL8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgL8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAAAAAAAAAAIA/AACAvwAAgD8AAIA/AAAAAAAAAAAAAIA/AACAvwAAgD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAAAAAAAAgD8AAIC/AACAPwAAgD8AAAAAAAAAAAAAgD8AAIC/AACAvwAAgD8AAAAAAAAAAAAAgD8AAIC/AACAvwAAgD8AAIC/AAAAAAAAAAAAAIC/AACAPwAAgD8AAIC/AAAAAAAAAAAAAIC/AACAPwAAgL8AAIC/AAAAAAAAAAAAAIC/AACAvwAAgL8AAIC/AAAAAAAAAAAAAIC/AACAvwAAgL8AAAAAAAAAAAAAgL8AAIC/AACAPwAAgL8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgL8AAAAAAAAAAAAAgL8AAIA/AACAvwAAgL8AAAAAAAAAAAAAgL8AAIA/AACAvwAAgD8AAAAAAACAvwAAAAAAAIC/AACAvwAAgD8AAAAAAACAvwAAAAAAAIC/AACAvwAAgL8AAAAAAACAvwAAAAAAAIA/AACAvwAAgL8AAAAAAACAvwAAAAAAAIC/AACAPwAAgD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgL8AAAAAAACAPwAAAAAAAIC/AACAPwAAgL8AAAAAAACAPwAAAAADAAAAAQADAAEAAgAHAAQABQAHAAUABgALAAgACQALAAkACgAPAAwADQAPAA0ADgATABAAEQATABEAEgAXABQAFQAXABUAFgAAAAAAAACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAWszROHP5fz8AAIA/AACAPwAAgD8AAIC/AAAAAAAAgL8AAAAAAACAPwAAAABz+X8/c/l/PwAAgD8AAIA/AACAPwAAgL8AAAAAAACAPwAAAAAAAIA/AAAAAHP5fz8AoNE4AACAPwAAgD8AAIA/AACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAXKzROACg0TgAAIA/AACAPwAAgD8DAAAAAQADAAEAAgAAAAAAAACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIC/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAgD8AAIA/AAABAAIAAAAAAIC/AAAAAAAAgL8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgL8AAAAAAACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAPwAAAAAAAAEAAgAAAAAAAwABAAAA"
+            "byteLength": 140,
+            "name": "buffer_Ngon",
+            "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIA/AAAAAAAAgD8AAAAAAAAAAAAAAAAAAABAAAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAAABAAIABAAAAAIABAACAAMAAAA="
+        },
+        {
+            "byteLength": 652,
+            "name": "buffer_NoMaterial",
+            "uri": "data:application/octet-stream;base64,AACAPwAAgL8AAIC/AACAPwAAAAAAAAAAAACAPwAAgD8AAIC/AACAPwAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAAAAAACAPwAAgL8AAIA/AACAPwAAAAAAAAAAAACAPwAAgL8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAAAAAAAAAAIA/AACAvwAAgD8AAIA/AAAAAAAAAAAAAIA/AACAvwAAgL8AAIA/AAAAAAAAAAAAAIA/AACAvwAAgL8AAIA/AACAvwAAAAAAAAAAAACAvwAAgD8AAIA/AACAvwAAAAAAAAAAAACAvwAAgD8AAIC/AACAvwAAAAAAAAAAAACAvwAAgL8AAIC/AACAvwAAAAAAAAAAAACAvwAAgL8AAIC/AAAAAAAAAAAAAIC/AACAvwAAgD8AAIC/AAAAAAAAAAAAAIC/AACAPwAAgD8AAIC/AAAAAAAAAAAAAIC/AACAPwAAgL8AAIC/AAAAAAAAAAAAAIC/AACAPwAAgL8AAIA/AAAAAAAAgL8AAAAAAACAvwAAgL8AAIA/AAAAAAAAgL8AAAAAAACAvwAAgL8AAIC/AAAAAAAAgL8AAAAAAACAPwAAgL8AAIC/AAAAAAAAgL8AAAAAAACAvwAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAgD8AAIC/AAAAAAAAgD8AAAAAAACAvwAAgD8AAIC/AAAAAAAAgD8AAAAAAAABAAIAAwAAAAIABQAGAAcABAAFAAcACgALAAgACQAKAAgADQAOAA8ADAANAA8AEgATABAAEQASABAAFgAXABQAFQAWABQAAAAAAA=="
+        },
+        {
+            "byteLength": 192,
+            "name": "buffer_Quad",
+            "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAWszROHP5fz8AAIA/AACAPwAAgD8AAIC/AAAAAAAAgL8AAAAAAACAPwAAAABz+X8/c/l/PwAAgD8AAIA/AACAPwAAgL8AAAAAAACAPwAAAAAAAIA/AAAAAHP5fz8AoNE4AACAPwAAgD8AAIA/AACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAXKzROACg0TgAAIA/AACAPwAAgD8AAAEAAgADAAAAAgAAAAAA"
+        },
+        {
+            "byteLength": 140,
+            "name": "buffer_Triangle",
+            "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIC/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAgD8AAIA/AAABAAIAAAA="
+        },
+        {
+            "byteLength": 112,
+            "name": "buffer_TwoMaterials",
+            "uri": "data:application/octet-stream;base64,AACAvwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIC/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIA/AAAAAAAAgD8AAAAAAAABAAIAAAAAAAMAAQAAAA=="
         }
     ],
     "materials": [

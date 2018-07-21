@@ -9,9 +9,11 @@ def export(out_dir, options):
     if options:
         gltf_file_name = gltf_file_name.replace('.gltf', '_' + '_'.join(options) + '.gltf')
     print('Exporting', blend_file_name, 'to', gltf_file_name)
+    print('Options:', options)
     bpy.ops.export_scene.gltf(
         filepath=gltf_file_name,
         buffers_embed_data=True,
+        buffers_combine_data=False,
         meshes_interleave_vertex_data='interleaved' in options,
         images_data_storage='EMBED'
     )
