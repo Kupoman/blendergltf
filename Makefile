@@ -8,10 +8,10 @@ test-unit:
 	python -m pytest tests/unit
 
 test-integration:
-	python tests/integration/integration.py check
+	python -m pytest -v tests/integration
 
 test-integration-update:
-	python tests/integration/integration.py update
+	python -m pytest -v --update tests/integration
 
 test-blender-mesh-utils:
 	blender \
