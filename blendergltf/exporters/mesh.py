@@ -13,6 +13,17 @@ from .common import (
 OES_ELEMENT_INDEX_UINT = 'OES_element_index_uint'
 
 
+class OffsetTracker:
+    def __init__(self):
+        self.value = 0
+
+    def get(self):
+        return self.value
+
+    def add(self, value):
+        self.value += value
+
+
 class Vertex:
     __slots__ = (
         "co",
@@ -71,6 +82,76 @@ class Vertex:
         return equals
 
 
+def requires_int_indices(vert_list):
+    return len(vert_list) > 65535
+
+
+def get_vert_list(mesh, has_shape_keys):
+    mesh.calc_normals_split()
+    mesh.calc_tessface()
+
+    # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
+    if has_shape_keys:
+        vert_list = [Vertex(mesh, loop) for loop in mesh.loops]
+    else:
+        vert_list = list({Vertex(mesh, loop): 0 for loop in mesh.loops}.keys())
+
+    return vert_list
+
+
+def gather_primitives(state, mesh, vert_lists):
+    # For each material, make an empty primitive set.
+    # This dictionary maps material names to list of indices that form the
+    # part of the mesh that the material should be applied to.
+    mesh_materials = [ma for ma in mesh.materials if ma in state['input']['materials']]
+    prims = {ma.name if ma else '': [] for ma in mesh_materials}
+    if not prims:
+        prims = {'': []}
+
+    # Index data
+    # Map loop indices to vertices
+    vert_dict = {i: vertex for vertex in vert_lists[0] for i in vertex.loop_indices}
+
+    for poly in mesh.polygons:
+        # Find the primitive that this polygon ought to belong to (by
+        # material).
+        if not mesh_materials:
+            prim = prims['']
+        else:
+            try:
+                mat = mesh_materials[poly.material_index]
+            except IndexError:
+                # Polygon has a bad material index, so skip it
+                continue
+            prim = prims[mat.name if mat else '']
+
+        # Find the (vertex) index associated with each loop in the polygon.
+        indices = [vert_dict[i].index for i in poly.loop_indices]
+        coords = [mathutils.Vector(vert_dict[i].co) for i in poly.loop_indices]
+
+        if len(indices) == 3:
+            # No triangulation necessary
+            prim += indices
+        elif len(indices) > 3:
+            # Triangulation necessary
+            triangles = mathutils.geometry.tessellate_polygon((coords,))
+            for triangle in triangles:
+                prim += [indices[i] for i in triangle[::-1]]
+        else:
+            # Bad polygon
+            raise RuntimeError(
+                "Invalid polygon with {} vertices.".format(len(indices))
+            )
+    return prims
+
+
+def fill_data(acc, iterator):
+    for i, data in enumerate(iterator):
+        size = len(data)
+        for j, element in enumerate(data):
+            acc[(i * size + j)] = element
+
+
 class MeshExporter(BaseExporter):
     gltf_key = 'meshes'
     blender_key = 'meshes'
@@ -91,66 +172,34 @@ class MeshExporter(BaseExporter):
 
         shape_keys = state['shape_keys'].get(mesh_name, [])
 
+        vert_lists = [get_vert_list(blender_data, len(shape_keys) > 0)]
+        vert_lists += [
+            get_vert_list(key_mesh, True)
+            for key_mesh in [key[1] for key in shape_keys]
+        ]
+
         # Process mesh data and gather attributes
-        gltf_attrs, buf, vert_list = cls.export_attributes(state, blender_data, mesh_name, None)
+        buffer = Buffer(mesh_name)
+        gltf_attrs = cls.export_attributes(state, buffer, mesh_name, None, vert_lists[0])
 
         # Process shape keys
         targets = [
-            cls.export_attributes(state, key_mesh, key_mesh.name, vert_list)[0]
-            for key_mesh in [key[1] for key in shape_keys]
+            cls.export_attributes(
+                state,
+                Buffer(key_mesh.name),
+                key_mesh.name,
+                vert_lists[0],
+                vert_lists[i + 1]
+            )
+            for i, key_mesh in enumerate([key[1] for key in shape_keys])
         ]
 
         if shape_keys:
             gltf_mesh['weights'] = [key[0] for key in shape_keys]
 
-        # For each material, make an empty primitive set.
-        # This dictionary maps material names to list of indices that form the
-        # part of the mesh that the material should be applied to.
-        mesh_materials = [ma for ma in blender_data.materials if ma in state['input']['materials']]
-        prims = {ma.name if ma else '': [] for ma in mesh_materials}
-        if not prims:
-            prims = {'': []}
+        prims = gather_primitives(state, blender_data, vert_lists)
 
-        # Index data
-        # Map loop indices to vertices
-        vert_dict = {i: vertex for vertex in vert_list for i in vertex.loop_indices}
-
-        max_vert_index = 0
-        for poly in blender_data.polygons:
-            # Find the primitive that this polygon ought to belong to (by
-            # material).
-            if not mesh_materials:
-                prim = prims['']
-            else:
-                try:
-                    mat = mesh_materials[poly.material_index]
-                except IndexError:
-                    # Polygon has a bad material index, so skip it
-                    continue
-                prim = prims[mat.name if mat else '']
-
-            # Find the (vertex) index associated with each loop in the polygon.
-            indices = [vert_dict[i].index for i in poly.loop_indices]
-            coords = [mathutils.Vector(vert_dict[i].co) for i in poly.loop_indices]
-
-            # Used to determine whether a mesh must be split.
-            max_vert_index = max(max_vert_index, max(indices))
-
-            if len(indices) == 3:
-                # No triangulation necessary
-                prim += indices
-            elif len(indices) > 3:
-                # Triangulation necessary
-                triangles = mathutils.geometry.tessellate_polygon((coords,))
-                for triangle in triangles:
-                    prim += [indices[i] for i in triangle[::-1]]
-            else:
-                # Bad polygon
-                raise RuntimeError(
-                    "Invalid polygon with {} vertices.".format(len(indices))
-                )
-
-        if max_vert_index > 65535:
+        if requires_int_indices(vert_lists[0]):
             # Use the integer index extension
             if OES_ELEMENT_INDEX_UINT not in state['gl_extensions_used']:
                 state['gl_extensions_used'].append(OES_ELEMENT_INDEX_UINT)
@@ -159,7 +208,7 @@ class MeshExporter(BaseExporter):
             itype = Buffer.UNSIGNED_SHORT
 
         gltf_mesh['primitives'] = [
-            cls.export_primitive(state, buf, mat, indices, itype, gltf_attrs, targets)
+            cls.export_primitive(state, buffer, mat, indices, itype, gltf_attrs, targets)
             for mat, indices in prims.items() if indices
         ]
 
@@ -205,201 +254,94 @@ class MeshExporter(BaseExporter):
         return gltf_prim
 
     @classmethod
-    def export_attributes(cls, state, mesh, mesh_name, base_vert_list):
+    def export_attributes(cls, state, buf, mesh_name, base_vert_list, vert_list):
+        gltf_attrs = {}
         is_skinned = mesh_name in state['skinned_meshes']
-        is_morph_base = len(state['shape_keys'].get(mesh_name, [])) != 0
 
-        mesh.calc_normals_split()
-        mesh.calc_tessface()
-
-        # Remove duplicate verts with dictionary hashing (causes problems with shape keys)
-        if is_morph_base or base_vert_list:
-            vert_list = [Vertex(mesh, loop) for loop in mesh.loops]
-        else:
-            vert_list = {Vertex(mesh, loop): 0 for loop in mesh.loops}.keys()
-
-        color_type = Buffer.VEC3
-        color_size = 3
-        if state['settings']['meshes_vertex_color_alpha']:
-            color_type = Buffer.VEC4
-            color_size = 4
-
-        num_uv_layers = len(mesh.uv_layers)
-        num_col_layers = len(mesh.vertex_colors)
+        color_size = 4 if state['settings']['meshes_vertex_color_alpha'] else 3
+        num_uv_layers = len(vert_list[0].uvs)
+        num_col_layers = len(vert_list[0].colors)
         vertex_size = (3 + 3 + num_uv_layers * 2 + num_col_layers * color_size) * 4
-
-        buf = Buffer(mesh_name)
-
+        if is_skinned:
+            vertex_size += (4 + 4) * 4
         num_verts = len(vert_list)
 
         if state['settings']['meshes_interleave_vertex_data']:
             view = buf.add_view(vertex_size * num_verts, vertex_size, Buffer.ARRAY_BUFFER)
-            vdata = buf.add_accessor(view, 0, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            ndata = buf.add_accessor(view, 12, vertex_size, Buffer.FLOAT, num_verts, Buffer.VEC3)
-            if not base_vert_list:
-                tdata = [
-                    buf.add_accessor(
-                        view,
-                        24 + 8 * i,
-                        vertex_size,
-                        Buffer.FLOAT,
-                        num_verts,
-                        Buffer.VEC2
-                    )
-                    for i in range(num_uv_layers)
-                ]
-                cdata = [
-                    buf.add_accessor(
-                        view,
-                        24 + 8 * num_uv_layers + 12 * i,
-                        vertex_size,
-                        Buffer.FLOAT,
-                        num_verts,
-                        color_type
-                    )
-                    for i in range(num_col_layers)
-                ]
         else:
-            prop_buffer = Buffer(mesh_name + '_POSITION')
-            state['buffers'].append(prop_buffer)
-            state['input']['buffers'].append(SimpleID(prop_buffer.name))
-            prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
-            vdata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+            view = None
 
-            prop_buffer = Buffer(mesh_name + '_NORMAL')
-            state['buffers'].append(prop_buffer)
-            state['input']['buffers'].append(SimpleID(prop_buffer.name))
-            prop_view = prop_buffer.add_view(12 * num_verts, 12, Buffer.ARRAY_BUFFER)
-            ndata = prop_buffer.add_accessor(prop_view, 0, 12, Buffer.FLOAT, num_verts, Buffer.VEC3)
+        offset = OffsetTracker()
 
-            if not base_vert_list:
-                tdata = []
-                for uv_layer in range(num_uv_layers):
-                    prop_buffer = Buffer('{}_TEXCOORD_{}'.format(mesh_name, uv_layer))
-                    state['buffers'].append(prop_buffer)
-                    state['input']['buffers'].append(SimpleID(prop_buffer.name))
-                    prop_view = prop_buffer.add_view(8 * num_verts, 8, Buffer.ARRAY_BUFFER)
-                    tdata.append(
-                        prop_buffer.add_accessor(
-                            prop_view,
-                            0,
-                            8,
-                            Buffer.FLOAT,
-                            num_verts,
-                            Buffer.VEC2
-                        )
-                    )
-                cdata = []
-                for col_layer in range(num_col_layers):
-                    prop_buffer = Buffer('{}_COLOR_{}'.format(mesh_name, col_layer))
-                    state['buffers'].append(prop_buffer)
-                    state['input']['buffers'].append(SimpleID(prop_buffer.name))
-                    prop_view = prop_buffer.add_view(
-                        4 * color_size * num_verts,
-                        4 * color_size,
-                        Buffer.ARRAY_BUFFER
-                    )
-                    cdata.append(
-                        prop_buffer.add_accessor(
-                            prop_view,
-                            0,
-                            color_size * 4,
-                            Buffer.FLOAT,
-                            num_verts,
-                            color_type
-                        )
-                    )
+        def create_attr_accessor(name, component_type, component_count):
+            if not view:
+                stride = 4 * component_count
+                buffer = Buffer(mesh_name + '_' + name)
+                state['buffers'].append(buffer)
+                state['input']['buffers'].append(SimpleID(buffer.name))
+                _view = buffer.add_view(stride * num_verts, stride, Buffer.ARRAY_BUFFER)
+                interleaved = False
+            else:
+                _view = view
+                buffer = buf
+                stride = vertex_size
+                interleaved = True
+
+            data_type = [Buffer.SCALAR, Buffer.VEC2, Buffer.VEC3, Buffer.VEC4][component_count - 1]
+            _offset = offset.get()
+            acc = buffer.add_accessor(_view, _offset, stride, component_type, num_verts, data_type)
+            if interleaved:
+                offset.add(4 * component_count)
+            return acc
+
+        def add_attribute(name, component_size, component_type=Buffer.FLOAT):
+            acc = create_attr_accessor(name, component_type, component_size)
+            gltf_attrs[name] = Reference('accessors', acc.name, gltf_attrs, name)
+            state['references'].append(gltf_attrs[name])
+            return acc
+
+        vdata = add_attribute('POSITION', 3)
+        ndata = add_attribute('NORMAL', 3)
+        if not base_vert_list:
+            tdata = [
+                add_attribute('TEXCOORD_' + str(i), 2)
+                for i in range(num_uv_layers)
+            ]
+            cdata = [
+                add_attribute('COLOR_' + str(i), color_size)
+                for i in range(num_col_layers)
+            ]
 
         # Copy vertex data
         if base_vert_list:
-            vert_iter = [(i, v[0], v[1]) for i, v in enumerate(zip(vert_list, base_vert_list))]
-            for i, vtx, base_vtx in vert_iter:
-                co = [a - b for a, b in zip(vtx.co, base_vtx.co)]
-                normal = [a - b for a, b in zip(vtx.normal, base_vtx.normal)]
-                for j in range(3):
-                    vdata[(i * 3) + j] = co[j]
-                    ndata[(i * 3) + j] = normal[j]
-
+            fill_data(vdata, (
+                [a - b for a, b in zip(v.co, b.co)]
+                for v, b in zip(vert_list, base_vert_list)
+            ))
+            fill_data(ndata, (
+                [a - b for a, b in zip(v.normal, b.normal)]
+                for v, b in zip(vert_list, base_vert_list)
+            ))
         else:
+            fill_data(vdata, (v.co for v in vert_list))
+            fill_data(ndata, (v.normal for v in vert_list))
+            for i, accessor in enumerate(cdata):
+                if state['settings']['meshes_vertex_color_alpha']:
+                    fill_data(accessor, (v.colors[i] + [1.0] for v in vert_list))
+                else:
+                    fill_data(accessor, (v.colors[i] for v in vert_list))
+            for i, accessor in enumerate(tdata):
+                if state['settings']['asset_profile'] == 'WEB':
+                    fill_data(accessor, ((v.uvs[i][0], 1.0 - v.uvs[i][1]) for v in vert_list))
+                else:
+                    fill_data(accessor, (v.uvs[i] for v in vert_list))
             for i, vtx in enumerate(vert_list):
                 vtx.index = i
-                co = vtx.co
-                normal = vtx.normal
-
-                for j in range(3):
-                    vdata[(i * 3) + j] = co[j]
-                    ndata[(i * 3) + j] = normal[j]
-
-                for j, uv in enumerate(vtx.uvs):
-                    tdata[j][i * 2] = uv[0]
-                    if state['settings']['asset_profile'] == 'WEB':
-                        tdata[j][i * 2 + 1] = 1.0 - uv[1]
-                    else:
-                        tdata[j][i * 2 + 1] = uv[1]
-
-                for j, col in enumerate(vtx.colors):
-                    cdata[j][i * color_size] = col[0]
-                    cdata[j][i * color_size + 1] = col[1]
-                    cdata[j][i * color_size + 2] = col[2]
-
-                    if state['settings']['meshes_vertex_color_alpha']:
-                        cdata[j][i * color_size + 3] = 1.0
-
-        # Handle attribute references
-        gltf_attrs = {}
-        gltf_attrs['POSITION'] = Reference('accessors', vdata.name, gltf_attrs, 'POSITION')
-        state['references'].append(gltf_attrs['POSITION'])
-
-        gltf_attrs['NORMAL'] = Reference('accessors', ndata.name, gltf_attrs, 'NORMAL')
-        state['references'].append(gltf_attrs['NORMAL'])
-
-        if not base_vert_list:
-            for i, accessor in enumerate(tdata):
-                attr_name = 'TEXCOORD_' + str(i)
-                gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
-                state['references'].append(gltf_attrs[attr_name])
-            for i, accessor in enumerate(cdata):
-                attr_name = 'COLOR_' + str(i)
-                gltf_attrs[attr_name] = Reference('accessors', accessor.name, gltf_attrs, attr_name)
-                state['references'].append(gltf_attrs[attr_name])
 
         state['buffers'].append(buf)
         state['input']['buffers'].append(SimpleID(buf.name))
 
         if is_skinned:
-            skin_buf = Buffer('{}_skin'.format(mesh_name))
-
-            skin_vertex_size = (4 + 4) * 4
-            skin_view = skin_buf.add_view(
-                skin_vertex_size * num_verts,
-                skin_vertex_size,
-                Buffer.ARRAY_BUFFER
-            )
-            jdata = skin_buf.add_accessor(
-                skin_view,
-                0,
-                skin_vertex_size,
-                Buffer.UNSIGNED_BYTE,
-                num_verts,
-                Buffer.VEC4
-            )
-            wdata = skin_buf.add_accessor(
-                skin_view,
-                16,
-                skin_vertex_size,
-                Buffer.FLOAT,
-                num_verts,
-                Buffer.VEC4
-            )
-
-            for i, vtx in enumerate(vert_list):
-                joints = vtx.joint_indexes
-                weights = vtx.weights
-
-                for j in range(4):
-                    jdata[(i * 4) + j] = joints[j]
-                    wdata[(i * 4) + j] = weights[j]
-
             if state['version'] < Version('2.0'):
                 joint_key = 'JOINT'
                 weight_key = 'WEIGHT'
@@ -407,12 +349,9 @@ class MeshExporter(BaseExporter):
                 joint_key = 'JOINTS_0'
                 weight_key = 'WEIGHTS_0'
 
-            gltf_attrs[joint_key] = Reference('accessors', jdata.name, gltf_attrs, joint_key)
-            state['references'].append(gltf_attrs[joint_key])
-            gltf_attrs[weight_key] = Reference('accessors', wdata.name, gltf_attrs, weight_key)
-            state['references'].append(gltf_attrs[weight_key])
+            jdata = add_attribute(joint_key, 4, Buffer.UNSIGNED_BYTE)
+            fill_data(jdata, (v.joint_indexes for v in vert_list))
+            wdata = add_attribute(weight_key, 4)
+            fill_data(wdata, (v.weights for v in vert_list))
 
-            state['buffers'].append(skin_buf)
-            state['input']['buffers'].append(SimpleID(skin_buf.name))
-
-        return gltf_attrs, buf, vert_list
+        return gltf_attrs

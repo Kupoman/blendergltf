@@ -157,14 +157,14 @@ class AnimationExporter(BaseExporter):
         has_scale = set()
 
         # Check action groups to see what needs to be animated
-        pose_bones = set()
+        pose_bones = {}
         for group in action.groups:
             for channel in group.channels:
                 data_path = channel.data_path
                 if obj.pose and 'pose.bones' in data_path:
                     target_name = data_path.split('"')[1]
                     transform = data_path.split('.')[-1]
-                    pose_bones.add(obj.pose.bones[target_name])
+                    pose_bones[obj.pose.bones[target_name]] = None
                 else:
                     target_name = obj.name
                     transform = data_path.lower()

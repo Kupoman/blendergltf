@@ -1,0 +1,210 @@
+{
+    "accessors": [
+        {
+            "bufferView": 0,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 24,
+            "max": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "min": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "name": "accessor_buffer_ShapeKey.001_0",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 0,
+            "byteOffset": 12,
+            "componentType": 5126,
+            "count": 24,
+            "max": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "min": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "name": "accessor_buffer_ShapeKey.001_1",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 1,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 36,
+            "max": [
+                23
+            ],
+            "min": [
+                0
+            ],
+            "name": "accessor_buffer_ShapeKey.001_2",
+            "type": "SCALAR"
+        },
+        {
+            "bufferView": 2,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 24,
+            "max": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "min": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "name": "accessor_buffer_ShapeKey.002_0",
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 2,
+            "byteOffset": 12,
+            "componentType": 5126,
+            "count": 24,
+            "max": [
+                0.2357022762298584,
+                0.0,
+                0.0
+            ],
+            "min": [
+                0.0,
+                -0.057190895080566406,
+                -0.2357022762298584
+            ],
+            "name": "accessor_buffer_ShapeKey.002_1",
+            "type": "VEC3"
+        }
+    ],
+    "asset": {
+        "copyright": "",
+        "generator": "blendergltf v1.2.0",
+        "version": "2.0"
+    },
+    "bufferViews": [
+        {
+            "buffer": 0,
+            "byteLength": 576,
+            "byteOffset": 0,
+            "byteStride": 24,
+            "name": "bufferView_buffer_ShapeKey.001_0",
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteLength": 76,
+            "byteOffset": 576,
+            "name": "bufferView_buffer_ShapeKey.001_1",
+            "target": 34963
+        },
+        {
+            "buffer": 0,
+            "byteLength": 576,
+            "byteOffset": 652,
+            "byteStride": 24,
+            "name": "bufferView_buffer_ShapeKey.002_0",
+            "target": 34962
+        }
+    ],
+    "buffers": [
+        {
+            "byteLength": 1228,
+            "name": "buffer_shap_keys_interleaved",
+            "uri": "data:application/octet-stream;base64,AACAPwAAgL8AAIC/AACAPwAAAAAAAAAAAACAPwAAgD8AAIC/AACAPwAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAAAAAACAPwAAgL8AAIA/AACAPwAAAAAAAAAAAACAPwAAgL8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAAAAAAAAAAIA/AACAvwAAgD8AAIA/AAAAAAAAAAAAAIA/AACAvwAAgL8AAIA/AAAAAAAAAAAAAIA/AACAvwAAgL8AAIA/AACAvwAAAAAAAAAAAACAvwAAgD8AAIA/AACAvwAAAAAAAAAAAACAvwAAgD8AAIC/AACAvwAAAAAAAAAAAACAvwAAgL8AAIC/AACAvwAAAAAAAAAAAACAvwAAgL8AAIC/AAAAAAAAAAAAAIC/AACAvwAAgD8AAIC/AAAAAAAAAAAAAIC/AACAPwAAgD8AAIC/AAAAAAAAAAAAAIC/AACAPwAAgL8AAIC/AAAAAAAAAAAAAIC/AACAPwAAgL8AAIA/AAAAAAAAgL8AAAAAAACAvwAAgL8AAIA/AAAAAAAAgL8AAAAAAACAvwAAgL8AAIC/AAAAAAAAgL8AAAAAAACAPwAAgL8AAIC/AAAAAAAAgL8AAAAAAACAvwAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAgD8AAIC/AAAAAAAAgD8AAAAAAACAvwAAgD8AAIC/AAAAAAAAgD8AAAAAAwAAAAEAAwABAAIABwAEAAUABwAFAAYACwAIAAkACwAJAAoADwAMAA0ADwANAA4AEwAQABEAEwARABIAFwAUABUAFwAVABYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAPBbcT4AQWq98FtxvgAAAAAAAAAAAAAAAPBbcT4AQWq98FtxvgAAAAAAAAAAAAAAAPBbcT4AQWq98FtxvgAAAAAAAAAAAAAAAPBbcT4AQWq98Ftxvg=="
+        }
+    ],
+    "meshes": [
+        {
+            "name": "ShapeKey.001",
+            "primitives": [
+                {
+                    "attributes": {
+                        "NORMAL": 1,
+                        "POSITION": 0
+                    },
+                    "indices": 2,
+                    "mode": 4,
+                    "targets": [
+                        {
+                            "NORMAL": 4,
+                            "POSITION": 3
+                        }
+                    ]
+                }
+            ],
+            "weights": [
+                0.4047619104385376
+            ]
+        }
+    ],
+    "nodes": [
+        {
+            "mesh": 0,
+            "name": "ShapeKey",
+            "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                2.0,
+                0.0,
+                2.0
+            ]
+        },
+        {
+            "name": "Sun",
+            "rotation": [
+                0.0,
+                0.7071068286895752,
+                0.7071068286895752,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        }
+    ],
+    "scene": 0,
+    "scenes": [
+        {
+            "extras": {
+                "background_color": [
+                    0.05087608844041824,
+                    0.05087608844041824,
+                    0.05087608844041824
+                ],
+                "frames_per_second": 24
+            },
+            "name": "Scene",
+            "nodes": [
+                1,
+                0
+            ]
+        }
+    ]
+}

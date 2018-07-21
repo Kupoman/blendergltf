@@ -122,7 +122,11 @@ def get_texture(self, search_func, index_prop):
     else:
         return ''
 
-    if bpy.context.space_data.type == 'PROPERTIES' and bpy.context.object:
+    if (
+            bpy.context.space_data
+            and bpy.context.space_data.type == 'PROPERTIES'
+            and bpy.context.object
+    ):
         uv_layers = bpy.context.object.data.uv_layers
         setattr(self, index_prop, uv_layers.find(slot.uv_layer) if slot.uv_layer else 0)
 

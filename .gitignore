@@ -35,6 +35,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
+tests/integration/test-out/*
 htmlcov/
 .tox/
 .coverage
@@ -64,3 +65,4 @@ target/
 # Editor files
 *~
 *.swp
+*.blend?
