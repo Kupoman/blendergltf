@@ -220,7 +220,7 @@ class MeshExporter(BaseExporter):
 
         # Pad index buffer if necessary to maintain a size that is a multiple of 4
         view_length = index_stride * len(indices)
-        view_length = view_length + (4 - view_length % 4)
+        view_length = view_length + ((4 - view_length % 4) % 4)
 
         index_view = buf.add_view(view_length, 0, Buffer.ELEMENT_ARRAY_BUFFER)
         idata = buf.add_accessor(

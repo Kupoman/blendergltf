@@ -111,7 +111,7 @@
         },
         {
             "buffer": 2,
-            "byteLength": 76,
+            "byteLength": 72,
             "byteOffset": 0,
             "name": "bufferView_buffer_ShapeKey.001_0",
             "target": 34963
@@ -145,9 +145,9 @@
             "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAA"
         },
         {
-            "byteLength": 76,
+            "byteLength": 72,
             "name": "buffer_ShapeKey.001",
-            "uri": "data:application/octet-stream;base64,AAABAAIAAwAAAAIABQAGAAcABAAFAAcACgALAAgACQAKAAgADQAOAA8ADAANAA8AEgATABAAEQASABAAFgAXABQAFQAWABQAAAAAAA=="
+            "uri": "data:application/octet-stream;base64,AAABAAIAAwAAAAIABQAGAAcABAAFAAcACgALAAgACQAKAAgADQAOAA8ADAANAA8AEgATABAAEQASABAAFgAXABQAFQAWABQA"
         },
         {
             "byteLength": 288,

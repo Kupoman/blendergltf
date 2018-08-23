@@ -380,7 +380,7 @@
         },
         {
             "buffer": 5,
-            "byteLength": 76,
+            "byteLength": 72,
             "byteOffset": 0,
             "name": "bufferView_buffer_NoMaterial_0",
             "target": 34963
@@ -419,7 +419,7 @@
         },
         {
             "buffer": 10,
-            "byteLength": 16,
+            "byteLength": 12,
             "byteOffset": 0,
             "name": "bufferView_buffer_Quad_0",
             "target": 34963
@@ -521,9 +521,9 @@
             "uri": "data:application/octet-stream;base64,AACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAA"
         },
         {
-            "byteLength": 76,
+            "byteLength": 72,
             "name": "buffer_NoMaterial",
-            "uri": "data:application/octet-stream;base64,AAABAAIAAwAAAAIABQAGAAcABAAFAAcACgALAAgACQAKAAgADQAOAA8ADAANAA8AEgATABAAEQASABAAFgAXABQAFQAWABQAAAAAAA=="
+            "uri": "data:application/octet-stream;base64,AAABAAIAAwAAAAIABQAGAAcABAAFAAcACgALAAgACQAKAAgADQAOAA8ADAANAA8AEgATABAAEQASABAAFgAXABQAFQAWABQA"
         },
         {
             "byteLength": 48,
@@ -546,9 +546,9 @@
             "uri": "data:application/octet-stream;base64,AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgD8AAIA/"
         },
         {
-            "byteLength": 16,
+            "byteLength": 12,
             "name": "buffer_Quad",
-            "uri": "data:application/octet-stream;base64,AAABAAIAAwAAAAIAAAAAAA=="
+            "uri": "data:application/octet-stream;base64,AAABAAIAAwAAAAIA"
         },
         {
             "byteLength": 36,
