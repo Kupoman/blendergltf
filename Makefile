@@ -1,4 +1,4 @@
-test-all: test-style test-unit
+test-ci: test-style test-unit
 	
 test-style:
 	pylint -r n blendergltf
@@ -23,5 +23,5 @@ test-blender-mesh-utils:
 		--verbose
 
 test-blender: test-blender-mesh-utils
-.PHONY: test-style test-unit test-integration test-integration-update test-blender test-all
-.DEFAULT: test-all
+.PHONY: test-style test-unit test-integration test-integration-update test-blender test-ci
+.DEFAULT: test-ci
