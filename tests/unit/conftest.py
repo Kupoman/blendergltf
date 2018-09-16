@@ -1,7 +1,4 @@
-from distutils.version import StrictVersion as Version
-
 import pytest
-
 
 # pylint: disable=redefined-outer-name
 
@@ -17,6 +14,7 @@ def update_sys(mocker):
 
     sys.modules['bpy'] = bpy
     sys.modules['idprop'] = mocker.MagicMock()
+    sys.modules['gpu'] = mocker.MagicMock()
     sys.modules['mathutils'] = mocker.MagicMock()
 
 
@@ -30,8 +28,8 @@ def blendergltf(mocker):
 @pytest.fixture
 def exporters(mocker):
     update_sys(mocker)
-    import blendergltf.exporters as exporters
-    return exporters
+    import blendergltf.exporters
+    return blendergltf.exporters
 
 
 @pytest.fixture

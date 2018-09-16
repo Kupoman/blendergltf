@@ -2,7 +2,7 @@ test-all: test-style test-unit
 	
 test-style:
 	pylint -r n blendergltf
-	pycodestyle blendergltf __init__.py --max-line-length=100
+	pycodestyle blendergltf --max-line-length=100
 
 test-unit:
 	python -m pytest tests/unit
