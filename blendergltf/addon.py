@@ -18,27 +18,10 @@ from bpy_extras.io_utils import (
     axis_conversion,
 )
 
-from .blendergltf.blendergltf import export_gltf
-from .blendergltf.filters import visible_only, selected_only, used_only
-from .blendergltf import extensions
-from .blendergltf.pbr_utils import PbrExportPanel, PbrSettings
-
-
-bl_info = {
-    "name": "glTF format",
-    "author": "Daniel Stokes and GitHub contributors",
-    # When updating version, also update the generator string in blendergltf.py
-    "version": (1, 2, 0),
-    "blender": (2, 76, 0),
-    "location": "File > Import-Export",
-    "description": "Export glTF",
-    "warning": "",
-    "wiki_url": "https://github.com/Kupoman/blendergltf/blob/master/README.md"
-                "",
-    "tracker_url": "https://github.com/Kupoman/blendergltf/issues",
-    "support": 'COMMUNITY',
-    "category": "Import-Export"
-}
+from .blendergltf import export_gltf
+from .filters import visible_only, selected_only, used_only
+from . import extensions
+from .pbr_utils import PbrExportPanel, PbrSettings
 
 
 if "bpy" in locals():
