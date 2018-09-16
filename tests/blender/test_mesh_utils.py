@@ -6,7 +6,7 @@ from mathutils import (
     Color,
 )
 
-from blendergltf.blendergltf import utils
+from blendergltf import utils
 
 def extract_from_mesh(name):
     mesh = bpy.data.meshes[name]
