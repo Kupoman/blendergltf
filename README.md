@@ -17,7 +17,10 @@ See [issue #135](https://github.com/Kupoman/blendergltf/issues/135) for more inf
 
 ## Installation
 
-1. Download the [blendergltf ZIP file from GitHub](https://github.com/Kupoman/blendergltf/archive/master.zip).
+1. Download the blendergltf ZIP file from GitHub:
+[stable](https://github.com/Kupoman/blendergltf/archive/master.zip),
+[testing](https://github.com/Kupoman/blendergltf/archive/develop.zip),
+[releases](https://github.com/Kupoman/blendergltf/releases)
 
 2. Launch Blender, click `File -> User Preferences...`, and click the `Add-ons` tab
 at the top of the User Preferences dialog.  Then, click the `Install from file...`
