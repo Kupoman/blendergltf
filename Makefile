@@ -1,5 +1,5 @@
 test-ci: test-style test-unit
-	
+
 test-style:
 	pylint -r n blendergltf
 	pycodestyle blendergltf --max-line-length=100
@@ -19,6 +19,15 @@ test-blender-mesh-utils:
 		--background \
 		-noaudio  \
 		--python tests/blender/test_mesh_utils.py \
+		-- \
+		--verbose
+
+test-blender-mesh-utils-normals:
+	blender \
+		tests/integration/sources/normals.blend \
+		--background \
+		-noaudio  \
+		--python tests/blender/test_mesh_utils_normals.py \
 		-- \
 		--verbose
 
