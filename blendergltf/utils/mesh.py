@@ -1,10 +1,28 @@
+import bpy
 import mathutils
 
 
 class AttributeData:
-    def __init__(self, mesh):
+    def __init__(self, mesh, obj):
         self.mesh = mesh
+        self.object = obj
+        self.temp_mesh = None
+        self.apply_modifiers()
         self.restart()
+
+    def apply_modifiers(self):
+        if not self.object:
+            return
+
+        if self.mesh.use_auto_smooth:
+            edge_mod = self.object.modifiers.new('__export_auto_smooth__', 'EDGE_SPLIT')
+            edge_mod.split_angle = self.mesh.auto_smooth_angle
+
+        self.mesh = self.object.to_mesh(bpy.context.scene, True, 'PREVIEW')
+        self.temp_mesh = self.mesh
+
+        if self.mesh.use_auto_smooth:
+            self.object.modifiers.remove(edge_mod)
 
     def restart(self):
         self.positions = PositionsData(self.mesh)
@@ -26,6 +44,10 @@ class AttributeData:
         # pylint: disable=len-as-condition
         if not len(primitive_set[-1]):
             primitive_set.pop()
+
+    def __del__(self):
+        if self.temp_mesh:
+            bpy.data.meshes.remove(self.temp_mesh)
 
 
 class CollectionData:
@@ -97,5 +119,5 @@ class IndicesData:
                 yield list(vertices)
 
 
-def extract_attributes(mesh):
-    return AttributeData(mesh)
+def extract_attributes(mesh, obj):
+    return AttributeData(mesh, obj)
