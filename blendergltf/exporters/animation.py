@@ -146,6 +146,10 @@ class AnimationExporter(BaseExporter):
 
         sce = bpy.context.scene
         prev_frame = sce.frame_current
+        clear_anim_data = False
+        if obj.animation_data is None:
+            obj.animation_data_create()
+            clear_anim_data = True
         prev_action = obj.animation_data.action
 
         frame_start, frame_end = [int(x) for x in action.frame_range]
@@ -353,6 +357,8 @@ class AnimationExporter(BaseExporter):
 
         sce.frame_set(prev_frame)
         obj.animation_data.action = prev_action
+        if clear_anim_data:
+            obj.animation_data_clear()
 
         return gltf_action
 
