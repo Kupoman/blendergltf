@@ -274,8 +274,9 @@ class MeshExporter(BaseExporter):
         offset = OffsetTracker()
 
         def create_attr_accessor(name, component_type, component_count):
+            component_size = 1 if component_type == Buffer.UNSIGNED_BYTE else 4
             if not view:
-                stride = 4 * component_count
+                stride = component_size * component_count
                 buffer = Buffer(mesh_name + '_' + name)
                 state['buffers'].append(buffer)
                 state['input']['buffers'].append(SimpleID(buffer.name))
@@ -291,11 +292,11 @@ class MeshExporter(BaseExporter):
             _offset = offset.get()
             acc = buffer.add_accessor(_view, _offset, stride, component_type, num_verts, data_type)
             if interleaved:
-                offset.add(4 * component_count)
+                offset.add(component_size * component_count)
             return acc
 
-        def add_attribute(name, component_size, component_type=Buffer.FLOAT):
-            acc = create_attr_accessor(name, component_type, component_size)
+        def add_attribute(name, num_components, component_type=Buffer.FLOAT):
+            acc = create_attr_accessor(name, component_type, num_components)
             gltf_attrs[name] = Reference('accessors', acc.name, gltf_attrs, name)
             state['references'].append(gltf_attrs[name])
             return acc
