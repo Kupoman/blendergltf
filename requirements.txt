@@ -1,4 +1,4 @@
 pycodestyle==2.4.0
-pylint==2.0
+pylint==2.3
 pytest==3.3.0
 pytest-mock==1.6.3
