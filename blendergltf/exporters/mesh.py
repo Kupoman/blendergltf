@@ -41,8 +41,18 @@ class Vertex:
         loop_idx = loop.index
         self.co = mesh.vertices[vert_idx].co[:]
         self.normal = loop.normal[:]
-        self.uvs = tuple(layer.data[loop_idx].uv[:] for layer in mesh.uv_layers)
-        self.colors = tuple(layer.data[loop_idx].color[:] for layer in mesh.vertex_colors)
+        self.uvs = tuple(
+            layer.data[loop_idx].uv[:]
+            for layer in mesh.uv_layers
+            if layer.data
+        )
+        self.colors = tuple(
+            tuple(
+                list(layer.data[loop_idx].color) + [1.0] * (4 - len(layer.data[loop_idx].color))
+            )
+            for layer in mesh.vertex_colors
+            if layer.data
+        )
         self.loop_indices = [loop_idx]
 
         # Take the four most influential groups
@@ -328,9 +338,9 @@ class MeshExporter(BaseExporter):
             fill_data(ndata, (v.normal for v in vert_list))
             for i, accessor in enumerate(cdata):
                 if state['settings']['meshes_vertex_color_alpha']:
-                    fill_data(accessor, (v.colors[i] + [1.0] for v in vert_list))
-                else:
                     fill_data(accessor, (v.colors[i] for v in vert_list))
+                else:
+                    fill_data(accessor, (v.colors[i][:3] for v in vert_list))
             for i, accessor in enumerate(tdata):
                 if state['settings']['asset_profile'] == 'WEB':
                     fill_data(accessor, ((v.uvs[i][0], 1.0 - v.uvs[i][1]) for v in vert_list))
