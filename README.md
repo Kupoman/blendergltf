@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/Kupoman/blendergltf.svg?branch=master)](https://travis-ci.org/Kupoman/blendergltf)
+**This project is no longer maintained. Please use the official Khronos exporter instead: https://github.com/KhronosGroup/glTF-Blender-IO**
 
 # Blendergltf
 
