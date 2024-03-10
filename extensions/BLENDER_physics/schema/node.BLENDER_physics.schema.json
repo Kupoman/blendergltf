@@ -10,7 +10,7 @@
             "type": "array",
             "items": {
                 "$ref": "node.BLENDER_physics.shape.schema.json"
-            }
+            },
             "minItems": 1
         },
         "mass" : {
@@ -20,6 +20,11 @@
         },
         "static" : {
             "description": "Whether or not the Node should be moved by physics simulations",
+            "type": "boolean",
+            "default": false
+        },
+        "intangible" : {
+            "description": "Whether or not the Node should stop another object from passing through",
             "type": "boolean",
             "default": false
         },

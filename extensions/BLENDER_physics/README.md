@@ -31,6 +31,7 @@ The properties available are listed in the table below.
 |**collisionShapes**|`array`|Shapes a simulation should use to represent the node|Yes|
 |**mass**|`number`|The 'weight', irrespective of gravity, of the node|No, default: `1.0`|
 |**static**|`boolean`|Whether or not the Node should be moved by physics simulations|No, default: `false`|
+|**intangible**|`boolean`|Whether or not the Node should stop another object from passing through|No, default: `false`|
 |**collisionGroups**|`integer`|A 32-bit bit field representing the node's group membership|No, default: `1`|
 |**collisionMasks**|`integer`|A 32-bit bit field representing what groups the node can collide with|No, default: `1`|
 
